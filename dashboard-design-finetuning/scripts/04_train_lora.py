@@ -164,7 +164,7 @@ def train(model, tokenizer, dataset, device: str):
         logging_steps=LOGGING_STEPS,
         save_steps=SAVE_STEPS,
         save_total_limit=2,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",     # replaces deprecated evaluation_strategy
         fp16=(device == "cuda"),   # mixed precision only on GPU
         bf16=False,
         report_to="none",          # disable wandb / other trackers
