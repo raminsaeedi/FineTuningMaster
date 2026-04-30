@@ -1,27 +1,27 @@
-{
- "nbformat": 4,
- "nbformat_minor": 5,
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "name": "python",
-   "version": "3.11.0"
-  },
-  "accelerator": "GPU",
-  "colab": {
-   "provenance": [],
-   "gpuType": "T4"
-  }
- },
- "cells": [
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
+"""
+_build_notebook.py
+Run this once to generate colab_finetuning_qwen_0_5b.ipynb
+"""
+import json, os
+
+NB_PATH = os.path.join(os.path.dirname(__file__), "colab_finetuning_qwen_0_5b.ipynb")
+
+def md(source):
+    return {"cell_type": "markdown", "metadata": {}, "source": source}
+
+def code(source):
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": source,
+    }
+
+cells = []
+
+# ── Cell 0: Title ─────────────────────────────────────────────────────────────
+cells.append(md([
     "# Fine-Tuning Qwen/Qwen2.5-0.5B-Instruct for Dashboard Design\n",
     "\n",
     "This notebook fine-tunes a small language model with **LoRA** so it can generate\n",
@@ -37,60 +37,31 @@
     "7. Train with SFTTrainer\n",
     "8. Save adapter\n",
     "9. Run inference\n",
-    "10. Download adapter (optional)\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 1. Check GPU\n",
+    "10. Download adapter (optional)\n",
+]))
+
+# ── Cell 1: GPU check ─────────────────────────────────────────────────────────
+cells.append(md(["## 1. Check GPU\n",
     "\n",
     "Make sure you have selected a GPU runtime:\n",
-    "**Runtime → Change runtime type → T4 GPU**\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "!nvidia-smi"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 2. Install Libraries\n",
+    "**Runtime → Change runtime type → T4 GPU**\n"]))
+
+cells.append(code(["!nvidia-smi"]))
+
+# ── Cell 2: Install libraries ─────────────────────────────────────────────────
+cells.append(md(["## 2. Install Libraries\n",
     "\n",
-    "This installs all required packages. It takes about 1–2 minutes.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "This installs all required packages. It takes about 1–2 minutes.\n"]))
+
+cells.append(code([
     "!pip install -q -U transformers datasets peft trl accelerate bitsandbytes sentencepiece\n",
     "print('All packages installed.')"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 3. Imports\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+]))
+
+# ── Cell 3: Imports ───────────────────────────────────────────────────────────
+cells.append(md(["## 3. Imports\n"]))
+
+cells.append(code([
     "import json\n",
     "import os\n",
     "import random\n",
@@ -99,25 +70,16 @@
     "print(f'PyTorch version : {torch.__version__}')\n",
     "print(f'CUDA available  : {torch.cuda.is_available()}')\n",
     "if torch.cuda.is_available():\n",
-    "    print(f'GPU             : {torch.cuda.get_device_name(0)}')\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 4. Generate Synthetic Training Data\n",
+    "    print(f'GPU             : {torch.cuda.get_device_name(0)}')\n",
+]))
+
+# ── Cell 4: Generate synthetic dataset ────────────────────────────────────────
+cells.append(md(["## 4. Generate Synthetic Training Data\n",
     "\n",
     "We create 80 examples across 10 domains (8 variants each).\n",
-    "Each example has a dashboard brief as input and a structured JSON recommendation as output.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "Each example has a dashboard brief as input and a structured JSON recommendation as output.\n"]))
+
+cells.append(code([
     "# ── Domain definitions ────────────────────────────────────────────────────\n",
     "DOMAINS = [\n",
     "    'Sales', 'Finance', 'HR', 'Marketing', 'Logistics',\n",
@@ -235,24 +197,15 @@
     "    }\n",
     "\n",
     "examples = [build_example(d, v) for d in DOMAINS for v in range(8)]\n",
-    "print(f'Generated {len(examples)} examples across {len(DOMAINS)} domains.')\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 5. Split into Train / Validation\n",
+    "print(f'Generated {len(examples)} examples across {len(DOMAINS)} domains.')\n",
+]))
+
+# ── Cell 5: Train/val split ───────────────────────────────────────────────────
+cells.append(md(["## 5. Split into Train / Validation\n",
     "\n",
-    "90% train, 10% validation. We format each example into the instruction-tuning text format.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "90% train, 10% validation. We format each example into the instruction-tuning text format.\n"]))
+
+cells.append(code([
     "SYSTEM_PROMPT = (\n",
     "    'You are a dashboard design assistant. '\n",
     "    'You generate structured, practical, and heuristic-aligned dashboard design recommendations.'\n",
@@ -274,46 +227,28 @@
     "print(f'Train examples      : {len(train_data)}')\n",
     "print(f'Validation examples : {len(val_data)}')\n",
     "print('\\n--- Sample training text (first 500 chars) ---')\n",
-    "print(train_data[0]['text'][:500])\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 6. Load Dataset with Hugging Face datasets\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "print(train_data[0]['text'][:500])\n",
+]))
+
+# ── Cell 6: Load dataset ──────────────────────────────────────────────────────
+cells.append(md(["## 6. Load Dataset with Hugging Face datasets\n"]))
+
+cells.append(code([
     "from datasets import Dataset\n",
     "\n",
     "train_dataset = Dataset.from_list(train_data)\n",
     "val_dataset   = Dataset.from_list(val_data)\n",
     "\n",
     "print(train_dataset)\n",
-    "print(val_dataset)\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 7. Load Model and Tokenizer\n",
+    "print(val_dataset)\n",
+]))
+
+# ── Cell 7: Load model and tokenizer ─────────────────────────────────────────
+cells.append(md(["## 7. Load Model and Tokenizer\n",
     "\n",
-    "We load `Qwen/Qwen2.5-0.5B-Instruct`. The download is about 1 GB and is cached after the first run.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "We load `Qwen/Qwen2.5-0.5B-Instruct`. The download is about 1 GB and is cached after the first run.\n"]))
+
+cells.append(code([
     "from transformers import AutoTokenizer, AutoModelForCausalLM\n",
     "\n",
     "MODEL_NAME = 'Qwen/Qwen2.5-0.5B-Instruct'\n",
@@ -331,29 +266,20 @@
     "    device_map='auto',\n",
     ")\n",
     "model.config.use_cache = False\n",
-    "print('Model loaded.')\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 8. Configure LoRA\n",
+    "print('Model loaded.')\n",
+]))
+
+# ── Cell 8: LoRA config ───────────────────────────────────────────────────────
+cells.append(md(["## 8. Configure LoRA\n",
     "\n",
     "LoRA (Low-Rank Adaptation) adds a small number of trainable parameters on top of the frozen base model.\n",
     "This makes fine-tuning fast and memory-efficient.\n",
     "\n",
     "- `r=8` — rank (controls how many parameters are trained)\n",
     "- `lora_alpha=16` — scaling factor\n",
-    "- `target_modules` — which layers to adapt\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "- `target_modules` — which layers to adapt\n"]))
+
+cells.append(code([
     "from peft import LoraConfig, get_peft_model, TaskType\n",
     "\n",
     "lora_config = LoraConfig(\n",
@@ -366,14 +292,11 @@
     ")\n",
     "\n",
     "model = get_peft_model(model, lora_config)\n",
-    "model.print_trainable_parameters()\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 9. Train with SFTTrainer\n",
+    "model.print_trainable_parameters()\n",
+]))
+
+# ── Cell 9: Train ─────────────────────────────────────────────────────────────
+cells.append(md(["## 9. Train with SFTTrainer\n",
     "\n",
     "We use Hugging Face TRL's `SFTTrainer` which handles the instruction-tuning format automatically.\n",
     "\n",
@@ -382,15 +305,9 @@
     "- batch size 1\n",
     "- gradient accumulation 4 (effective batch size = 4)\n",
     "- learning rate 2e-4\n",
-    "- max sequence length 1024 tokens\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "- max sequence length 1024 tokens\n"]))
+
+cells.append(code([
     "from transformers import TrainingArguments\n",
     "from trl import SFTTrainer\n",
     "\n",
@@ -425,45 +342,27 @@
     "\n",
     "print('Starting training ...')\n",
     "trainer.train()\n",
-    "print('Training complete.')\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 10. Save the LoRA Adapter\n",
+    "print('Training complete.')\n",
+]))
+
+# ── Cell 10: Save adapter ─────────────────────────────────────────────────────
+cells.append(md(["## 10. Save the LoRA Adapter\n",
     "\n",
-    "We save only the LoRA adapter weights (not the full model). This is much smaller (~10–50 MB).\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "We save only the LoRA adapter weights (not the full model). This is much smaller (~10–50 MB).\n"]))
+
+cells.append(code([
     "trainer.model.save_pretrained(OUTPUT_DIR)\n",
     "tokenizer.save_pretrained(OUTPUT_DIR)\n",
     "print(f'Adapter saved to: {OUTPUT_DIR}')\n",
-    "!ls -lh {OUTPUT_DIR}\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 11. Run Inference with the Fine-Tuned Model\n",
+    "!ls -lh {OUTPUT_DIR}\n",
+]))
+
+# ── Cell 11: Inference ────────────────────────────────────────────────────────
+cells.append(md(["## 11. Run Inference with the Fine-Tuned Model\n",
     "\n",
-    "We test the fine-tuned model on a fixed dashboard brief and display the structured JSON output.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "We test the fine-tuned model on a fixed dashboard brief and display the structured JSON output.\n"]))
+
+cells.append(code([
     "from peft import PeftModel\n",
     "\n",
     "TEST_BRIEF = (\n",
@@ -504,22 +403,13 @@
     "generated_ids = output_ids[0][inputs['input_ids'].shape[1]:]\n",
     "response = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()\n",
     "print('\\n--- Model Response ---')\n",
-    "print(response)\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 12. Parse and Display the Result\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "print(response)\n",
+]))
+
+# ── Cell 12: Parse and display ────────────────────────────────────────────────
+cells.append(md(["## 12. Parse and Display the Result\n"]))
+
+cells.append(code([
     "def try_parse_json(text):\n",
     "    cleaned = text.strip()\n",
     "    if cleaned.startswith('```'):\n",
@@ -536,33 +426,49 @@
     "    print('Raw output saved anyway.')\n",
     "else:\n",
     "    print('Valid JSON output:')\n",
-    "    print(json.dumps(parsed, indent=2, ensure_ascii=False))\n"
-   ]
-  },
-  {
-   "cell_type": "markdown",
-   "metadata": {},
-   "source": [
-    "## 13. Download the Adapter (Optional)\n",
+    "    print(json.dumps(parsed, indent=2, ensure_ascii=False))\n",
+]))
+
+# ── Cell 13: Download adapter ─────────────────────────────────────────────────
+cells.append(md(["## 13. Download the Adapter (Optional)\n",
     "\n",
     "Run this cell to download the LoRA adapter as a ZIP file to your computer.\n",
-    "You can then use it locally with `scripts/06_inference_finetuned_model.py`.\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {},
-   "outputs": [],
-   "source": [
+    "You can then use it locally with `scripts/06_inference_finetuned_model.py`.\n"]))
+
+cells.append(code([
     "import shutil\n",
     "from google.colab import files\n",
     "\n",
     "zip_path = '/content/qwen-dashboard-lora.zip'\n",
     "shutil.make_archive('/content/qwen-dashboard-lora', 'zip', OUTPUT_DIR)\n",
     "print(f'ZIP created: {zip_path}')\n",
-    "files.download(zip_path)\n"
-   ]
-  }
- ]
+    "files.download(zip_path)\n",
+]))
+
+# ── Assemble notebook ─────────────────────────────────────────────────────────
+notebook = {
+    "nbformat": 4,
+    "nbformat_minor": 5,
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3",
+        },
+        "language_info": {
+            "name": "python",
+            "version": "3.11.0",
+        },
+        "accelerator": "GPU",
+        "colab": {
+            "provenance": [],
+            "gpuType": "T4",
+        },
+    },
+    "cells": cells,
 }
+
+with open(NB_PATH, "w", encoding="utf-8") as f:
+    json.dump(notebook, f, indent=1, ensure_ascii=False)
+
+print(f"Notebook written to: {NB_PATH}")
