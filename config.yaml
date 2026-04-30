@@ -1,0 +1,79 @@
+# ============================================================
+# Master Thesis Fine-Tuning Configuration
+# Dashboard Design Recommendation System
+# ============================================================
+
+# --- Model Configuration ---
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"
+  # Alternatives (larger, better quality, need more VRAM):
+  # "Qwen/Qwen2.5-1.5B-Instruct"
+  # "Qwen/Qwen2.5-3B-Instruct"
+  max_seq_length: 2048
+  load_in_4bit: true # QLoRA: quantize to 4-bit (saves VRAM)
+  load_in_8bit: false # Alternative: 8-bit quantization
+
+# --- LoRA / PEFT Configuration ---
+lora:
+  r: 16 # LoRA rank (higher = more parameters, better quality)
+  lora_alpha: 32 # Scaling factor (usually 2x rank)
+  lora_dropout: 0.05 # Dropout for regularization
+  bias: "none" # Bias training: "none", "all", "lora_only"
+  task_type: "CAUSAL_LM"
+  target_modules: # Which layers to apply LoRA to
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# --- Training Configuration ---
+training:
+  output_dir: "./outputs/checkpoints"
+  num_train_epochs: 3
+  per_device_train_batch_size: 2 # Reduce to 1 if OOM (Out of Memory)
+  gradient_accumulation_steps: 4 # Effective batch size = 2 * 4 = 8
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  fp16: false # Use fp16 on NVIDIA GPUs (not Apple Silicon)
+  bf16: false # Use bf16 on newer GPUs (A100, H100)
+  logging_steps: 10
+  save_steps: 50
+  save_total_limit: 2 # Keep only last 2 checkpoints
+  evaluation_strategy: "no" # Set to "steps" if you have a val set
+  report_to: "none" # Set to "wandb" for experiment tracking
+  seed: 42
+
+# --- Data Configuration ---
+data:
+  train_file: "./data/train.jsonl"
+  val_file: "./data/val.jsonl" # Optional validation set
+  test_file: "./data/test.jsonl" # Optional test set
+  max_samples: null # null = use all samples
+
+# --- Dataset Generation ---
+dataset_generation:
+  num_train_samples: 80
+  num_val_samples: 10
+  num_test_samples: 10
+  seed: 42
+
+# --- Inference Configuration ---
+inference:
+  adapter_path: "./outputs/final_model"
+  max_new_tokens: 1024
+  temperature: 0.1 # Low = more deterministic output
+  top_p: 0.9
+  do_sample: true
+
+# --- Output Paths ---
+paths:
+  outputs_dir: "./outputs"
+  checkpoints_dir: "./outputs/checkpoints"
+  final_model_dir: "./outputs/final_model"
+  logs_dir: "./outputs/logs"
+  results_dir: "./outputs/results"
