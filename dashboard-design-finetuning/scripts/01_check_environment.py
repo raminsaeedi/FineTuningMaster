@@ -103,7 +103,7 @@ def check_pytorch() -> tuple:
     section("PyTorch & CUDA")
 
     try:
-        import torch
+        import torch  # type: ignore[import-untyped]
         ok("PyTorch", torch.__version__)
     except ImportError:
         missing(
