@@ -102,7 +102,7 @@ def load_model_with_adapter(device: str):
     base_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
-        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        dtype=torch.float16 if device == "cuda" else torch.float32,  # torch_dtype renamed to dtype in transformers >= 4.50
         device_map=device,
     )
 

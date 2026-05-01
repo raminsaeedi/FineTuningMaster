@@ -87,7 +87,7 @@ def load_model_and_tokenizer(model_name: str):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             trust_remote_code=True,
-            torch_dtype="auto",        # fp16 on GPU, fp32 on CPU
+            dtype="auto",              # fp16 on GPU, fp32 on CPU (torch_dtype renamed to dtype in transformers >= 4.50)
             device_map=device,
         )
     except Exception as e:
