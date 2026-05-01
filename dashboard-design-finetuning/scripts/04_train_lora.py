@@ -119,7 +119,7 @@ def load_model_and_tokenizer(device: str):
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
-        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        dtype=torch.float16 if device == "cuda" else torch.float32,  # torch_dtype renamed to dtype in transformers >= 4.50
         device_map=device,
     )
     model.config.use_cache = False   # required for gradient checkpointing
@@ -146,41 +146,48 @@ def apply_lora(model):
 
 
 def train(model, tokenizer, dataset, device: str):
-    """Set up SFTTrainer and run training."""
-    from transformers import TrainingArguments
-    from trl import SFTTrainer
+    """Set up SFTTrainer and run training.
+
+    trl >= 1.0.0 API changes:
+      - 'tokenizer' argument renamed to 'processing_class'
+      - 'max_seq_length', 'dataset_text_field', 'packing' moved into SFTConfig
+      - SFTConfig extends TrainingArguments, so all training args go there too
+    """
+    from trl import SFTTrainer, SFTConfig
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(LOG_DIR, exist_ok=True)
 
-    training_args = TrainingArguments(
+    # SFTConfig extends TrainingArguments and also holds SFT-specific settings.
+    # trl >= 1.3: max_seq_length was renamed to max_length in SFTConfig.
+    training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
         num_train_epochs=NUM_EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
         per_device_eval_batch_size=BATCH_SIZE,
         gradient_accumulation_steps=GRAD_ACCUMULATION_STEPS,
         learning_rate=LEARNING_RATE,
-        logging_dir=LOG_DIR,
         logging_steps=LOGGING_STEPS,
         save_steps=SAVE_STEPS,
         save_total_limit=2,
-        eval_strategy="epoch",     # replaces deprecated evaluation_strategy
+        eval_strategy="epoch",
         fp16=(device == "cuda"),   # mixed precision only on GPU
         bf16=False,
         report_to="none",          # disable wandb / other trackers
         load_best_model_at_end=False,
         dataloader_num_workers=0,  # safer on Windows
+        # SFT-specific args (trl >= 1.3: max_seq_length → max_length)
+        max_length=MAX_SEQ_LENGTH,
+        dataset_text_field="text", # the field created by 03_prepare_dataset.py
+        packing=False,
     )
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,  # renamed from 'tokenizer' in trl >= 1.0
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         args=training_args,
-        max_seq_length=MAX_SEQ_LENGTH,
-        dataset_text_field="text",   # the field created by 03_prepare_dataset.py
-        packing=False,
     )
 
     print("\nStarting training ...")

@@ -9,7 +9,9 @@ datasets>=2.18.0            # Dataset handling (HuggingFace format)
 tokenizers>=0.19.0          # Fast tokenizers (used by transformers)
 accelerate>=0.29.0          # Multi-GPU / mixed precision / device placement
 peft>=0.10.0                # LoRA, QLoRA, and other PEFT methods
-trl>=0.8.6                  # SFTTrainer for supervised fine-tuning
+trl>=1.0.0                  # SFTTrainer for supervised fine-tuning
+                            # trl >= 1.0: SFTConfig replaces TrainingArguments,
+                            # 'tokenizer' arg renamed to 'processing_class'
 
 # --- Quantization (needed for QLoRA / 4-bit training) ---
 bitsandbytes>=0.43.0        # 4-bit and 8-bit quantization
