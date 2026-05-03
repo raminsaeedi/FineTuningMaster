@@ -15,6 +15,9 @@ Requirements:
 import json
 import os
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR      = os.path.dirname(__file__)
 ADAPTER_DIR   = os.path.join(BASE_DIR, "..", "outputs", "models", "qwen-dashboard-lora")
@@ -98,13 +101,15 @@ def load_model_with_adapter(device: str):
             "Run 04_train_lora.py first to train and save the adapter."
         )
 
-    print(f"Loading base model: {MODEL_NAME}")
+    print(f"Loading base model: {MODEL_NAME}", flush=True)
     base_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
-        dtype=torch.float16 if device == "cuda" else torch.float32,  # torch_dtype renamed to dtype in transformers >= 4.50
-        device_map=device,
+        dtype=torch.float16 if device == "cuda" else torch.float32,
+        device_map="auto",
+        low_cpu_mem_usage=True,
     )
+    print("Base model loaded.", flush=True)
 
     print(f"Loading LoRA adapter from: {os.path.abspath(ADAPTER_DIR)}")
     model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
@@ -127,7 +132,7 @@ def run_inference(tokenizer, model, device: str) -> str:
         add_generation_prompt=True,
     )
 
-    inputs = tokenizer(text, return_tensors="pt").to(device)
+    inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
     print("Running inference ...")
     with torch.no_grad():
@@ -137,6 +142,7 @@ def run_inference(tokenizer, model, device: str) -> str:
             do_sample=False,
             temperature=None,
             top_p=None,
+            repetition_penalty=1.15,
             pad_token_id=tokenizer.eos_token_id,
         )
 
@@ -147,16 +153,15 @@ def run_inference(tokenizer, model, device: str) -> str:
 
 
 def try_parse_json(text: str):
-    """
-    Try to parse the model output as JSON.
-    Strips markdown code fences if present.
-    Returns (parsed_dict_or_None, error_message_or_None).
-    """
+    import re
     cleaned = text.strip()
     if cleaned.startswith("```"):
         lines = cleaned.splitlines()
         cleaned = "\n".join(lines[1:-1]) if len(lines) > 2 else cleaned
-
+    match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+    if match:
+        cleaned = match.group(0)
+    cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
     try:
         return json.loads(cleaned), None
     except json.JSONDecodeError as e:
@@ -219,4 +224,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import traceback
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
