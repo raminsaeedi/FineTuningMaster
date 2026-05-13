@@ -1,0 +1,122 @@
+# ============================================================
+# Master Thesis Fine-Tuning — Base Configuration
+# All pipeline stages read this as the lowest-priority layer.
+# Override with: configs/models/*.yaml → configs/experiments/*.yaml → CLI --override
+# ============================================================
+
+meta:
+  project: "master-thesis-dashboard-finetuning"
+  seed: 42
+  log_level: "INFO"
+
+# --- Model ---
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"
+  max_seq_length: 2048
+  load_in_4bit: true
+  load_in_8bit: false
+  torch_dtype: "float16"        # "float16" | "bfloat16" | "float32"
+  # Set to a local directory or HuggingFace cache path to avoid re-downloading
+  cache_dir: null               # e.g. "/scratch/models" on HPC
+
+# --- Algorithm selection ---
+algorithm:
+  name: "qlora"                 # "qlora" | "dora" | "rslora" | "loftq" | "orpo" | "galore"
+
+# --- LoRA / PEFT ---
+lora:
+  r: 16                         # Rank (higher = more params, better quality, more memory)
+  lora_alpha: 32                # Scaling factor (typically 2× rank)
+  lora_dropout: 0.05
+  bias: "none"                  # "none" | "all" | "lora_only"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Algorithm-specific flags (ignored if not applicable)
+  use_dora: false               # DoRA: weight-decomposed LoRA
+  use_rslora: false             # RSLoRA: rank-stabilized scaling
+  use_loftq: false              # LoftQ: quantization-aware LoRA init
+
+# --- Training ---
+training:
+  num_train_epochs: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4      # Effective batch = batch_size × accum_steps
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  fp16: false                   # NVIDIA GPUs (not A100/H100)
+  bf16: false                   # A100/H100 — set true for 3B model on capable hardware
+  logging_steps: 10
+  save_steps: 50
+  save_total_limit: 2
+  evaluation_strategy: "no"    # "no" | "steps" — enable if val set is ready
+  report_to: "none"             # "none" | "wandb" | "tensorboard"
+  gradient_checkpointing: true
+  dataloader_pin_memory: false
+  packing: false                # Pack short sequences for efficiency (experimental)
+  max_seq_length: 2048          # SFTTrainer max sequence length (mirrors model.max_seq_length)
+
+# --- Data ---
+data:
+  train_file: "data/train.jsonl"
+  val_file: "data/val.jsonl"
+  test_file: "data/test.jsonl"
+  test_paraphrased_file: "data/test_paraphrased.jsonl"
+  test_missing_info_file: "data/test_missing_info.jsonl"
+  max_samples: null             # null = use all; set integer to cap (useful for --debug)
+
+# --- Dataset Generation ---
+dataset_generation:
+  num_train_samples: 80
+  num_val_samples: 10
+  num_test_samples: 10
+  seed: 42
+  generate_perturbations: true  # Also generate paraphrased + missing-info test variants
+
+# --- Inference ---
+inference:
+  max_new_tokens: 1024
+  temperature: 0.1              # Low = more deterministic; good for structured output
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.15
+
+# --- Evaluation metrics ---
+evaluation:
+  # Schema compliance (always computed)
+  compute_schema: true
+  required_fields:
+    - "context_summary"
+    - "kpi_task_chart_mapping"
+    - "layout_hierarchy"
+    - "labels_scales_colors"
+    - "interactions"
+    - "design_rationales"
+  # Chart-type metrics (computed if test set has 'chart_types_reference' field)
+  compute_chart_metrics: true
+  # Robustness (computed if perturbed test files exist)
+  compute_robustness: true
+  # RAG grounding proxy (computed only when rag.enabled: true)
+  compute_rag_grounding: false
+
+# --- RAG (disabled by default; future extension) ---
+rag:
+  enabled: false
+  index_path: "dashboard-design-finetuning/rag/index"
+  guidelines_dir: "dashboard-design-finetuning/rag/guidelines"
+  top_k: 3
+
+# --- Paths (all relative to project root; resolved to absolute at runtime) ---
+paths:
+  project_root: null            # null = auto-detect from script location
+  outputs_root: "outputs/experiments"
+  data_dir: "data"
+  archive_dir: "archive"

@@ -1,0 +1,22 @@
+# ============================================================
+# Experiment: QLoRA (baseline)
+# QLoRA: 4-bit quantized base model + LoRA adapters
+# Paper: Dettmers et al., NeurIPS 2023 — https://arxiv.org/abs/2305.14314
+# Status: IMPLEMENTED
+# ============================================================
+algorithm:
+  name: "qlora"
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  use_dora: false
+  use_rslora: false
+  use_loftq: false
+
+training:
+  num_train_epochs: 3
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1

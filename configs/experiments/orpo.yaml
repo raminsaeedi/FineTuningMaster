@@ -1,0 +1,37 @@
+# ============================================================
+# Experiment: ORPO (Odds Ratio Preference Optimization)
+# Paper: Hong et al., ACL 2024 — https://arxiv.org/abs/2403.07691
+# Implementation: ORPOTrainer + ORPOConfig from TRL
+# Requires: trl >= 0.8.6
+#
+# Key insight: combines SFT loss + preference optimization in a single
+# training step with no reference model. The odd-ratio penalty discourages
+# rejected responses while encouraging chosen ones — simpler than DPO.
+#
+# DATA NOTE: ORPO requires preference pairs: each example must have
+# {prompt, chosen, rejected} fields. pipeline/prepare_data.py generates
+# these pairs when algorithm.name == "orpo".
+#
+# Status: PLACEHOLDER — see algorithms/orpo.py
+# ============================================================
+algorithm:
+  name: "orpo"
+
+# ORPO does not use LoRA by default, but can be combined with PEFT.
+# Set use_peft: true to apply LoRA on top of ORPO.
+orpo:
+  beta: 0.1                     # Odds ratio penalty weight
+  use_peft: false               # If true, wraps with LoRA (experimental)
+  max_prompt_length: 512
+  max_length: 1024
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+training:
+  num_train_epochs: 3
+  learning_rate: 8.0e-6         # Lower LR is typical for preference optimization
+  lr_scheduler_type: "linear"
+  warmup_ratio: 0.1

@@ -1,0 +1,21 @@
+# ============================================================
+# Model config: Qwen/Qwen2.5-0.5B-Instruct
+# ============================================================
+model:
+  name: "Qwen/Qwen2.5-0.5B-Instruct"
+  max_seq_length: 2048
+  load_in_4bit: true
+  torch_dtype: "float16"
+
+training:
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  fp16: false
+  bf16: false
+
+# SLURM resource hints (used by slurm/submit_pipeline.sh)
+slurm:
+  mem: "16G"
+  time_train: "01:00:00"
+  time_infer: "00:30:00"
+  model_short: "qwen05b"

@@ -1,0 +1,41 @@
+# ============================================================
+# Experiment: GaLore (Gradient Low-Rank Projection)
+# Paper: Zhao et al., ICML 2024 — https://arxiv.org/abs/2403.03507
+# Implementation: galore-torch optimizer (replaces AdamW)
+# Requires: pip install galore-torch>=1.0
+#
+# Key insight: full-parameter fine-tuning by projecting gradients into a
+# low-rank subspace during optimizer steps. Unlike LoRA, there is no rank
+# bottleneck in the forward pass — all weights are updated, but memory is
+# kept comparable to LoRA via the gradient projection.
+#
+# MEMORY NOTE: GaLore loads the model in full precision (no PEFT adapters,
+# no bitsandbytes). Requires more VRAM than QLoRA. For 0.5B: ~2 GB GPU RAM.
+# Status: PLACEHOLDER — see algorithms/galore.py
+# ============================================================
+algorithm:
+  name: "galore"
+
+galore:
+  rank: 128                     # Gradient projection rank
+  update_proj_gap: 200          # Steps between subspace re-computation
+  scale: 0.25                   # GaLore gradient scale factor
+  proj_type: "std"              # "std" | "reverse_std" | "right" | "left"
+  # Which layer types to apply GaLore to (others use standard AdamW)
+  target_modules_list:
+    - "attn"
+    - "mlp"
+
+training:
+  num_train_epochs: 3
+  learning_rate: 1.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+
+# GaLore does not use quantization or LoRA
+model:
+  load_in_4bit: false
+  load_in_8bit: false
+  torch_dtype: "bfloat16"
