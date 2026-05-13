@@ -1,0 +1,70 @@
+{
+  "required_schema": {
+    "context_summary": "str",
+    "kpi_task_chart_mapping": "list",
+    "layout_hierarchy": "str",
+    "labels_scales_colors": "str",
+    "interactions": "list",
+    "design_rationales": "list"
+  },
+  "base_model": {
+    "label": "Base model",
+    "file": "C:\\Projects\\MasterArbeit\\master-thesis-finetuning\\dashboard-design-finetuning\\outputs\\predictions\\base_model_prediction.json",
+    "valid_json": true,
+    "error": null,
+    "completeness_score": 1.0,
+    "fields_present": 6,
+    "fields_total": 6,
+    "missing_fields": [],
+    "wrong_type_fields": [
+      {
+        "field": "layout_hierarchy",
+        "expected_type": "str",
+        "actual_type": "list"
+      },
+      {
+        "field": "labels_scales_colors",
+        "expected_type": "str",
+        "actual_type": "list"
+      }
+    ],
+    "present_fields": [
+      "context_summary",
+      "kpi_task_chart_mapping",
+      "layout_hierarchy",
+      "labels_scales_colors",
+      "interactions",
+      "design_rationales"
+    ]
+  },
+  "finetuned_model": {
+    "label": "Fine-tuned model",
+    "file": "C:\\Projects\\MasterArbeit\\master-thesis-finetuning\\dashboard-design-finetuning\\outputs\\predictions\\finetuned_model_prediction.json",
+    "valid_json": true,
+    "error": null,
+    "completeness_score": 1.0,
+    "fields_present": 6,
+    "fields_total": 6,
+    "missing_fields": [],
+    "wrong_type_fields": [
+      {
+        "field": "layout_hierarchy",
+        "expected_type": "str",
+        "actual_type": "list"
+      },
+      {
+        "field": "labels_scales_colors",
+        "expected_type": "str",
+        "actual_type": "list"
+      }
+    ],
+    "present_fields": [
+      "context_summary",
+      "kpi_task_chart_mapping",
+      "layout_hierarchy",
+      "labels_scales_colors",
+      "interactions",
+      "design_rationales"
+    ]
+  }
+}
