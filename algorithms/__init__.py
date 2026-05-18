@@ -17,16 +17,15 @@ from algorithms.qlora import QLoRAFineTuner
 from algorithms.rslora import RSLoRAFineTuner
 
 ALGORITHM_REGISTRY: dict[str, type[BaseFineTuner]] = {
-    "qlora":  QLoRAFineTuner,   # implemented
-    "dora":   DoRAFineTuner,    # placeholder
-    "rslora": RSLoRAFineTuner,  # placeholder
-    "loftq":  LoftQFineTuner,   # placeholder
-    "orpo":   ORPOFineTuner,    # placeholder
-    "galore": GaLoreFineTuner,  # placeholder
+    "qlora":  QLoRAFineTuner,
+    "dora":   DoRAFineTuner,
+    "rslora": RSLoRAFineTuner,
+    "loftq":  LoftQFineTuner,
+    "orpo":   ORPOFineTuner,
+    "galore": GaLoreFineTuner,
 }
 
-IMPLEMENTED = {"qlora"}
-PLACEHOLDERS = set(ALGORITHM_REGISTRY) - IMPLEMENTED
+IMPLEMENTED = set(ALGORITHM_REGISTRY)   # all algorithms are now implemented
 
 
 def get_algorithm(name: str) -> type[BaseFineTuner]:

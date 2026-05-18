@@ -1,0 +1,112 @@
+[
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "Accessibility Guidelines for Dashboards",
+    "text": "# Accessibility Guidelines for Dashboards"
+  },
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "1. Color and Contrast",
+    "text": "## 1. Color and Contrast\n\n### Never Use Color as the Only Indicator\n\nDo not rely on color alone to convey meaning. Users with color blindness cannot distinguish red from green.\nAlways combine color with a second indicator: shape, pattern, label, or icon.\n\n**Bad:** A KPI card that turns red when below target — no other indicator.\n**Good:** A KPI card that turns red AND shows a downward arrow icon AND the text \"Below target\".\n\n### Use Accessible Color Palettes\n\nAvoid red-green combinations — approximately 8% of men have red-green color blindness.\n\n**Recommended accessible palettes:**\n\n- Blue / Orange (safe for most color blindness types)\n- Blue / Yellow\n- Purple / Green\n- Use tools like ColorBrewer (colorbrewer2.org) to pick accessible chart colors\n\n### Ensure Sufficient Contrast Ratio\n\nText and chart elements must have a contrast ratio of at least 4.5:1 against the background (WCAG AA standard).\nUse a contrast checker tool (e.g., WebAIM Contrast Checker) to verify.\n\n**Minimum contrast ratios:**\n\n- Normal text (< 18px): 4.5:1\n- Large text (≥ 18px or bold ≥ 14px): 3:1\n- Chart lines and bars: 3:1 against background"
+  },
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "2. Text and Labels",
+    "text": "## 2. Text and Labels\n\n### Use Clear, Readable Fonts\n\n- Minimum font size for body text and labels: 12px\n- Minimum font size for axis labels: 11px\n- Avoid decorative or script fonts in dashboards\n- Use sans-serif fonts (e.g., Inter, Roboto, Arial) for better screen readability\n\n### Write Descriptive Chart Titles\n\nChart titles should describe what the chart shows, not just name the metric.\nScreen readers read chart titles aloud — make them meaningful.\n\n### Add Alt Text for Charts\n\nIf the dashboard is embedded in a web page or report, add alternative text (alt text) to every chart image.\nAlt text should describe the key insight, not just the chart type.\n\n**Example alt text:** \"Bar chart showing monthly revenue by region. North region leads with $2.3M in Q4.\""
+  },
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "3. Interactive Elements",
+    "text": "## 3. Interactive Elements\n\n### Make Filters Keyboard-Accessible\n\nAll dropdown filters, date pickers, and buttons must be operable with a keyboard (Tab, Enter, Arrow keys).\nDo not rely on mouse-only interactions.\n\n### Provide Tooltips with Sufficient Contrast\n\nTooltip text must meet the same contrast requirements as regular text (4.5:1).\nTooltips should appear on both hover (mouse) and focus (keyboard).\n\n### Avoid Auto-Refreshing Content\n\nIf the dashboard auto-refreshes, give users a way to pause or control the refresh rate.\nSudden content changes can be disorienting for users with cognitive disabilities or screen readers."
+  },
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "4. Layout and Cognitive Load",
+    "text": "## 4. Layout and Cognitive Load\n\n### Keep the Layout Predictable\n\nPlace navigation, filters, and KPI cards in the same position on every page of the dashboard.\nPredictable layouts reduce cognitive load for all users, especially those with cognitive disabilities.\n\n### Limit Information Density\n\nDo not put too much information on one screen. A cluttered dashboard is hard to use for everyone,\nbut especially for users with attention or cognitive difficulties.\n\n**Rule of thumb:** If a user needs more than 5 seconds to find the most important number, the dashboard is too complex.\n\n### Use Clear Section Headings\n\nDivide the dashboard into clearly labeled sections (e.g., \"Revenue Overview\", \"Regional Breakdown\", \"Detailed Records\").\nSection headings help all users navigate quickly and help screen readers announce the structure."
+  },
+  {
+    "source": "accessibility_guidelines.md",
+    "section_title": "5. Data Tables",
+    "text": "## 5. Data Tables\n\n### Make Tables Sortable and Filterable\n\nUsers should be able to sort any column and filter rows by keyword.\nThis is especially important for users who cannot easily scan visual charts.\n\n### Use Proper Table Headers\n\nEvery column must have a clear header label.\nDo not use merged cells or complex nested headers — they confuse screen readers.\n\n### Provide a \"Download as CSV\" Option\n\nAlways offer a way to export table data as CSV.\nThis allows users with assistive technology to analyze the data in their preferred tool."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "Chart Selection Guidelines",
+    "text": "# Chart Selection Guidelines"
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "1. Line Chart — Use for Trends Over Time",
+    "text": "## 1. Line Chart — Use for Trends Over Time\n\nUse a line chart when the x-axis represents a continuous time dimension (date, month, quarter, year).\nLine charts make it easy to see how a metric rises, falls, or stays stable over time.\n\n**Good for:** Revenue over months, daily active users, temperature over a year.\n**Avoid when:** You have fewer than 3 data points or the x-axis is categorical (not time-based)."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "2. Bar Chart — Use for Category Comparisons",
+    "text": "## 2. Bar Chart — Use for Category Comparisons\n\nUse a bar chart when you want to compare a metric across discrete categories.\nHorizontal bar charts work better when category labels are long.\n\n**Good for:** Sales by region, headcount by department, revenue by product category.\n**Avoid when:** You have more than 15–20 categories — consider grouping or filtering instead."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "3. Stacked Bar Chart — Use for Composition Within Categories",
+    "text": "## 3. Stacked Bar Chart — Use for Composition Within Categories\n\nUse a stacked bar chart when you want to show both the total and the breakdown by sub-category.\n\n**Good for:** Revenue by region broken down by product type, budget allocation by department.\n**Avoid when:** You have more than 5 sub-categories — the chart becomes hard to read."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "4. Donut / Pie Chart — Use for Part-to-Whole Relationships",
+    "text": "## 4. Donut / Pie Chart — Use for Part-to-Whole Relationships\n\nUse a donut or pie chart only when showing how parts make up a whole (shares, percentages).\n\n**Good for:** Market share, budget allocation as percentages.\n**Avoid when:** You have more than 5–6 slices. Many small slices make pie charts unreadable.\n**Prefer donut over pie:** Donut charts are easier to read because the center can show a total value."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "5. Scatter Plot — Use for Correlations and Relationships",
+    "text": "## 5. Scatter Plot — Use for Correlations and Relationships\n\nUse a scatter plot when you want to show the relationship or correlation between two numeric variables.\n\n**Good for:** Ad spend vs. conversions, price vs. demand, age vs. satisfaction score.\n**Avoid when:** You have fewer than 20 data points — a table may be clearer."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "6. Heatmap — Use for Patterns Across Two Dimensions",
+    "text": "## 6. Heatmap — Use for Patterns Across Two Dimensions\n\nUse a heatmap when you want to show intensity or frequency across two categorical or time dimensions.\n\n**Good for:** Sales by day of week and hour, support tickets by agent and category.\n**Avoid when:** One of the dimensions has too many values (more than 20) — the cells become too small."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "7. KPI Cards — Use for Headline Metrics",
+    "text": "## 7. KPI Cards — Use for Headline Metrics\n\nUse KPI cards (also called metric tiles or scorecards) to show the most important single numbers at a glance.\nAlways place KPI cards at the top of the dashboard.\n\n**Good for:** Total revenue, conversion rate, number of open tickets, current headcount.\n**Avoid when:** The metric changes so frequently that the card would be distracting."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "8. Table — Use for Detailed Records",
+    "text": "## 8. Table — Use for Detailed Records\n\nUse a table when users need to look up specific values, sort, or filter individual records.\n\n**Good for:** Transaction lists, employee records, ticket details.\n**Avoid when:** You want to show trends or comparisons — use a chart instead."
+  },
+  {
+    "source": "chart_selection_guidelines.md",
+    "section_title": "General Rules",
+    "text": "## General Rules\n\n- Use the simplest chart type that communicates the message clearly.\n- Never use 3D charts — they distort perception.\n- Limit the number of chart types on one dashboard to 3–4 to maintain visual consistency.\n- Always label axes with the metric name and unit (e.g., \"Revenue (USD)\")."
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "Dashboard Design Guidelines",
+    "text": "# Dashboard Design Guidelines"
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "1. Layout and Hierarchy",
+    "text": "## 1. Layout and Hierarchy\n\n### Put the Most Important KPIs at the Top\n\nThe top of the dashboard is where users look first. Place KPI cards (headline numbers) in the top row.\nBelow the KPI cards, show the main chart. Put supporting charts and detail tables at the bottom.\n\n**Recommended layout pattern:**\n\n```\n[ KPI Card ]  [ KPI Card ]  [ KPI Card ]  [ KPI Card ]\n[          Main Chart (full width or 2/3 width)       ]\n[ Supporting Chart ]  [ Supporting Chart ]  [ Table   ]\n```\n\n### Use a Clear Visual Hierarchy\n\n- Large numbers and bold text for KPI cards\n- Medium-sized charts for the main analysis\n- Smaller charts and tables for supporting detail\n- Avoid placing too many elements at the same visual weight\n\n### Limit the Number of Charts\n\nA good dashboard has 4–8 visualizations. More than 10 charts on one screen overwhelms users.\nIf you need more, use tabs or drill-down pages."
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "2. Filters and Interactivity",
+    "text": "## 2. Filters and Interactivity\n\n### Always Provide a Date Range Filter\n\nMost dashboards show time-based data. A date range picker at the top lets users focus on the period they care about.\n\n### Add Dimension Filters for Key Categories\n\nProvide dropdown filters for the most important dimensions:\n\n- Region or country\n- Product or product category\n- Department or team\n- Status (e.g., open/closed, active/inactive)\n\n### Use Cross-Filtering\n\nWhen a user clicks on a bar in a chart, the other charts on the dashboard should update to show only that selection.\nThis lets users explore data without navigating away.\n\n### Provide Drill-Down\n\nAllow users to click on a summary number to see the underlying records.\nExample: Click on \"Total Revenue: $1.2M\" → see a table of individual transactions."
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "3. Labels and Scales",
+    "text": "## 3. Labels and Scales\n\n### Always Label Axes\n\nEvery chart axis must have a label that includes:\n\n- The metric name (e.g., \"Revenue\")\n- The unit (e.g., \"USD\", \"%\", \"hours\")\n\nExample: \"Revenue (USD)\" not just \"Revenue\"\n\n### Start Bar Chart Y-Axes at Zero\n\nNever truncate the y-axis of a bar chart. Starting at a non-zero value exaggerates differences and misleads users.\nException: Line charts may use a non-zero baseline when the range of variation is small.\n\n### Use Consistent Scales\n\nIf you show the same metric in multiple charts, use the same scale on all of them.\nInconsistent scales make comparisons impossible.\n\n### Format Large Numbers\n\n- 1,000,000 → 1M\n- 1,500 → 1.5K\n- 0.1234 → 12.3% (for percentages)"
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "4. Titles and Annotations",
+    "text": "## 4. Titles and Annotations\n\n### Give Every Chart a Clear Title\n\nThe title should describe what the chart shows, not just the metric name.\n\n- Bad: \"Revenue\"\n- Good: \"Monthly Revenue by Region (2023)\"\n\n### Add Annotations for Important Events\n\nIf there was a product launch, a policy change, or an anomaly, add a vertical line or annotation to the chart.\nThis helps users understand why a metric changed."
+  },
+  {
+    "source": "dashboard_design_guidelines.md",
+    "section_title": "5. Consistency",
+    "text": "## 5. Consistency\n\n### Use a Consistent Color Scheme\n\nPick 2–3 primary colors and use them consistently across all charts.\nDo not use a different color for the same category in different charts.\n\n### Use Consistent Fonts and Sizes\n\nUse one font family throughout the dashboard.\nRecommended sizes:\n\n- KPI card numbers: 24–32px\n- Chart titles: 14–16px\n- Axis labels: 11–13px\n- Tooltips: 11–12px\n\n### Align Elements on a Grid\n\nUse a grid layout so charts are aligned horizontally and vertically.\nMisaligned elements look unprofessional and make the dashboard harder to scan."
+  }
+]

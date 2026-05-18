@@ -31,6 +31,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from utils.experiment import load_experiment_config, save_metrics
 from utils.helpers import (
+    SYSTEM_PROMPT,
     extract_json_from_text,
     format_instruction_prompt,
     load_jsonl,
@@ -73,15 +74,19 @@ def load_base_model(config: dict):
 
 
 def load_finetuned_model(experiment_dir: Path, config: dict):
-    """Load base model and attach the saved LoRA adapter."""
+    """Load the fine-tuned model from experiment_dir/final_adapter/.
+
+    Branches on the presence of adapter_config.json:
+      - Present  → PEFT/LoRA model  (QLoRA, DoRA, RSLoRA, LoftQ, ORPO+LoRA)
+      - Absent   → full model save  (GaLore — trained all weights, no adapter)
+    """
     import torch
-    from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     adapter_dir = experiment_dir / "final_adapter"
     if not adapter_dir.exists():
         raise FileNotFoundError(
-            f"Adapter not found at {adapter_dir}.\n"
+            f"Adapter / model weights not found at {adapter_dir}.\n"
             "Run pipeline/train.py first."
         )
 
@@ -98,18 +103,36 @@ def load_finetuned_model(experiment_dir: Path, config: dict):
     torch_dtype_str = config["model"].get("torch_dtype", "float16")
     dtype = torch.bfloat16 if torch_dtype_str == "bfloat16" else torch.float16
 
-    logger.info(f"Loading fine-tuned model: base={model_name}, adapter={adapter_dir}")
     tokenizer = AutoTokenizer.from_pretrained(
         str(adapter_dir), trust_remote_code=True
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name, device_map="auto", trust_remote_code=True,
-        dtype=dtype, cache_dir=cache_dir,
-    )
-    model = PeftModel.from_pretrained(model, str(adapter_dir))
+    adapter_config_path = adapter_dir / "adapter_config.json"
+    if adapter_config_path.exists():
+        # LoRA-based algorithms: QLoRA, DoRA, RSLoRA, LoftQ, ORPO+LoRA
+        from peft import PeftModel
+        logger.info(
+            f"PEFT adapter detected — loading base model + LoRA: "
+            f"base={model_name}, adapter={adapter_dir}"
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, device_map="auto", trust_remote_code=True,
+            dtype=dtype, cache_dir=cache_dir,
+        )
+        model = PeftModel.from_pretrained(model, str(adapter_dir))
+    else:
+        # Full-model algorithms: GaLore (saves all weights directly)
+        logger.info(
+            f"No adapter_config.json — loading full model weights (GaLore): "
+            f"{adapter_dir}"
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            str(adapter_dir), device_map="auto", trust_remote_code=True,
+            dtype=dtype,
+        )
+
     model.eval()
     return model, tokenizer
 
@@ -132,6 +155,36 @@ def _extract_chart_types(parsed: dict | None) -> list[str]:
     ]
 
 
+def _format_prompt_with_rag(brief: dict, tokenizer, rag_context: str) -> str:
+    """
+    Build instruction prompt with RAG context injected into the system message.
+
+    The retrieved guidelines are appended to the base system prompt so the
+    model can use domain knowledge when generating recommendations.
+    """
+    from utils.helpers import _build_user_message
+    system = (
+        f"{SYSTEM_PROMPT}\n\n"
+        f"--- Relevant Design Guidelines ---\n{rag_context}\n"
+        f"--- End of Guidelines ---"
+    )
+    user_message = _build_user_message(brief)
+
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user",   "content": user_message},
+        ]
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+    return (
+        f"### System:\n{system}\n\n"
+        f"### User:\n{user_message}\n\n"
+        f"### Assistant:\n"
+    )
+
+
 def generate_prediction(
     brief: dict,
     model,
@@ -140,6 +193,7 @@ def generate_prediction(
     brief_id: int = 0,
     variant: str = "original",
     reference_chart_types: list[str] | None = None,
+    rag_context: str | None = None,
 ) -> dict:
     """
     Run inference for a single brief and return a structured result row.
@@ -147,6 +201,9 @@ def generate_prediction(
     The returned dict is one line of the predictions/*.jsonl files:
       brief_id, variant, raw_output, parsed, valid_json, valid_schema,
       completeness, chart_types_predicted, chart_types_reference, latency_s
+
+    If rag_context is provided (non-empty string), it is injected into the
+    system prompt before tokenization.
     """
     import torch
 
@@ -154,7 +211,10 @@ def generate_prediction(
     max_seq = config["model"].get("max_seq_length", 2048)
     max_new = inf_cfg.get("max_new_tokens", 1024)
 
-    prompt = format_instruction_prompt(brief, tokenizer)
+    if rag_context:
+        prompt = _format_prompt_with_rag(brief, tokenizer, rag_context)
+    else:
+        prompt = format_instruction_prompt(brief, tokenizer)
     inputs = tokenizer(
         prompt, return_tensors="pt", truncation=True,
         max_length=max_seq - max_new,
@@ -213,16 +273,59 @@ def run_inference_loop(
     config: dict,
     variant: str = "original",
 ) -> list[dict]:
-    """Run generate_prediction for every example in test_data."""
+    """Run generate_prediction for every example in test_data.
+
+    When config["rag"]["enabled"] is True, retrieves relevant guideline
+    context for each brief and injects it into the system prompt.
+    """
+    # ── RAG setup (optional) ──────────────────────────────────────────────────
+    rag_cfg     = config.get("rag", {})
+    rag_enabled = rag_cfg.get("enabled", False)
+    retriever   = None
+
+    if rag_enabled:
+        try:
+            from rag import RAGRetriever
+            retriever = RAGRetriever(top_k=rag_cfg.get("top_k", 3))
+            if not retriever.is_ready():
+                logger.warning(
+                    "RAG is enabled but the index is missing. "
+                    "Run `python -m rag.indexer` to build it. "
+                    "Proceeding without RAG context."
+                )
+                retriever = None
+            else:
+                logger.info(
+                    f"RAG enabled — top_k={rag_cfg.get('top_k', 3)}, "
+                    f"index loaded from rag/index/"
+                )
+        except Exception as exc:
+            logger.warning(f"RAG initialisation failed ({exc}); proceeding without RAG.")
+            retriever = None
+
+    # ── Inference loop ────────────────────────────────────────────────────────
     results = []
     n = len(test_data)
     for i, item in enumerate(test_data):
         logger.info(f"  [{i+1}/{n}] brief_id={i} variant={variant}")
 
         # Extract reference chart types if present in the ground truth
-        ref_charts: list[str] = []
-        rec = item.get("recommendation", {})
+        rec        = item.get("recommendation", {})
         ref_charts = _extract_chart_types(rec)
+
+        # Build RAG context string for this brief (if enabled and index ready)
+        rag_context: str | None = None
+        if retriever is not None:
+            brief = item.get("brief", {})
+            query = " ".join(filter(None, [
+                str(brief.get("title", "")),
+                str(brief.get("business_goals", "")),
+                " ".join(brief.get("kpis", [])),
+            ]))
+            try:
+                rag_context = retriever.retrieve(query)
+            except Exception as exc:
+                logger.debug(f"RAG retrieve failed for brief {i}: {exc}")
 
         result = generate_prediction(
             brief=item["brief"],
@@ -232,11 +335,13 @@ def run_inference_loop(
             brief_id=i,
             variant=variant,
             reference_chart_types=ref_charts,
+            rag_context=rag_context,
         )
         results.append(result)
 
         status = "valid" if result["valid_schema"] else f"missing={result['missing_keys']}"
-        print(f"  [{i+1:2d}/{n}] {status:<40} {result['latency_s']}s")
+        rag_tag = " [RAG]" if rag_context else ""
+        print(f"  [{i+1:2d}/{n}] {status:<40} {result['latency_s']}s{rag_tag}")
 
     return results
 

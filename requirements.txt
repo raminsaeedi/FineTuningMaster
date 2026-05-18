@@ -20,7 +20,7 @@ bitsandbytes>=0.43.0            # 4-bit / 8-bit quantization (Linux/Windows GPU 
 accelerate>=0.29.0              # Multi-GPU / mixed precision training
 
 # --- GaLore (full-parameter gradient projection) ---
-# galore-torch>=1.0             # Uncomment when implementing GaLore experiment
+galore-torch>=1.0               # Full-parameter training via gradient projection (ICML 2024)
                                 # Install: pip install galore-torch
 
 # --- Data & Config ---

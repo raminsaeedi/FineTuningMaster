@@ -191,8 +191,7 @@ def main() -> None:
         )
         return
 
-    # Import generate_dataset from the project root
-    from generate_dataset import generate_dataset  # type: ignore
+    from data.generator import generate_dataset
 
     logger.info(f"Generating dataset: {num_train} train / {num_val} val / {num_test} test")
     train_data, val_data, test_data = generate_dataset(num_train, num_val, num_test, seed)

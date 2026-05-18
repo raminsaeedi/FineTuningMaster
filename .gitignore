@@ -1,2 +1,38 @@
+# ── Secrets ──────────────────────────────────────────────────
 .env
-.claude/worktrees/romantic-margulis-1f44a8
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Data (regeneratable via pipeline/prepare_data.py) ────────
+data/*.jsonl
+data/index/
+
+# ── Experiment outputs (large; not version-controlled) ───────
+outputs/
+
+# ── Jupyter ──────────────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Claude worktrees (AI-generated temporary workspaces) ─────
+.claude/worktrees/
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

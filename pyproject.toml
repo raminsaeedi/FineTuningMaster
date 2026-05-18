@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dashboard-finetuning"
+version = "0.1.0"
+description = "Fine-Tuning LLMs for Structured Dashboard Design Recommendations"
+requires-python = ">=3.10"
+# Runtime dependencies are managed via requirements.txt to keep HPC compatibility.
+# Install dev environment with:  pip install -r requirements.txt && pip install -e .
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "algorithms*",
+    "evaluation*",
+    "pipeline*",
+    "rag*",
+    "utils*",
+    "data*",
+]
+
+[project.optional-dependencies]
+galore = ["galore-torch>=1.0"]
+
+[project.scripts]
+# Convenience entry points after `pip install -e .`
+prepare-data = "pipeline.prepare_data:main"
+train        = "pipeline.train:main"
+inference    = "pipeline.inference:main"
+evaluate     = "pipeline.evaluate:main"
+compare      = "pipeline.compare:main"
+build-rag-index = "rag.indexer:main"
