@@ -2,11 +2,11 @@
 # Experiment: DoRA (Weight-Decomposed Low-Rank Adaptation)
 # Paper: Liu et al., ICML 2024 — https://arxiv.org/abs/2402.09353
 # Implementation: set use_dora=True in PEFT LoraConfig
-# Requires: peft >= 0.10.0
+# Requires: peft >= 0.10.0 (QDoRA with 4-bit: peft >= 0.11.0)
 #
 # Key insight: decomposes LoRA weight updates into magnitude + directional
 # components, improving learning capacity vs LoRA at the same rank.
-# Status: PLACEHOLDER — see algorithms/dora.py
+# Status: IMPLEMENTED
 # ============================================================
 algorithm:
   name: "dora"
@@ -15,7 +15,9 @@ lora:
   r: 16
   lora_alpha: 32
   lora_dropout: 0.05
-  use_dora: true                # The only change vs QLoRA
+  use_dora: true # The only change vs QLoRA
+  use_rslora: false
+  use_loftq: false
 
 training:
   num_train_epochs: 3
