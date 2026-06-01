@@ -1,0 +1,9 @@
+# Retriever PLACEHOLDER (not used in v1).
+# A working TF-IDF retriever from the previous codebase is preserved under
+# archive/old_pipeline/rag/ and can be adapted into src/retrievers/ and
+# registered under RETRIEVERS when methods B/D are implemented.
+name: tfidf_placeholder
+type: tfidf
+top_k: 3
+guidelines_dir: archive/old_pipeline/rag/guidelines
+index_path: archive/old_pipeline/rag/index

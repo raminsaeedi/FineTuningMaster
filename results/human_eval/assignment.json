@@ -1,0 +1,3044 @@
+{
+  "config": {
+    "methods": [
+      "prompt_only",
+      "rag",
+      "ft",
+      "ft_rag"
+    ],
+    "raters": [
+      "rater_01",
+      "rater_02",
+      "rater_03",
+      "rater_04",
+      "rater_05",
+      "rater_06"
+    ],
+    "ratings_per_output": 3,
+    "n_items": 50,
+    "n_units": 200,
+    "seed": 42
+  },
+  "load": {
+    "rater_01": 100,
+    "rater_02": 100,
+    "rater_03": 100,
+    "rater_04": 100,
+    "rater_05": 100,
+    "rater_06": 100
+  },
+  "raters": {
+    "rater_01": [
+      {
+        "unit_id": "item_4865ff27__prompt_only",
+        "item_id": "item_4865ff27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10080777__prompt_only",
+        "item_id": "item_10080777",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c802a276__ft",
+        "item_id": "item_c802a276",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_1eac8161__ft_rag",
+        "item_id": "item_1eac8161",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__rag",
+        "item_id": "item_e09b2fc4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c6068015__prompt_only",
+        "item_id": "item_c6068015",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_12198c3f__ft",
+        "item_id": "item_12198c3f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__prompt_only",
+        "item_id": "item_f841a0aa",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b38fe5cf__rag",
+        "item_id": "item_b38fe5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft_rag",
+        "item_id": "item_35eac4bc",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft",
+        "item_id": "item_f0ad49f2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_689f5d1f__prompt_only",
+        "item_id": "item_689f5d1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_52369c88__prompt_only",
+        "item_id": "item_52369c88",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3c501579__rag",
+        "item_id": "item_3c501579",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10080777__ft_rag",
+        "item_id": "item_10080777",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft",
+        "item_id": "item_ddff59c7",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_8d4a9d39__prompt_only",
+        "item_id": "item_8d4a9d39",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3c501579__ft",
+        "item_id": "item_3c501579",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft_rag",
+        "item_id": "item_ddff59c7",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft_rag",
+        "item_id": "item_e6891d8c",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__rag",
+        "item_id": "item_9ebfafd9",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__prompt_only",
+        "item_id": "item_1ce1f57d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1eac8161__rag",
+        "item_id": "item_1eac8161",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft_rag",
+        "item_id": "item_b9a7fc76",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10080777__ft",
+        "item_id": "item_10080777",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_35eac4bc__rag",
+        "item_id": "item_35eac4bc",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3e04285a__ft_rag",
+        "item_id": "item_3e04285a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10c23892__prompt_only",
+        "item_id": "item_10c23892",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_37ed090f__prompt_only",
+        "item_id": "item_37ed090f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft_rag",
+        "item_id": "item_64d6f8af",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__prompt_only",
+        "item_id": "item_0b273d9d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft",
+        "item_id": "item_c2ef2306",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9d0d0285__ft_rag",
+        "item_id": "item_9d0d0285",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_96033474__prompt_only",
+        "item_id": "item_96033474",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_d3533cc2__rag",
+        "item_id": "item_d3533cc2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__prompt_only",
+        "item_id": "item_2a963cb0",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft_rag",
+        "item_id": "item_d3533cc2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__rag",
+        "item_id": "item_7e21bd5e",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft_rag",
+        "item_id": "item_411f5e1b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c520fc31__ft",
+        "item_id": "item_c520fc31",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_942e9697__rag",
+        "item_id": "item_942e9697",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__prompt_only",
+        "item_id": "item_64d6f8af",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_96033474__ft",
+        "item_id": "item_96033474",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft",
+        "item_id": "item_b9a7fc76",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft_rag",
+        "item_id": "item_522a0ef1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft",
+        "item_id": "item_9ebfafd9",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_1eac8161__ft",
+        "item_id": "item_1eac8161",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f0ad49f2__prompt_only",
+        "item_id": "item_f0ad49f2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e216d293__rag",
+        "item_id": "item_e216d293",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft_rag",
+        "item_id": "item_e09b2fc4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_71d0f934__rag",
+        "item_id": "item_71d0f934",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_942e9697__ft_rag",
+        "item_id": "item_942e9697",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_96033474__rag",
+        "item_id": "item_96033474",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__rag",
+        "item_id": "item_689f5d1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e216d293__prompt_only",
+        "item_id": "item_e216d293",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_13f885b1__ft",
+        "item_id": "item_13f885b1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_1eac8161__prompt_only",
+        "item_id": "item_1eac8161",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft_rag",
+        "item_id": "item_231e9c9a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft",
+        "item_id": "item_8d4a9d39",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft_rag",
+        "item_id": "item_6ab781e4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft",
+        "item_id": "item_34e1eb68",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_6ab781e4__prompt_only",
+        "item_id": "item_6ab781e4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_f0ad49f2__rag",
+        "item_id": "item_f0ad49f2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__rag",
+        "item_id": "item_2a963cb0",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft_rag",
+        "item_id": "item_ec6f3095",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10c23892__rag",
+        "item_id": "item_10c23892",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_12198c3f__rag",
+        "item_id": "item_12198c3f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b9b88831__ft",
+        "item_id": "item_b9b88831",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_ec6f3095__prompt_only",
+        "item_id": "item_ec6f3095",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft_rag",
+        "item_id": "item_15bca5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f696be27__ft",
+        "item_id": "item_f696be27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft",
+        "item_id": "item_35eac4bc",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_37ed090f__rag",
+        "item_id": "item_37ed090f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft_rag",
+        "item_id": "item_f841a0aa",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft_rag",
+        "item_id": "item_c2ef2306",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft",
+        "item_id": "item_e6891d8c",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_3e04285a__rag",
+        "item_id": "item_3e04285a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f696be27__rag",
+        "item_id": "item_f696be27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_52369c88__ft_rag",
+        "item_id": "item_52369c88",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_871e825f__prompt_only",
+        "item_id": "item_871e825f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft",
+        "item_id": "item_689f5d1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_4865ff27__rag",
+        "item_id": "item_4865ff27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft_rag",
+        "item_id": "item_41fb99bd",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_029dee1f__prompt_only",
+        "item_id": "item_029dee1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_029dee1f__ft",
+        "item_id": "item_029dee1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_871e825f__rag",
+        "item_id": "item_871e825f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__prompt_only",
+        "item_id": "item_b1cd612b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_8d4a9d39__rag",
+        "item_id": "item_8d4a9d39",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c520fc31__prompt_only",
+        "item_id": "item_c520fc31",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft_rag",
+        "item_id": "item_9ebfafd9",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c802a276__ft_rag",
+        "item_id": "item_c802a276",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft",
+        "item_id": "item_b1cd612b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft_rag",
+        "item_id": "item_7e21bd5e",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__prompt_only",
+        "item_id": "item_41fb99bd",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9b88831__ft_rag",
+        "item_id": "item_b9b88831",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_942e9697__ft",
+        "item_id": "item_942e9697",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__rag",
+        "item_id": "item_f841a0aa",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft_rag",
+        "item_id": "item_8d4a9d39",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9a7fc76__prompt_only",
+        "item_id": "item_b9a7fc76",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_64d6f8af__rag",
+        "item_id": "item_64d6f8af",
+        "method": "rag"
+      }
+    ],
+    "rater_02": [
+      {
+        "unit_id": "item_f0ad49f2__rag",
+        "item_id": "item_f0ad49f2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft_rag",
+        "item_id": "item_411f5e1b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__rag",
+        "item_id": "item_b1cd612b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft_rag",
+        "item_id": "item_64d6f8af",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f696be27__prompt_only",
+        "item_id": "item_f696be27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__prompt_only",
+        "item_id": "item_0d6d0c35",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__rag",
+        "item_id": "item_9d0d0285",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_029dee1f__prompt_only",
+        "item_id": "item_029dee1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c802a276__prompt_only",
+        "item_id": "item_c802a276",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_37ed090f__ft_rag",
+        "item_id": "item_37ed090f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__prompt_only",
+        "item_id": "item_0b273d9d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10c23892__prompt_only",
+        "item_id": "item_10c23892",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_7e21bd5e__prompt_only",
+        "item_id": "item_7e21bd5e",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_689f5d1f__rag",
+        "item_id": "item_689f5d1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_15bca5cf__rag",
+        "item_id": "item_15bca5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft_rag",
+        "item_id": "item_c2ef2306",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_71d0f934__ft_rag",
+        "item_id": "item_71d0f934",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft",
+        "item_id": "item_ddff59c7",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_ddff59c7__rag",
+        "item_id": "item_ddff59c7",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_37ed090f__ft",
+        "item_id": "item_37ed090f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft_rag",
+        "item_id": "item_689f5d1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1eac8161__rag",
+        "item_id": "item_1eac8161",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft",
+        "item_id": "item_0b273d9d",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_8d4a9d39__prompt_only",
+        "item_id": "item_8d4a9d39",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_411f5e1b__prompt_only",
+        "item_id": "item_411f5e1b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_f696be27__rag",
+        "item_id": "item_f696be27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c802a276__rag",
+        "item_id": "item_c802a276",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_231e9c9a__rag",
+        "item_id": "item_231e9c9a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c802a276__ft",
+        "item_id": "item_c802a276",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft",
+        "item_id": "item_ec6f3095",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft_rag",
+        "item_id": "item_41fb99bd",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__prompt_only",
+        "item_id": "item_c2ef2306",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__ft",
+        "item_id": "item_9d0d0285",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft_rag",
+        "item_id": "item_b1cd612b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__rag",
+        "item_id": "item_64d6f8af",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_15bca5cf__prompt_only",
+        "item_id": "item_15bca5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9b88831__prompt_only",
+        "item_id": "item_b9b88831",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_71d0f934__prompt_only",
+        "item_id": "item_71d0f934",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_7e21bd5e__rag",
+        "item_id": "item_7e21bd5e",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft_rag",
+        "item_id": "item_b38fe5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__rag",
+        "item_id": "item_0b273d9d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f0ad49f2__prompt_only",
+        "item_id": "item_f0ad49f2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft",
+        "item_id": "item_b38fe5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_71d0f934__ft",
+        "item_id": "item_71d0f934",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_34e1eb68__rag",
+        "item_id": "item_34e1eb68",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c520fc31__rag",
+        "item_id": "item_c520fc31",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__rag",
+        "item_id": "item_1ce1f57d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e216d293__rag",
+        "item_id": "item_e216d293",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_13f885b1__rag",
+        "item_id": "item_13f885b1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3e04285a__prompt_only",
+        "item_id": "item_3e04285a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_871e825f__ft",
+        "item_id": "item_871e825f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_2a963cb0__ft",
+        "item_id": "item_2a963cb0",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft",
+        "item_id": "item_d3533cc2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f696be27__ft_rag",
+        "item_id": "item_f696be27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft_rag",
+        "item_id": "item_0b273d9d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_942e9697__prompt_only",
+        "item_id": "item_942e9697",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_13f885b1__ft_rag",
+        "item_id": "item_13f885b1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e6891d8c__prompt_only",
+        "item_id": "item_e6891d8c",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_942e9697__ft",
+        "item_id": "item_942e9697",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b38fe5cf__prompt_only",
+        "item_id": "item_b38fe5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_689f5d1f__prompt_only",
+        "item_id": "item_689f5d1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft",
+        "item_id": "item_64d6f8af",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft",
+        "item_id": "item_411f5e1b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_52369c88__ft",
+        "item_id": "item_52369c88",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_231e9c9a__prompt_only",
+        "item_id": "item_231e9c9a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__rag",
+        "item_id": "item_0d6d0c35",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_71d0f934__rag",
+        "item_id": "item_71d0f934",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_4865ff27__ft_rag",
+        "item_id": "item_4865ff27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft",
+        "item_id": "item_8d4a9d39",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft",
+        "item_id": "item_e09b2fc4",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e6891d8c__rag",
+        "item_id": "item_e6891d8c",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_12198c3f__prompt_only",
+        "item_id": "item_12198c3f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10c23892__ft",
+        "item_id": "item_10c23892",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c520fc31__ft",
+        "item_id": "item_c520fc31",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft",
+        "item_id": "item_0d6d0c35",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c6068015__ft_rag",
+        "item_id": "item_c6068015",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_6ab781e4__rag",
+        "item_id": "item_6ab781e4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft",
+        "item_id": "item_f841a0aa",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_d3533cc2__prompt_only",
+        "item_id": "item_d3533cc2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_52369c88__ft_rag",
+        "item_id": "item_52369c88",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3c501579__rag",
+        "item_id": "item_3c501579",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3e04285a__ft",
+        "item_id": "item_3e04285a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft_rag",
+        "item_id": "item_1ce1f57d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1eac8161__prompt_only",
+        "item_id": "item_1eac8161",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft_rag",
+        "item_id": "item_e09b2fc4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft_rag",
+        "item_id": "item_0d6d0c35",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e216d293__ft_rag",
+        "item_id": "item_e216d293",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9a7fc76__prompt_only",
+        "item_id": "item_b9a7fc76",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_522a0ef1__prompt_only",
+        "item_id": "item_522a0ef1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3e04285a__ft_rag",
+        "item_id": "item_3e04285a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_13f885b1__ft",
+        "item_id": "item_13f885b1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e09b2fc4__rag",
+        "item_id": "item_e09b2fc4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft_rag",
+        "item_id": "item_34e1eb68",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__rag",
+        "item_id": "item_ec6f3095",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c6068015__ft",
+        "item_id": "item_c6068015",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c6068015__rag",
+        "item_id": "item_c6068015",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10080777__rag",
+        "item_id": "item_10080777",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft",
+        "item_id": "item_b9a7fc76",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c2ef2306__rag",
+        "item_id": "item_c2ef2306",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft",
+        "item_id": "item_9ebfafd9",
+        "method": "ft"
+      }
+    ],
+    "rater_03": [
+      {
+        "unit_id": "item_ec6f3095__rag",
+        "item_id": "item_ec6f3095",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9d0d0285__ft_rag",
+        "item_id": "item_9d0d0285",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__rag",
+        "item_id": "item_689f5d1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft",
+        "item_id": "item_8d4a9d39",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c6068015__ft",
+        "item_id": "item_c6068015",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e6891d8c__rag",
+        "item_id": "item_e6891d8c",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10c23892__rag",
+        "item_id": "item_10c23892",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__rag",
+        "item_id": "item_c2ef2306",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__ft_rag",
+        "item_id": "item_2a963cb0",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft_rag",
+        "item_id": "item_ec6f3095",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_4865ff27__ft",
+        "item_id": "item_4865ff27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft_rag",
+        "item_id": "item_411f5e1b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10c23892__ft",
+        "item_id": "item_10c23892",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_4865ff27__rag",
+        "item_id": "item_4865ff27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10c23892__prompt_only",
+        "item_id": "item_10c23892",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_942e9697__rag",
+        "item_id": "item_942e9697",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__prompt_only",
+        "item_id": "item_9ebfafd9",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft",
+        "item_id": "item_0d6d0c35",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_41fb99bd__rag",
+        "item_id": "item_41fb99bd",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__prompt_only",
+        "item_id": "item_411f5e1b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_41fb99bd__prompt_only",
+        "item_id": "item_41fb99bd",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_96033474__ft_rag",
+        "item_id": "item_96033474",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft_rag",
+        "item_id": "item_9ebfafd9",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft",
+        "item_id": "item_d3533cc2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f696be27__ft_rag",
+        "item_id": "item_f696be27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_029dee1f__ft",
+        "item_id": "item_029dee1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_2a963cb0__ft",
+        "item_id": "item_2a963cb0",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9ebfafd9__rag",
+        "item_id": "item_9ebfafd9",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f696be27__rag",
+        "item_id": "item_f696be27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__rag",
+        "item_id": "item_411f5e1b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_029dee1f__rag",
+        "item_id": "item_029dee1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_029dee1f__ft_rag",
+        "item_id": "item_029dee1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10080777__prompt_only",
+        "item_id": "item_10080777",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft_rag",
+        "item_id": "item_ddff59c7",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_13f885b1__ft",
+        "item_id": "item_13f885b1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b38fe5cf__rag",
+        "item_id": "item_b38fe5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c6068015__rag",
+        "item_id": "item_c6068015",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft",
+        "item_id": "item_b1cd612b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__rag",
+        "item_id": "item_f841a0aa",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft",
+        "item_id": "item_6ab781e4",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_6ab781e4__prompt_only",
+        "item_id": "item_6ab781e4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_12198c3f__ft",
+        "item_id": "item_12198c3f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e216d293__ft",
+        "item_id": "item_e216d293",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_71d0f934__rag",
+        "item_id": "item_71d0f934",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10080777__ft",
+        "item_id": "item_10080777",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft",
+        "item_id": "item_522a0ef1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_12198c3f__rag",
+        "item_id": "item_12198c3f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft",
+        "item_id": "item_689f5d1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_d3533cc2__prompt_only",
+        "item_id": "item_d3533cc2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft",
+        "item_id": "item_0b273d9d",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_0d6d0c35__rag",
+        "item_id": "item_0d6d0c35",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft",
+        "item_id": "item_7e21bd5e",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b9a7fc76__rag",
+        "item_id": "item_b9a7fc76",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10c23892__ft_rag",
+        "item_id": "item_10c23892",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_37ed090f__prompt_only",
+        "item_id": "item_37ed090f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__ft",
+        "item_id": "item_9d0d0285",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_3c501579__prompt_only",
+        "item_id": "item_3c501579",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__rag",
+        "item_id": "item_15bca5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_12198c3f__ft_rag",
+        "item_id": "item_12198c3f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft",
+        "item_id": "item_ec6f3095",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft",
+        "item_id": "item_34e1eb68",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_522a0ef1__rag",
+        "item_id": "item_522a0ef1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft_rag",
+        "item_id": "item_689f5d1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__prompt_only",
+        "item_id": "item_689f5d1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_35eac4bc__rag",
+        "item_id": "item_35eac4bc",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_6ab781e4__rag",
+        "item_id": "item_6ab781e4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_4865ff27__prompt_only",
+        "item_id": "item_4865ff27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c6068015__ft_rag",
+        "item_id": "item_c6068015",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft",
+        "item_id": "item_b9a7fc76",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_871e825f__ft_rag",
+        "item_id": "item_871e825f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft",
+        "item_id": "item_35eac4bc",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_942e9697__prompt_only",
+        "item_id": "item_942e9697",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft",
+        "item_id": "item_41fb99bd",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f696be27__prompt_only",
+        "item_id": "item_f696be27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_64d6f8af__prompt_only",
+        "item_id": "item_64d6f8af",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_4865ff27__ft_rag",
+        "item_id": "item_4865ff27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft_rag",
+        "item_id": "item_f841a0aa",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3e04285a__ft",
+        "item_id": "item_3e04285a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_52369c88__rag",
+        "item_id": "item_52369c88",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__prompt_only",
+        "item_id": "item_2a963cb0",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_52369c88__prompt_only",
+        "item_id": "item_52369c88",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_34e1eb68__prompt_only",
+        "item_id": "item_34e1eb68",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b1cd612b__prompt_only",
+        "item_id": "item_b1cd612b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft_rag",
+        "item_id": "item_15bca5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__rag",
+        "item_id": "item_2a963cb0",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_13f885b1__ft_rag",
+        "item_id": "item_13f885b1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft_rag",
+        "item_id": "item_8d4a9d39",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f696be27__ft",
+        "item_id": "item_f696be27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_0d6d0c35__prompt_only",
+        "item_id": "item_0d6d0c35",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3c501579__ft_rag",
+        "item_id": "item_3c501579",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft_rag",
+        "item_id": "item_35eac4bc",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c6068015__prompt_only",
+        "item_id": "item_c6068015",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_71d0f934__ft_rag",
+        "item_id": "item_71d0f934",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft_rag",
+        "item_id": "item_b38fe5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3e04285a__ft_rag",
+        "item_id": "item_3e04285a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft",
+        "item_id": "item_f0ad49f2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_ec6f3095__prompt_only",
+        "item_id": "item_ec6f3095",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_d3533cc2__rag",
+        "item_id": "item_d3533cc2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft_rag",
+        "item_id": "item_e09b2fc4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft_rag",
+        "item_id": "item_0d6d0c35",
+        "method": "ft_rag"
+      }
+    ],
+    "rater_04": [
+      {
+        "unit_id": "item_9d0d0285__ft",
+        "item_id": "item_9d0d0285",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft",
+        "item_id": "item_231e9c9a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_96033474__ft",
+        "item_id": "item_96033474",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_52369c88__prompt_only",
+        "item_id": "item_52369c88",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__rag",
+        "item_id": "item_0d6d0c35",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_12198c3f__prompt_only",
+        "item_id": "item_12198c3f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9a7fc76__rag",
+        "item_id": "item_b9a7fc76",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_96033474__prompt_only",
+        "item_id": "item_96033474",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c520fc31__rag",
+        "item_id": "item_c520fc31",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_10c23892__ft_rag",
+        "item_id": "item_10c23892",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_029dee1f__rag",
+        "item_id": "item_029dee1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__rag",
+        "item_id": "item_2a963cb0",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e216d293__ft",
+        "item_id": "item_e216d293",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft",
+        "item_id": "item_0b273d9d",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9ebfafd9__prompt_only",
+        "item_id": "item_9ebfafd9",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_34e1eb68__prompt_only",
+        "item_id": "item_34e1eb68",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_f841a0aa__prompt_only",
+        "item_id": "item_f841a0aa",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft",
+        "item_id": "item_e6891d8c",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft_rag",
+        "item_id": "item_7e21bd5e",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft",
+        "item_id": "item_15bca5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_8d4a9d39__rag",
+        "item_id": "item_8d4a9d39",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft_rag",
+        "item_id": "item_ddff59c7",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c520fc31__ft_rag",
+        "item_id": "item_c520fc31",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft",
+        "item_id": "item_41fb99bd",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_1eac8161__ft_rag",
+        "item_id": "item_1eac8161",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_71d0f934__prompt_only",
+        "item_id": "item_71d0f934",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e09b2fc4__prompt_only",
+        "item_id": "item_e09b2fc4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_871e825f__ft_rag",
+        "item_id": "item_871e825f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft",
+        "item_id": "item_64d6f8af",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft_rag",
+        "item_id": "item_f0ad49f2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft",
+        "item_id": "item_7e21bd5e",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c2ef2306__prompt_only",
+        "item_id": "item_c2ef2306",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft",
+        "item_id": "item_6ab781e4",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_96033474__ft_rag",
+        "item_id": "item_96033474",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft",
+        "item_id": "item_522a0ef1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_7e21bd5e__prompt_only",
+        "item_id": "item_7e21bd5e",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3c501579__ft_rag",
+        "item_id": "item_3c501579",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft_rag",
+        "item_id": "item_0b273d9d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9b88831__prompt_only",
+        "item_id": "item_b9b88831",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_96033474__rag",
+        "item_id": "item_96033474",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__rag",
+        "item_id": "item_ec6f3095",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9d0d0285__rag",
+        "item_id": "item_9d0d0285",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_13f885b1__prompt_only",
+        "item_id": "item_13f885b1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10c23892__rag",
+        "item_id": "item_10c23892",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft_rag",
+        "item_id": "item_b1cd612b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft",
+        "item_id": "item_f841a0aa",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_12198c3f__ft_rag",
+        "item_id": "item_12198c3f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft",
+        "item_id": "item_b38fe5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft_rag",
+        "item_id": "item_34e1eb68",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_52369c88__ft",
+        "item_id": "item_52369c88",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft_rag",
+        "item_id": "item_231e9c9a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__rag",
+        "item_id": "item_7e21bd5e",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__rag",
+        "item_id": "item_b1cd612b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__prompt_only",
+        "item_id": "item_35eac4bc",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_37ed090f__rag",
+        "item_id": "item_37ed090f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c802a276__prompt_only",
+        "item_id": "item_c802a276",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft_rag",
+        "item_id": "item_b9a7fc76",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_942e9697__ft_rag",
+        "item_id": "item_942e9697",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_52369c88__rag",
+        "item_id": "item_52369c88",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_871e825f__rag",
+        "item_id": "item_871e825f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft",
+        "item_id": "item_f0ad49f2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9ebfafd9__rag",
+        "item_id": "item_9ebfafd9",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft",
+        "item_id": "item_411f5e1b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e216d293__ft_rag",
+        "item_id": "item_e216d293",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__ft_rag",
+        "item_id": "item_2a963cb0",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__prompt_only",
+        "item_id": "item_41fb99bd",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__prompt_only",
+        "item_id": "item_9d0d0285",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_12198c3f__rag",
+        "item_id": "item_12198c3f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_522a0ef1__rag",
+        "item_id": "item_522a0ef1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c520fc31__prompt_only",
+        "item_id": "item_c520fc31",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_4865ff27__ft",
+        "item_id": "item_4865ff27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_8d4a9d39__prompt_only",
+        "item_id": "item_8d4a9d39",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1ce1f57d__prompt_only",
+        "item_id": "item_1ce1f57d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft",
+        "item_id": "item_0d6d0c35",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_3e04285a__rag",
+        "item_id": "item_3e04285a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft",
+        "item_id": "item_c2ef2306",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_10080777__rag",
+        "item_id": "item_10080777",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_37ed090f__ft",
+        "item_id": "item_37ed090f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft_rag",
+        "item_id": "item_f841a0aa",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9b88831__rag",
+        "item_id": "item_b9b88831",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__rag",
+        "item_id": "item_35eac4bc",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c6068015__ft",
+        "item_id": "item_c6068015",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c6068015__ft_rag",
+        "item_id": "item_c6068015",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft_rag",
+        "item_id": "item_1ce1f57d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__prompt_only",
+        "item_id": "item_ddff59c7",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9b88831__ft_rag",
+        "item_id": "item_b9b88831",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_13f885b1__rag",
+        "item_id": "item_13f885b1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft",
+        "item_id": "item_689f5d1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_411f5e1b__rag",
+        "item_id": "item_411f5e1b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__ft",
+        "item_id": "item_ddff59c7",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_3e04285a__prompt_only",
+        "item_id": "item_3e04285a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1eac8161__ft",
+        "item_id": "item_1eac8161",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e6891d8c__prompt_only",
+        "item_id": "item_e6891d8c",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1ce1f57d__rag",
+        "item_id": "item_1ce1f57d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft",
+        "item_id": "item_d3533cc2",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c802a276__ft_rag",
+        "item_id": "item_c802a276",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft",
+        "item_id": "item_e09b2fc4",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_4865ff27__prompt_only",
+        "item_id": "item_4865ff27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_689f5d1f__ft_rag",
+        "item_id": "item_689f5d1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft",
+        "item_id": "item_1ce1f57d",
+        "method": "ft"
+      }
+    ],
+    "rater_05": [
+      {
+        "unit_id": "item_35eac4bc__prompt_only",
+        "item_id": "item_35eac4bc",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__prompt_only",
+        "item_id": "item_15bca5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1eac8161__ft_rag",
+        "item_id": "item_1eac8161",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__rag",
+        "item_id": "item_e09b2fc4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_15bca5cf__rag",
+        "item_id": "item_15bca5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b38fe5cf__prompt_only",
+        "item_id": "item_b38fe5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft",
+        "item_id": "item_c2ef2306",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_0b273d9d__rag",
+        "item_id": "item_0b273d9d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e09b2fc4__prompt_only",
+        "item_id": "item_e09b2fc4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__prompt_only",
+        "item_id": "item_0d6d0c35",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_13f885b1__prompt_only",
+        "item_id": "item_13f885b1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_71d0f934__ft_rag",
+        "item_id": "item_71d0f934",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3c501579__prompt_only",
+        "item_id": "item_3c501579",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft_rag",
+        "item_id": "item_f0ad49f2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_029dee1f__ft",
+        "item_id": "item_029dee1f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f0ad49f2__rag",
+        "item_id": "item_f0ad49f2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__ft_rag",
+        "item_id": "item_c2ef2306",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__prompt_only",
+        "item_id": "item_ddff59c7",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9a7fc76__ft_rag",
+        "item_id": "item_b9a7fc76",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft_rag",
+        "item_id": "item_64d6f8af",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c802a276__ft",
+        "item_id": "item_c802a276",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_942e9697__ft_rag",
+        "item_id": "item_942e9697",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c520fc31__ft_rag",
+        "item_id": "item_c520fc31",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_f0ad49f2__prompt_only",
+        "item_id": "item_f0ad49f2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1ce1f57d__prompt_only",
+        "item_id": "item_1ce1f57d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft_rag",
+        "item_id": "item_ec6f3095",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_871e825f__rag",
+        "item_id": "item_871e825f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_ddff59c7__rag",
+        "item_id": "item_ddff59c7",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft",
+        "item_id": "item_15bca5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_3c501579__ft_rag",
+        "item_id": "item_3c501579",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft_rag",
+        "item_id": "item_7e21bd5e",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_231e9c9a__prompt_only",
+        "item_id": "item_231e9c9a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__prompt_only",
+        "item_id": "item_9d0d0285",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_4865ff27__ft_rag",
+        "item_id": "item_4865ff27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__ft_rag",
+        "item_id": "item_0b273d9d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_37ed090f__ft_rag",
+        "item_id": "item_37ed090f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_231e9c9a__rag",
+        "item_id": "item_231e9c9a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_942e9697__ft",
+        "item_id": "item_942e9697",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft_rag",
+        "item_id": "item_d3533cc2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c2ef2306__rag",
+        "item_id": "item_c2ef2306",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_942e9697__rag",
+        "item_id": "item_942e9697",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f696be27__ft_rag",
+        "item_id": "item_f696be27",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9b88831__rag",
+        "item_id": "item_b9b88831",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3e04285a__prompt_only",
+        "item_id": "item_3e04285a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft",
+        "item_id": "item_9ebfafd9",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9d0d0285__ft_rag",
+        "item_id": "item_9d0d0285",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__ft",
+        "item_id": "item_64d6f8af",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft",
+        "item_id": "item_231e9c9a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_10080777__ft_rag",
+        "item_id": "item_10080777",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__prompt_only",
+        "item_id": "item_ec6f3095",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft",
+        "item_id": "item_e6891d8c",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_10c23892__ft",
+        "item_id": "item_10c23892",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_411f5e1b__rag",
+        "item_id": "item_411f5e1b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_029dee1f__ft_rag",
+        "item_id": "item_029dee1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3c501579__rag",
+        "item_id": "item_3c501579",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft",
+        "item_id": "item_b38fe5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_871e825f__ft",
+        "item_id": "item_871e825f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_71d0f934__ft",
+        "item_id": "item_71d0f934",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_12198c3f__prompt_only",
+        "item_id": "item_12198c3f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft_rag",
+        "item_id": "item_6ab781e4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__ft",
+        "item_id": "item_7e21bd5e",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft_rag",
+        "item_id": "item_e6891d8c",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_4865ff27__rag",
+        "item_id": "item_4865ff27",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e216d293__prompt_only",
+        "item_id": "item_e216d293",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10080777__rag",
+        "item_id": "item_10080777",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft",
+        "item_id": "item_1ce1f57d",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b9b88831__ft",
+        "item_id": "item_b9b88831",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft_rag",
+        "item_id": "item_522a0ef1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_871e825f__prompt_only",
+        "item_id": "item_871e825f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c802a276__prompt_only",
+        "item_id": "item_c802a276",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b1cd612b__prompt_only",
+        "item_id": "item_b1cd612b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_522a0ef1__prompt_only",
+        "item_id": "item_522a0ef1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_1eac8161__prompt_only",
+        "item_id": "item_1eac8161",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b1cd612b__rag",
+        "item_id": "item_b1cd612b",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3c501579__ft",
+        "item_id": "item_3c501579",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_64d6f8af__rag",
+        "item_id": "item_64d6f8af",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__rag",
+        "item_id": "item_1ce1f57d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e6891d8c__prompt_only",
+        "item_id": "item_e6891d8c",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_522a0ef1__rag",
+        "item_id": "item_522a0ef1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_13f885b1__ft_rag",
+        "item_id": "item_13f885b1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c802a276__rag",
+        "item_id": "item_c802a276",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9ebfafd9__ft_rag",
+        "item_id": "item_9ebfafd9",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_d3533cc2__rag",
+        "item_id": "item_d3533cc2",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft_rag",
+        "item_id": "item_34e1eb68",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_52369c88__ft",
+        "item_id": "item_52369c88",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_9ebfafd9__prompt_only",
+        "item_id": "item_9ebfafd9",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_12198c3f__ft",
+        "item_id": "item_12198c3f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft_rag",
+        "item_id": "item_15bca5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_37ed090f__prompt_only",
+        "item_id": "item_37ed090f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft",
+        "item_id": "item_35eac4bc",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_37ed090f__rag",
+        "item_id": "item_37ed090f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3e04285a__rag",
+        "item_id": "item_3e04285a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b9b88831__ft_rag",
+        "item_id": "item_b9b88831",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_96033474__ft",
+        "item_id": "item_96033474",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_41fb99bd__rag",
+        "item_id": "item_41fb99bd",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft",
+        "item_id": "item_522a0ef1",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_34e1eb68__rag",
+        "item_id": "item_34e1eb68",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_f696be27__ft",
+        "item_id": "item_f696be27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_871e825f__ft_rag",
+        "item_id": "item_871e825f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft",
+        "item_id": "item_6ab781e4",
+        "method": "ft"
+      }
+    ],
+    "rater_06": [
+      {
+        "unit_id": "item_2a963cb0__ft_rag",
+        "item_id": "item_2a963cb0",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__prompt_only",
+        "item_id": "item_34e1eb68",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft",
+        "item_id": "item_231e9c9a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_8d4a9d39__ft_rag",
+        "item_id": "item_8d4a9d39",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_8d4a9d39__rag",
+        "item_id": "item_8d4a9d39",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__prompt_only",
+        "item_id": "item_0b273d9d",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_9d0d0285__prompt_only",
+        "item_id": "item_9d0d0285",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_2a963cb0__prompt_only",
+        "item_id": "item_2a963cb0",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_35eac4bc__prompt_only",
+        "item_id": "item_35eac4bc",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c6068015__prompt_only",
+        "item_id": "item_c6068015",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e6891d8c__ft_rag",
+        "item_id": "item_e6891d8c",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_2a963cb0__ft",
+        "item_id": "item_2a963cb0",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_231e9c9a__ft_rag",
+        "item_id": "item_231e9c9a",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_13f885b1__rag",
+        "item_id": "item_13f885b1",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_231e9c9a__prompt_only",
+        "item_id": "item_231e9c9a",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b38fe5cf__rag",
+        "item_id": "item_b38fe5cf",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_d3533cc2__ft_rag",
+        "item_id": "item_d3533cc2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_c6068015__rag",
+        "item_id": "item_c6068015",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_37ed090f__ft",
+        "item_id": "item_37ed090f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e216d293__prompt_only",
+        "item_id": "item_e216d293",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_6ab781e4__ft_rag",
+        "item_id": "item_6ab781e4",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_ec6f3095__ft",
+        "item_id": "item_ec6f3095",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_12198c3f__ft_rag",
+        "item_id": "item_12198c3f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__ft",
+        "item_id": "item_34e1eb68",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_6ab781e4__prompt_only",
+        "item_id": "item_6ab781e4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_0d6d0c35__ft_rag",
+        "item_id": "item_0d6d0c35",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_13f885b1__prompt_only",
+        "item_id": "item_13f885b1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9b88831__rag",
+        "item_id": "item_b9b88831",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_71d0f934__prompt_only",
+        "item_id": "item_71d0f934",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c802a276__ft_rag",
+        "item_id": "item_c802a276",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10080777__ft_rag",
+        "item_id": "item_10080777",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_10080777__prompt_only",
+        "item_id": "item_10080777",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_ddff59c7__prompt_only",
+        "item_id": "item_ddff59c7",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_f0ad49f2__ft_rag",
+        "item_id": "item_f0ad49f2",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_b9b88831__ft",
+        "item_id": "item_b9b88831",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_96033474__prompt_only",
+        "item_id": "item_96033474",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9a7fc76__rag",
+        "item_id": "item_b9a7fc76",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_0b273d9d__rag",
+        "item_id": "item_0b273d9d",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c520fc31__ft_rag",
+        "item_id": "item_c520fc31",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e216d293__ft",
+        "item_id": "item_e216d293",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_37ed090f__ft_rag",
+        "item_id": "item_37ed090f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_64d6f8af__prompt_only",
+        "item_id": "item_64d6f8af",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_871e825f__prompt_only",
+        "item_id": "item_871e825f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_52369c88__rag",
+        "item_id": "item_52369c88",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft_rag",
+        "item_id": "item_41fb99bd",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_3e04285a__ft",
+        "item_id": "item_3e04285a",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__rag",
+        "item_id": "item_f841a0aa",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_e216d293__ft_rag",
+        "item_id": "item_e216d293",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1eac8161__rag",
+        "item_id": "item_1eac8161",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_52369c88__ft_rag",
+        "item_id": "item_52369c88",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_e6891d8c__rag",
+        "item_id": "item_e6891d8c",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_c802a276__rag",
+        "item_id": "item_c802a276",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_1eac8161__ft",
+        "item_id": "item_1eac8161",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_96033474__ft_rag",
+        "item_id": "item_96033474",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_522a0ef1__prompt_only",
+        "item_id": "item_522a0ef1",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__prompt_only",
+        "item_id": "item_15bca5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_96033474__rag",
+        "item_id": "item_96033474",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__ft",
+        "item_id": "item_411f5e1b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b38fe5cf__ft_rag",
+        "item_id": "item_b38fe5cf",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft_rag",
+        "item_id": "item_1ce1f57d",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_34e1eb68__rag",
+        "item_id": "item_34e1eb68",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_231e9c9a__rag",
+        "item_id": "item_231e9c9a",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_3c501579__ft",
+        "item_id": "item_3c501579",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c2ef2306__prompt_only",
+        "item_id": "item_c2ef2306",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c520fc31__rag",
+        "item_id": "item_c520fc31",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_411f5e1b__prompt_only",
+        "item_id": "item_411f5e1b",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_4865ff27__ft",
+        "item_id": "item_4865ff27",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_e09b2fc4__ft",
+        "item_id": "item_e09b2fc4",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_029dee1f__prompt_only",
+        "item_id": "item_029dee1f",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e09b2fc4__prompt_only",
+        "item_id": "item_e09b2fc4",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_10c23892__ft_rag",
+        "item_id": "item_10c23892",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_41fb99bd__ft",
+        "item_id": "item_41fb99bd",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_71d0f934__ft",
+        "item_id": "item_71d0f934",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_10080777__ft",
+        "item_id": "item_10080777",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_d3533cc2__prompt_only",
+        "item_id": "item_d3533cc2",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b9b88831__prompt_only",
+        "item_id": "item_b9b88831",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_15bca5cf__ft",
+        "item_id": "item_15bca5cf",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__ft",
+        "item_id": "item_f841a0aa",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b9a7fc76__prompt_only",
+        "item_id": "item_b9a7fc76",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_522a0ef1__ft_rag",
+        "item_id": "item_522a0ef1",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_029dee1f__rag",
+        "item_id": "item_029dee1f",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_871e825f__ft",
+        "item_id": "item_871e825f",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f696be27__prompt_only",
+        "item_id": "item_f696be27",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_b38fe5cf__prompt_only",
+        "item_id": "item_b38fe5cf",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_3c501579__prompt_only",
+        "item_id": "item_3c501579",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_c520fc31__ft",
+        "item_id": "item_c520fc31",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft",
+        "item_id": "item_b1cd612b",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_f841a0aa__prompt_only",
+        "item_id": "item_f841a0aa",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_ddff59c7__rag",
+        "item_id": "item_ddff59c7",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_029dee1f__ft_rag",
+        "item_id": "item_029dee1f",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_35eac4bc__ft_rag",
+        "item_id": "item_35eac4bc",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_1ce1f57d__ft",
+        "item_id": "item_1ce1f57d",
+        "method": "ft"
+      },
+      {
+        "unit_id": "item_c520fc31__prompt_only",
+        "item_id": "item_c520fc31",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_41fb99bd__rag",
+        "item_id": "item_41fb99bd",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_7e21bd5e__prompt_only",
+        "item_id": "item_7e21bd5e",
+        "method": "prompt_only"
+      },
+      {
+        "unit_id": "item_e216d293__rag",
+        "item_id": "item_e216d293",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_6ab781e4__rag",
+        "item_id": "item_6ab781e4",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_9d0d0285__rag",
+        "item_id": "item_9d0d0285",
+        "method": "rag"
+      },
+      {
+        "unit_id": "item_b1cd612b__ft_rag",
+        "item_id": "item_b1cd612b",
+        "method": "ft_rag"
+      },
+      {
+        "unit_id": "item_942e9697__prompt_only",
+        "item_id": "item_942e9697",
+        "method": "prompt_only"
+      }
+    ]
+  }
+}

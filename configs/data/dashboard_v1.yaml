@@ -1,0 +1,10 @@
+# Dataset paths. Build these with `python scripts/build_data.py`, which assigns
+# deterministic hash-based splits over the gold pool.
+name: dashboard_v1
+processed_dir: data/processed
+train_file: data/processed/train.jsonl
+val_file: data/processed/val.jsonl
+test_file: data/processed/test.jsonl
+paraphrased_file: data/processed/test_paraphrased.jsonl
+missing_info_file: data/processed/test_missing_info.jsonl
+max_samples: null        # cap items (useful for smoke tests)

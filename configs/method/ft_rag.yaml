@@ -1,0 +1,15 @@
+# Method D — fine-tuned + RAG. Combines the adapter (method C) with retrieval
+# (method B).
+name: ft_rag
+type: fine_tuned_rag
+adapter_path: ${output_root}/${experiment_id}/adapter
+retriever:
+  name: tfidf
+  top_k: 3
+  chunks_path: data/knowledge_base/chunks.jsonl
+generate:
+  max_new_tokens: 1024
+  temperature: 0.1
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.15

@@ -1,0 +1,9 @@
+# Dense (embedding) retriever — semantic alternative to TF-IDF.
+# Requires the [rag-dense] extra (sentence-transformers).
+# Use via override, e.g.:
+#   python scripts/run_experiment.py --experiment E02_qwen0_5b_rag \
+#       --override method.retriever.name=dense method.retriever.embedder_id=BAAI/bge-small-en-v1.5
+name: dense
+embedder_id: BAAI/bge-small-en-v1.5
+top_k: 3
+chunks_path: data/knowledge_base/chunks.jsonl

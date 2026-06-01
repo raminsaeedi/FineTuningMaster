@@ -1,0 +1,4 @@
+# Minimal metric set for fast smoke tests.
+metrics:
+  - schema_compliance
+  - latency

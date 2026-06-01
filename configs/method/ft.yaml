@@ -1,0 +1,12 @@
+# Method C — fine-tuned. Loads the adapter produced by scripts/train.py.
+# adapter_path resolves to the experiment's own adapter folder; for local
+# inference, copy the adapter sent back by the GPU machine to that path.
+name: ft
+type: fine_tuned
+adapter_path: ${output_root}/${experiment_id}/adapter
+generate:
+  max_new_tokens: 1024
+  temperature: 0.1
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.15

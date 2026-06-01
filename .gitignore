@@ -12,12 +12,17 @@ build/
 .mypy_cache/
 .ruff_cache/
 
-# ── Data (regeneratable via pipeline/prepare_data.py) ────────
-data/*.jsonl
+# ── Data ─────────────────────────────────────────────────────
+# Processed splits are regeneratable via `python scripts/build_data.py`.
+data/processed/
 data/index/
+# RAG chunks are regeneratable via `python scripts/build_kb.py` (guidelines/ stays tracked).
+data/knowledge_base/chunks.jsonl
+data/knowledge_base/index/
 
-# ── Experiment outputs (large; not version-controlled) ───────
+# ── Experiment outputs & model weights (large; not versioned) ─
 outputs/
+models/
 
 # ── Jupyter ──────────────────────────────────────────────────
 .ipynb_checkpoints/

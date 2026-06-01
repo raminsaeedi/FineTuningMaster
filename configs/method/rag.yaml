@@ -1,0 +1,14 @@
+# Method B — RAG. Retrieves design guidelines (TF-IDF over the knowledge base)
+# and injects them into the prompt; runs on the base model.
+name: rag
+type: rag
+retriever:
+  name: tfidf
+  top_k: 3
+  chunks_path: data/knowledge_base/chunks.jsonl
+generate:
+  max_new_tokens: 1024
+  temperature: 0.1
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.15

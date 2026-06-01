@@ -1,0 +1,22 @@
+# GaLore — full-parameter fine-tuning with low-rank gradient projection.
+# Requires the [galore] extra (galore-torch). Produces a full model (no adapter).
+type: galore_sft
+
+galore:
+  rank: 128
+  update_proj_gap: 200
+  scale: 0.25
+  target_modules:
+    - attn
+    - mlp
+
+sft:
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 1.0e-5
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  bf16: true
+  gradient_checkpointing: true

@@ -1,0 +1,9 @@
+# Method A — prompt-only (baseline).
+name: prompt_only
+type: prompt_only
+generate:
+  max_new_tokens: 1024
+  temperature: 0.1        # low temperature for structured JSON output
+  top_p: 0.9
+  do_sample: true
+  repetition_penalty: 1.15

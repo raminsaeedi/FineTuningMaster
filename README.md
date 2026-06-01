@@ -1,271 +1,221 @@
-# Master Thesis – Dashboard Design Recommendation Fine-Tuning
+# Fine-Tuning LLMs for Structured Dashboard Design Recommendations
 
-**Research Question**: Does PEFT/Fine-Tuning (+ RAG) improve the quality of structured dashboard design recommendations?
+Master's thesis project (Hochschule Ruhr West). The system takes a **dashboard
+brief** (audience, goals, KPIs, data context) and produces a **structured JSON
+design recommendation** (chart choices, layout, styling, interactions,
+rationales). It compares four methods under one evaluation protocol:
 
-**Model**: `Qwen/Qwen2.5-0.5B-Instruct` fine-tuned with **QLoRA** (LoRA on 4-bit quantized weights)
+| ID | Method | Status |
+|----|--------|-------------|
+| A | Prompt-only | ✅ implemented |
+| B | RAG (TF-IDF over guideline KB) | ✅ implemented |
+| C | Fine-tuning (QLoRA) | ✅ implemented |
+| D | Fine-tuning + RAG | ✅ implemented |
+
+Primary model: **Qwen2.5-0.5B-Instruct**.
+
+## Architecture
+
+Everything is config-driven (Hydra), with pluggable components behind a registry
+and a shared Pydantic data contract. All four methods implement one interface —
+`generate(brief) -> GenerationResult` — so evaluation is written once and works
+for every method.
+
+```
+configs/              Hydra config groups (model, method, training, data, eval, experiment)
+src/
+  core/               schemas (Pydantic), registry, interfaces, prompts, constants
+  data/               deterministic hash splits, gold-item loading, training formatter
+  models/             HuggingFace causal-LM wrapper (import-safe)
+  methods/            A/B/C/D — all behind the METHODS registry, one generate() contract
+  retrievers/         TF-IDF retriever over the guideline KB (RETRIEVERS registry)
+  training/           QLoRA SFT trainer (the ONLY place importing peft/trl/bitsandbytes)
+  inference/          JSON post-processing + cached/resumable batch runner
+  evaluation/         metrics/ (schema, top-k, macro-F1, latency, robustness, grounding),
+                      stats/ (Friedman, Wilcoxon+Holm, Cliff's δ, Cochran/McNemar, bootstrap),
+                      human/ (Streamlit app, balanced assignment, Krippendorff's α)
+  pipeline/           ExperimentRunner (local infer -> eval)
+  utils/              seed, io, logging, config hashing, git hash, run artifacts
+scripts/              CLI entry points (build_data, train, infer, eval_auto, eval_stats, run_experiment)
+tests/                unit tests
+archive/old_pipeline/ the previous codebase, preserved for reference
+```
+
+**Training and inference are decoupled.** Importing the inference/evaluation code
+never pulls in `peft`/`trl`/`bitsandbytes`; those are imported lazily and only by
+the training stack. This is what lets training run on a GPU machine while
+inference + evaluation run locally on CPU.
+
+### Reproducibility
+
+Every run writes a self-describing folder under `outputs/experiments/<id>/`:
+`config_snapshot.yaml`, `config_hash.txt`, `git_hash.txt`, `env.txt`, plus the
+run's outputs (`adapter/`, `predictions*.jsonl`, `metrics_auto.json`, `logs/`).
+Train/val/test splits are a deterministic hash of each item's content, so the
+test set never leaks into training as the dataset grows.
 
 ---
 
-## Project Structure
+## For the professor: how to train
 
-```
-master-thesis-finetuning/
-│
-├── config.yaml              # All settings (model, LoRA, training, paths)
-├── requirements.txt         # Python dependencies
-├── README.md                # This file
-│
-├── generate_dataset.py      # STEP 1 – Generate synthetic training data
-├── train.py                 # STEP 2 – Fine-tune the model with QLoRA
-├── inference.py             # STEP 3 – Run inference & evaluate
-│
-├── colab_finetune.ipynb     # Google Colab notebook (all steps in one place)
-│
-├── data/                    # Auto-created by generate_dataset.py
-│   ├── train.jsonl          # 80 training examples
-│   ├── val.jsonl            # 10 validation examples
-│   └── test.jsonl           # 10 test examples
-│
-├── outputs/                 # Auto-created during training
-│   ├── checkpoints/         # Intermediate model checkpoints
-│   ├── final_model/         # Final LoRA adapter weights (~10-50 MB)
-│   ├── logs/                # Training and inference logs
-│   └── results/             # Evaluation results (JSON)
-│
-└── utils/
-    ├── __init__.py
-    └── helpers.py           # Shared utilities (config, prompts, JSON parsing)
-```
+You only need to run **one command**. Hydra is used internally — you do not need
+to learn it.
 
----
-
-## Execution Order
-
-### Local (VS Code)
-
-Run these commands **in order** in your terminal:
+**1. Prerequisites:** a CUDA GPU and Python ≥ 3.10. Install a CUDA-matched
+PyTorch first, then the training requirements:
 
 ```bash
-# 1. Create virtual environment (do this once)
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # Linux/Mac
-
-# 2. Install dependencies (do this once)
-pip install torch --index-url https://download.pytorch.org/whl/cu121  # NVIDIA GPU
-pip install -r requirements.txt
-
-# 3. Generate synthetic dataset
-python generate_dataset.py
-
-# 4. Fine-tune the model
-python train.py
-
-# 5. Run inference demo
-python inference.py
-
-# 6. Evaluate on test set
-python inference.py --evaluate
-
-# 7. Compare base vs. fine-tuned model
-python inference.py --base-only   # base model
-python inference.py               # fine-tuned model
+# Example for CUDA 12.4 — adjust to your CUDA version:
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+pip install -r requirements-train.txt
 ```
 
-### Google Colab (Recommended for Training)
-
-1. Upload `colab_finetune.ipynb` to [Google Colab](https://colab.research.google.com)
-2. Set runtime to **GPU**: Runtime → Change runtime type → T4 GPU
-3. Run all cells top to bottom
-4. Training takes ~15–30 minutes on a T4 GPU
-
----
-
-## What Each Script Does
-
-### `generate_dataset.py`
-
-- Creates synthetic dashboard briefs across 10 industries
-- Each example has a `brief` (input) and `recommendation` (expected output)
-- Output format: JSONL (one JSON object per line)
-- Produces 80 train / 10 val / 10 test examples
-
-**Example brief:**
-
-```json
-{
-  "title": "E-Commerce Sales Dashboard",
-  "target_audience": "Sales Managers and Regional Directors",
-  "business_goals": "Monitor daily revenue and conversion rates",
-  "kpis": ["Revenue", "Conversion Rate", "Average Order Value"],
-  "data_context": "Data from Shopify. Updated daily.",
-  "update_frequency": "Daily",
-  "user_expertise": "Intermediate"
-}
-```
-
-**Expected output (6 structured keys):**
-
-```json
-{
-  "context_summary": "...",
-  "kpi_task_chart_mapping": [...],
-  "layout_hierarchy": {...},
-  "labels_scales_colors": {...},
-  "interactions": {...},
-  "design_rationales": {...}
-}
-```
-
-### `train.py`
-
-- Loads `Qwen/Qwen2.5-0.5B-Instruct` with 4-bit quantization (QLoRA)
-- Applies LoRA adapters to attention and MLP layers
-- Trains with `SFTTrainer` from the TRL library
-- Saves only the LoRA adapter weights (~10–50 MB, not the full 1 GB model)
-
-### `inference.py`
-
-- Loads the base model + LoRA adapter
-- Formats a brief into a chat-template prompt
-- Generates a structured JSON recommendation
-- Parses and validates the output (checks all 6 required keys)
-- Computes metrics: JSON parse rate, schema validity rate, latency
-
----
-
-## Configuration (`config.yaml`)
-
-Key settings you may want to adjust:
-
-| Setting                                | Default                      | Description                                      |
-| -------------------------------------- | ---------------------------- | ------------------------------------------------ |
-| `model.name`                           | `Qwen/Qwen2.5-0.5B-Instruct` | Base model to fine-tune                          |
-| `model.load_in_4bit`                   | `true`                       | Enable QLoRA (saves VRAM)                        |
-| `lora.r`                               | `16`                         | LoRA rank (higher = more params, better quality) |
-| `lora.lora_alpha`                      | `32`                         | LoRA scaling (usually 2× rank)                   |
-| `training.num_train_epochs`            | `3`                          | Training epochs                                  |
-| `training.learning_rate`               | `2e-4`                       | Learning rate                                    |
-| `training.per_device_train_batch_size` | `2`                          | Reduce to `1` if OOM                             |
-| `dataset_generation.num_train_samples` | `80`                         | Training examples to generate                    |
-
----
-
-## Python Version & Environment
-
-- **Python**: 3.10 or 3.11 recommended (3.12 works but some libs lag behind)
-- **CUDA**: 11.8 or 12.1 for NVIDIA GPU training
-- **bitsandbytes**: Required for 4-bit quantization (QLoRA)
-  - Windows: needs special wheel (see `requirements.txt` notes)
-  - Apple Silicon: not supported → set `load_in_4bit: false` in `config.yaml`
-
----
-
-## What Works Where
-
-| Task                     | Local (CPU)          | Local (GPU)  | Google Colab T4 |
-| ------------------------ | -------------------- | ------------ | --------------- |
-| Dataset generation       | ✅ Fast              | ✅ Fast      | ✅ Fast         |
-| Model download           | ✅ (~1 GB)           | ✅ (~1 GB)   | ✅ (~1 GB)      |
-| Training (3 epochs)      | ⚠️ Very slow (hours) | ✅ ~5–15 min | ✅ ~15–30 min   |
-| Inference (1 example)    | ⚠️ Slow (~60s)       | ✅ ~2–5s     | ✅ ~3–8s        |
-| Evaluation (10 examples) | ⚠️ Very slow         | ✅ ~1–2 min  | ✅ ~2–5 min     |
-
-**Recommendation**: Generate data and inspect results locally. Run training in Colab.
-
----
-
-## Common Errors & Fixes
-
-### `CUDA out of memory`
-
-```
-RuntimeError: CUDA out of memory.
-```
-
-**Fix**: In `config.yaml`, reduce:
-
-```yaml
-training:
-  per_device_train_batch_size: 1 # was 2
-  gradient_accumulation_steps: 8 # increase to compensate
-```
-
-### `ModuleNotFoundError: No module named 'bitsandbytes'`
-
-**Fix on Windows**:
+**2. Build the dataset** (deterministic splits from the gold data):
 
 ```bash
-pip install bitsandbytes --prefer-binary --extra-index-url=https://jllllll.github.io/bitsandbytes-windows-whl
+python scripts/build_data.py
 ```
 
-**Fix on CPU-only machine**: Set `load_in_4bit: false` in `config.yaml`
-
-### `FileNotFoundError: data/train.jsonl`
-
-**Fix**: Run dataset generation first:
+**3. Train** (this is the one command):
 
 ```bash
-python generate_dataset.py
+python scripts/train.py --experiment E03_qwen0_5b_ft
 ```
 
-### `Adapter not found: ./outputs/final_model`
+Add `--debug` first for a 1-minute sanity run (10 samples, 1 epoch).
 
-**Fix**: Run training first:
+**4. Send back the whole run folder** that the script prints, e.g.:
+
+```
+outputs/experiments/E03_qwen0_5b_ft_42/
+├── adapter/                 # LoRA weights + tokenizer + training_metadata.json
+├── config_snapshot.yaml
+├── config_hash.txt
+├── git_hash.txt
+├── env.txt                  # pip freeze of your environment
+└── logs/train.log
+```
+
+That folder is everything needed to run and reproduce the fine-tuned model.
+
+---
+
+## Local inference & evaluation (no GPU)
+
+Install the base stack only (no training dependencies needed):
 
 ```bash
-python train.py
+pip install -e .
+python scripts/build_data.py        # once: hash-split dataset
+python scripts/build_kb.py          # once: build the RAG knowledge base
 ```
 
-### Model outputs invalid JSON
+**Method A — prompt-only**, end to end (inference + metrics):
 
-This is normal in early training. The model needs enough epochs to learn the JSON format.
+```bash
+python scripts/run_experiment.py --experiment E01_qwen0_5b_prompt
+```
 
-- Increase `num_train_epochs` to 5
-- Increase `num_train_samples` to 200
-- Check that `temperature` is low (0.1) in `config.yaml`
+**Method B — RAG** (retrieves guideline chunks, no adapter needed):
 
-### Loss not decreasing after epoch 1
+```bash
+python scripts/run_experiment.py --experiment E02_qwen0_5b_rag
+```
 
-- Try increasing `learning_rate` to `5e-4`
-- Try increasing LoRA rank `r` to `32`
-- Ensure `gradient_accumulation_steps` × `per_device_train_batch_size` ≥ 8
+**Method C — fine-tuned:** drop the adapter folder sent by the professor at
+`outputs/experiments/E03_qwen0_5b_ft_42/adapter`, then:
+
+```bash
+python scripts/run_experiment.py --experiment E03_qwen0_5b_ft
+```
+
+Inference is cached per item — re-running prints `CACHE HIT` and does no work.
+For a fast check, cap the items and shorten generation:
+
+```bash
+python scripts/run_experiment.py --experiment E01_qwen0_5b_prompt \
+    --override data.max_samples=2 eval=quick method.generate.max_new_tokens=128
+```
+
+**Statistical comparison** across methods (matched per-item tests):
+
+```bash
+python scripts/eval_stats.py --experiments E01_qwen0_5b_prompt E03_qwen0_5b_ft
+```
+
+This writes Friedman / Wilcoxon+Holm / Cliff's δ / bootstrap-CI (completeness)
+and Cochran's Q / McNemar+Holm (top-1) to `results/stats/`.
 
 ---
 
-## Understanding the Training Output
+## Human evaluation (blind, multi-rater)
 
-```
-{'loss': 2.4521, 'learning_rate': 0.0002, 'epoch': 0.1}   ← Start: high loss
-{'loss': 1.2341, 'learning_rate': 0.00018, 'epoch': 1.0}  ← After epoch 1
-{'loss': 0.6123, 'learning_rate': 0.0001, 'epoch': 2.0}   ← After epoch 2
-{'loss': 0.3891, 'learning_rate': 0.00002, 'epoch': 3.0}  ← After epoch 3: good!
+A complete Streamlit rating workflow with a balanced, blind assignment and
+Krippendorff's α.
+
+```bash
+pip install -e ".[human]"
+
+# 1. Build the eval set + balanced rater assignment from the four method runs:
+python scripts/build_human_eval.py \
+    --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag \
+    --n-items 60 --n-raters 6 --ratings-per-output 3
+
+# 2. Each rater opens the app, picks their ID, and rates (auto-saves + resumes):
+python scripts/run_human_eval.py
+
+# 3. Aggregate inter-rater reliability + per-system scores + statistics:
+python scripts/compute_irr.py
 ```
 
-- **Loss > 1.5**: Model hasn't learned the format yet
-- **Loss 0.5–1.0**: Model is learning, JSON output may be partially correct
-- **Loss < 0.5**: Model reliably generates structured JSON
-- **Loss < 0.2**: Possible overfitting on small dataset
+- Rating is **blind**: raters never see which method produced an output.
+- Each (item, method) output is rated by ≥3 distinct raters; per-rater load is balanced.
+- Rubric: 6 Likert dimensions (`src/evaluation/human/rubric.py`).
+- `compute_irr.py` writes Krippendorff's α per dimension, per-system means, and a
+  Friedman + Wilcoxon+Holm (with Cliff's δ and bootstrap CI) comparison of the
+  per-item overall human scores, to `results/human_ratings/`.
 
 ---
 
-## Thesis Context
+## Commands at a glance
 
-This project is **Version 1 (Prototype)**. The research pipeline will expand to:
+| Command | What it does |
+|---|---|
+| `python scripts/build_data.py` | Build `data/processed/{train,val,test}.jsonl` with hash splits |
+| `python scripts/build_kb.py` | Build the RAG knowledge base (`data/knowledge_base/chunks.jsonl`) |
+| `python scripts/train.py --experiment E03_qwen0_5b_ft` | Fine-tune (GPU); writes the run folder |
+| `python scripts/run_all.py --experiments E01_qwen0_5b_prompt E03_qwen0_5b_ft --seeds 42 43 44` | Run methods × seeds |
+| `python scripts/infer.py --experiment E01_qwen0_5b_prompt` | Cached inference only |
+| `python scripts/eval_auto.py --experiment E01_qwen0_5b_prompt` | Automatic metrics |
+| `python scripts/run_experiment.py --experiment E01_qwen0_5b_prompt` | Infer + eval |
+| `python scripts/eval_stats.py --experiments A B ...` | Cross-method statistics |
+| `python scripts/generate_dataset.py --n 600` | Generate principled gold data (`data/gold.jsonl`) |
+| `python scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag` | Build blind human-eval set + assignment |
+| `python scripts/run_human_eval.py` | Launch the Streamlit rating app |
+| `python scripts/compute_irr.py` | Krippendorff's α + per-system human scores |
+| `pytest` | Run the unit tests |
 
-1. **V1 (this)**: Fine-tuning only, synthetic data, small model
-2. **V2**: Add RAG (Retrieval-Augmented Generation) with a vector database of design guidelines
-3. **V3**: Human evaluation of recommendation quality
-4. **V4**: Comparison study: base model vs. fine-tuned vs. fine-tuned+RAG
+## Optional features (extras)
 
----
+These are implemented and registered; each needs its optional dependency. None
+are required for the core A/B/C/D study.
 
-## File Sizes (Approximate)
+| Feature | Install | Use |
+|---|---|---|
+| **Constrained JSON decoding** (Outlines) — forces schema-valid output | `pip install -e ".[constrained]"` | add `method.generate.constrained=true` |
+| **Dense retriever** (BGE embeddings) — semantic RAG, for a retriever ablation | `pip install -e ".[rag-dense]"` | `--override method.retriever.name=dense` |
+| **DoRA / RSLoRA** — fine-tuning algorithm ablation | (uses the base train stack) | `--override training=dora` (or `training=rslora`) |
+| **GaLore** — full-parameter fine-tuning ablation | `pip install -e ".[galore]"` | `--override training=galore` |
+| **G-Eval (LLM-as-judge)** — auto rubric scoring vs. humans | set `OPENAI_API_KEY` | `--override eval=with_judge` |
 
-| File                           | Size      |
-| ------------------------------ | --------- |
-| Base model download            | ~1 GB     |
-| LoRA adapter (saved)           | ~10–50 MB |
-| Training dataset (80 examples) | ~500 KB   |
-| Training logs                  | ~50 KB    |
-| Evaluation results             | ~200 KB   |
+## Scope
+
+Implemented: all four methods (A/B/C/D) end-to-end with the 0.5B model, TF-IDF
+**and** dense RAG retrievers, the automatic metric suite (schema, top-k, macro-F1,
+latency, robustness, grounding, **G-Eval**), the full statistics module, a
+principled synthetic gold-data generator, the complete blind human-evaluation
+workflow (Streamlit + balanced assignment + Krippendorff's α), **constrained
+decoding**, and the **QLoRA / DoRA / RSLoRA / GaLore** training algorithms. Not
+implemented (out of scope): vLLM, RAFT, and larger models (add a model YAML — no
+code). The main remaining levers for stronger results are a larger /
+supervisor-approved gold dataset and running the experiments at scale.

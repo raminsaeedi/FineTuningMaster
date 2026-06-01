@@ -1,0 +1,12 @@
+# @package _global_
+# Experiment E03 — Method C (fine-tuned, QLoRA) with Qwen2.5-0.5B-Instruct.
+# Train with scripts/train.py on a GPU; then run inference/eval locally.
+defaults:
+  - override /model: qwen2_5_0_5b
+  - override /method: ft
+  - override /training: qlora_default
+  - override /data: dashboard_v1
+  - override /eval: full
+
+experiment_name: E03_qwen0_5b_ft
+seed: 42

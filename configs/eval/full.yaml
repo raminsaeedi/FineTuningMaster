@@ -1,0 +1,8 @@
+# Full automatic metric set. Robustness is computed separately when perturbation
+# prediction files are present.
+metrics:
+  - schema_compliance
+  - top_k_accuracy
+  - macro_f1
+  - latency
+  - grounding        # RAG only; returns null for non-RAG methods

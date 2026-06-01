@@ -1,0 +1,15 @@
+# Full metric set plus the LLM-as-judge (G-Eval). The judge needs an API key
+# (set OPENAI_API_KEY, optionally OPENAI_BASE_URL); without one, g_eval reports
+# available: false and the rest still run.
+metrics:
+  - schema_compliance
+  - top_k_accuracy
+  - macro_f1
+  - latency
+  - grounding
+  - g_eval
+
+judge:
+  provider: openai
+  model: gpt-4o-mini
+  # dimensions default to the human rubric's six dimensions

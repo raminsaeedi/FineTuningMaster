@@ -1,0 +1,11 @@
+# @package _global_
+# Experiment E02 — Method B (RAG) with Qwen2.5-0.5B-Instruct.
+# Build the knowledge base first: `python scripts/build_kb.py`.
+defaults:
+  - override /model: qwen2_5_0_5b
+  - override /method: rag
+  - override /data: dashboard_v1
+  - override /eval: full
+
+experiment_name: E02_qwen0_5b_rag
+seed: 42

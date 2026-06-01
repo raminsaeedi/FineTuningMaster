@@ -1,0 +1,10 @@
+# @package _global_
+# Experiment E01 — Method A (prompt-only) with Qwen2.5-0.5B-Instruct.
+defaults:
+  - override /model: qwen2_5_0_5b
+  - override /method: prompt_only
+  - override /data: dashboard_v1
+  - override /eval: full
+
+experiment_name: E01_qwen0_5b_prompt
+seed: 42

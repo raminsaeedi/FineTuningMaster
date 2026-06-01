@@ -1,0 +1,9 @@
+# Primary model for v1: small enough to fine-tune quickly and to run inference
+# on CPU locally.
+name: Qwen/Qwen2.5-0.5B-Instruct
+hf_id: Qwen/Qwen2.5-0.5B-Instruct
+size_billions: 0.5
+max_seq_length: 2048
+dtype: float16          # used on GPU; CPU inference falls back to float32
+trust_remote_code: true
+cache_dir: null          # set to a local path on HPC to avoid re-downloading
