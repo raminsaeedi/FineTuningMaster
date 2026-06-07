@@ -1,8 +1,9 @@
 """Build the processed dataset with deterministic, hash-based splits.
 
-Reads the raw gold files (data/train.jsonl, data/val.jsonl, data/test.jsonl),
-merges them into one pool, assigns a content-based ``item_id`` and a hash split
-to every example, and writes the canonical splits to data/processed/.
+Reads the gold pool (``data/gold.jsonl`` when present, otherwise the superseded
+``data/raw_legacy/{train,val,test}.jsonl`` fallback), merges it into one pool,
+assigns a content-based ``item_id`` and a hash split to every example, and writes
+the canonical splits to data/processed/.
 
 The previous 80/10/10 file boundaries are intentionally discarded: the split is
 now a deterministic function of each item's content, which guarantees that test
@@ -56,14 +57,15 @@ def main() -> None:
     out_dir = (_PROJECT_ROOT / args.out_dir) if not Path(args.out_dir).is_absolute() else Path(args.out_dir)
 
     # Prefer the principled generated pool (data/gold.jsonl) when present;
-    # otherwise fall back to the legacy train/val/test files.
+    # otherwise fall back to the superseded legacy splits under data/raw_legacy/.
+    legacy_dir = raw_dir / "raw_legacy"
     gold_path = raw_dir / "gold.jsonl"
     if gold_path.exists():
         raw_paths = [gold_path]
         print(f"Using generated gold pool: {gold_path}")
     else:
-        raw_paths = [raw_dir / name for name in RAW_FILES]
-        print(f"Using legacy raw files: {', '.join(RAW_FILES)}")
+        raw_paths = [legacy_dir / name for name in RAW_FILES]
+        print(f"Using legacy raw files under: {legacy_dir}")
     pool = load_pool(raw_paths)
     if not pool:
         raise SystemExit(f"No gold records found under {raw_dir}")
@@ -79,7 +81,7 @@ def main() -> None:
     # Optional perturbation pass-through: align by file order to the original
     # test file and re-key each row to its base item's content-based id, so the
     # robustness metric can pair original and perturbed predictions.
-    base_test = read_jsonl(raw_dir / "test.jsonl") if (raw_dir / "test.jsonl").exists() else []
+    base_test = read_jsonl(legacy_dir / "test.jsonl") if (legacy_dir / "test.jsonl").exists() else []
     base_ids = [compute_item_id(dict(r.get("brief", {}))) for r in base_test]
     perturbation_counts: dict[str, int] = {}
     for fname in PERTURBATION_FILES:

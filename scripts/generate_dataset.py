@@ -6,8 +6,9 @@ Writes data/gold.jsonl ({brief, recommendation} per line) with CORRECT
 task->chart labels grounded in visualization principles. Then run
 `python scripts/build_data.py` to assign deterministic hash splits.
 
-This replaces the previous near-random labels; the old data/{train,val,test}.jsonl
-are left untouched but build_data.py prefers data/gold.jsonl when it exists.
+This replaces the previous near-random labels; the superseded original splits in
+data/raw_legacy/{train,val,test}.jsonl are kept only as a fallback — build_data.py
+prefers data/gold.jsonl when it exists.
 """
 
 from __future__ import annotations

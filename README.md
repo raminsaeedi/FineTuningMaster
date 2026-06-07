@@ -25,7 +25,7 @@ for every method.
 configs/              Hydra config groups (model, method, training, data, eval, experiment)
 src/
   core/               schemas (Pydantic), registry, interfaces, prompts, constants
-  data/               deterministic hash splits, gold-item loading, training formatter
+  data/               data-loading CODE (not the datasets): hash splits, gold loading, formatter, perturbations
   models/             HuggingFace causal-LM wrapper (import-safe)
   methods/            A/B/C/D — all behind the METHODS registry, one generate() contract
   retrievers/         TF-IDF retriever over the guideline KB (RETRIEVERS registry)
@@ -38,8 +38,15 @@ src/
   utils/              seed, io, logging, config hashing, git hash, run artifacts
 scripts/              CLI entry points (build_data, train, infer, eval_auto, eval_stats, run_experiment)
 tests/                unit tests
+data/                 DATASETS (not code): gold.jsonl pool, processed/ splits, knowledge_base/, raw_legacy/ fallback
+docs/                 thesis PDF, masterplan, figures
+outputs/              raw experiment runs (gitignored): experiments/ (current E01–E04), legacy_runs/ (old ablations)
+results/              aggregated analysis: stats/, human_eval/, human_ratings/
 archive/old_pipeline/ the previous codebase, preserved for reference
 ```
+
+Note: `data/` (top level) holds the **datasets**; `src/data/` holds the **code**
+that loads and processes them — same word, different role.
 
 **Training and inference are decoupled.** Importing the inference/evaluation code
 never pulls in `peft`/`trl`/`bitsandbytes`; those are imported lazily and only by
@@ -52,7 +59,9 @@ Every run writes a self-describing folder under `outputs/experiments/<id>/`:
 `config_snapshot.yaml`, `config_hash.txt`, `git_hash.txt`, `env.txt`, plus the
 run's outputs (`adapter/`, `predictions*.jsonl`, `metrics_auto.json`, `logs/`).
 Train/val/test splits are a deterministic hash of each item's content, so the
-test set never leaks into training as the dataset grows.
+test set never leaks into training as the dataset grows. The split source is the
+principled synthetic pool `data/gold.jsonl`; the superseded original split files
+are kept under `data/raw_legacy/` only as a fallback.
 
 ---
 
@@ -183,12 +192,14 @@ python scripts/compute_irr.py
 |---|---|
 | `python scripts/build_data.py` | Build `data/processed/{train,val,test}.jsonl` with hash splits |
 | `python scripts/build_kb.py` | Build the RAG knowledge base (`data/knowledge_base/chunks.jsonl`) |
+| `python scripts/build_perturbations.py` | Build paraphrase / missing-info test variants (enables the robustness metrics) |
 | `python scripts/train.py --experiment E03_qwen0_5b_ft` | Fine-tune (GPU); writes the run folder |
 | `python scripts/run_all.py --experiments E01_qwen0_5b_prompt E03_qwen0_5b_ft --seeds 42 43 44` | Run methods × seeds |
 | `python scripts/infer.py --experiment E01_qwen0_5b_prompt` | Cached inference only |
 | `python scripts/eval_auto.py --experiment E01_qwen0_5b_prompt` | Automatic metrics |
 | `python scripts/run_experiment.py --experiment E01_qwen0_5b_prompt` | Infer + eval |
 | `python scripts/eval_stats.py --experiments A B ...` | Cross-method statistics |
+| `python scripts/aggregate_results.py` | Aggregate all runs → `results/comparison_table.csv`, `comparison_seeds.csv` (mean/std across seeds), `final_report.md` |
 | `python scripts/generate_dataset.py --n 600` | Generate principled gold data (`data/gold.jsonl`) |
 | `python scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag` | Build blind human-eval set + assignment |
 | `python scripts/run_human_eval.py` | Launch the Streamlit rating app |

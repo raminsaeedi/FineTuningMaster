@@ -17,8 +17,10 @@ is:
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -55,8 +57,43 @@ def _pip_freeze() -> str:
         return f"# pip freeze unavailable: {exc}\n"
 
 
+def _nested_get(cfg: Any, dotted: str, default: Any = None) -> Any:
+    """Read ``a.b.c`` from a dict / OmegaConf config, tolerant of missing keys."""
+    cur = cfg
+    for key in dotted.split("."):
+        try:
+            cur = cur.get(key) if hasattr(cur, "get") else getattr(cur, key)
+        except Exception:
+            return default
+        if cur is None:
+            return default
+    return cur
+
+
+def write_manifest(exp_dir: Path, cfg: Any) -> dict:
+    """Write a single machine-readable record identifying the run.
+
+    One ``manifest.json`` ties together what the other provenance files describe
+    separately (method/model/seed/hashes/timestamp), so a run can be indexed
+    without parsing the YAML snapshot.
+    """
+    manifest = {
+        "experiment_id": str(cfg.get("experiment_id", "")),
+        "experiment_name": str(cfg.get("experiment_name", "")),
+        "method": str(_nested_get(cfg, "method.name", "")),
+        "model": str(_nested_get(cfg, "model.name", "")),
+        "seed": int(cfg.get("seed", 42)),
+        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "config_hash": hash_config(cfg),
+        "git_hash": get_git_hash(),
+    }
+    with (exp_dir / "manifest.json").open("w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, default=str)
+    return manifest
+
+
 def write_run_metadata(exp_dir: Path, cfg: Any) -> None:
-    """Write config snapshot, config hash, git hash and the environment."""
+    """Write config snapshot, config hash, git hash, environment and manifest."""
     exp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -69,3 +106,4 @@ def write_run_metadata(exp_dir: Path, cfg: Any) -> None:
     (exp_dir / "config_hash.txt").write_text(hash_config(cfg) + "\n", encoding="utf-8")
     (exp_dir / "git_hash.txt").write_text(get_git_hash() + "\n", encoding="utf-8")
     (exp_dir / "env.txt").write_text(_pip_freeze(), encoding="utf-8")
+    write_manifest(exp_dir, cfg)

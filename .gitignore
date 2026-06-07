@@ -21,8 +21,11 @@ data/knowledge_base/chunks.jsonl
 data/knowledge_base/index/
 
 # ── Experiment outputs & model weights (large; not versioned) ─
+# NOTE: ignore any 'models/' weights directory, but keep the source package
+# src/models/ (the import-safe HF wrapper) tracked — the negation re-includes it.
 outputs/
 models/
+!src/models/
 
 # ── Jupyter ──────────────────────────────────────────────────
 .ipynb_checkpoints/

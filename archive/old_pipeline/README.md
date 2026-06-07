@@ -18,8 +18,7 @@ master-thesis-finetuning/
 ├── generate_dataset.py      # STEP 1 – Generate synthetic training data
 ├── train.py                 # STEP 2 – Fine-tune the model with QLoRA
 ├── inference.py             # STEP 3 – Run inference & evaluate
-│
-├── colab_finetune.ipynb     # Google Colab notebook (all steps in one place)
+│   # (colab_finetune.ipynb existed in earlier snapshots; not kept in this archive)
 │
 ├── data/                    # Auto-created by generate_dataset.py
 │   ├── train.jsonl          # 80 training examples
@@ -74,7 +73,10 @@ python inference.py               # fine-tuned model
 
 ### Google Colab (Recommended for Training)
 
-1. Upload `colab_finetune.ipynb` to [Google Colab](https://colab.research.google.com)
+> Note: the Colab notebook (`colab_finetune.ipynb`) is not kept in this archive
+> snapshot. The steps below are preserved for historical reference only.
+
+1. Upload the Colab notebook to [Google Colab](https://colab.research.google.com)
 2. Set runtime to **GPU**: Runtime → Change runtime type → T4 GPU
 3. Run all cells top to bottom
 4. Training takes ~15–30 minutes on a T4 GPU
