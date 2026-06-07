@@ -25,7 +25,7 @@ for every method.
 configs/              Hydra config groups (model, method, training, data, eval, experiment)
 src/
   core/               schemas (Pydantic), registry, interfaces, prompts, constants
-  data/               data-loading CODE (not the datasets): hash splits, gold loading, formatter, perturbations
+  data_pipeline/      data-loading code: hash splits, gold loading, formatter, perturbations, KB build
   models/             HuggingFace causal-LM wrapper (import-safe)
   methods/            A/B/C/D — all behind the METHODS registry, one generate() contract
   retrievers/         TF-IDF retriever over the guideline KB (RETRIEVERS registry)
@@ -45,8 +45,11 @@ results/              aggregated analysis: stats/, human_eval/, human_ratings/
 archive/old_pipeline/ the previous codebase, preserved for reference
 ```
 
-Note: `data/` (top level) holds the **datasets**; `src/data/` holds the **code**
-that loads and processes them — same word, different role.
+Note: `data/` (top level) holds the **datasets**; `src/data_pipeline/` holds the
+**code** that loads and processes them.
+
+Inside `results/`: `human_eval/` = eval-set **inputs** (assignment, items),
+`human_ratings/` = rating **outputs**, `stats/` = auto-metric statistics.
 
 **Training and inference are decoupled.** Importing the inference/evaluation code
 never pulls in `peft`/`trl`/`bitsandbytes`; those are imported lazily and only by

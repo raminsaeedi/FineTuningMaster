@@ -28,7 +28,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from src.core.constants import REQUIRED_KEYS  # noqa: E402
 from src.core.schemas import GenerationResult  # noqa: E402
-from src.data.dataset import load_gold_items  # noqa: E402
+from src.data_pipeline.dataset import load_gold_items  # noqa: E402
 from src.evaluation.metrics.base import normalise, predicted_charts, reference_charts  # noqa: E402
 from src.evaluation.stats import (  # noqa: E402
     cliffs_delta,

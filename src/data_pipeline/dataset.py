@@ -2,7 +2,7 @@
 
 The raw gold files store ``{brief, recommendation}`` without an id. We derive a
 content-based ``item_id`` from the brief so the same brief always lands in the
-same split (see ``src.data.splits``) and so predictions can be joined back to
+same split (see ``src.data_pipeline.splits``) and so predictions can be joined back to
 references by id rather than by file position.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from src.core.schemas import DashboardBrief, DesignOutput, GoldItem
-from src.data.splits import assign_split
+from src.data_pipeline.splits import assign_split
 from src.utils.io import read_jsonl
 
 

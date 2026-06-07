@@ -1,7 +1,7 @@
 """The synthetic generator must produce correct, deterministic task->chart labels."""
 
 from src.core.schemas import GoldItem
-from src.data.synth_generator import TASK_CHART, generate_dataset
+from src.data_pipeline.synth_generator import TASK_CHART, generate_dataset
 
 
 def test_labels_match_principled_ground_truth():

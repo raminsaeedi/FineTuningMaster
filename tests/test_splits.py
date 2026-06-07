@@ -1,6 +1,6 @@
 """Determinism and disjointness of the hash-based split."""
 
-from src.data.splits import assign_split
+from src.data_pipeline.splits import assign_split
 
 
 def test_split_is_deterministic():

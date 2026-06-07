@@ -21,7 +21,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data.dataset import load_gold_items
+from src.data_pipeline.dataset import load_gold_items
 from src.evaluation.human.assignment import build_assignment, build_eval_items
 from src.utils.artifacts import experiment_dir
 from src.utils.config import load_cfg

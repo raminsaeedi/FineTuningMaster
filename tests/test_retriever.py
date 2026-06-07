@@ -1,7 +1,7 @@
 """Knowledge-base chunking + TF-IDF retriever tests."""
 
 from src.core.registry import RETRIEVERS
-from src.data.kb_builder import _chunk_markdown
+from src.data_pipeline.kb_builder import _chunk_markdown
 
 
 def test_chunk_markdown_splits_on_headings():

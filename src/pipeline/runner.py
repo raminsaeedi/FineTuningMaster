@@ -16,7 +16,7 @@ import src.evaluation  # noqa: F401  (registers metrics under METRICS)
 import src.methods  # noqa: F401  (registers methods under METHODS)
 from src.core.registry import METHODS, METRICS
 from src.core.schemas import GenerationResult
-from src.data.dataset import load_gold_items
+from src.data_pipeline.dataset import load_gold_items
 from src.evaluation.metrics.robustness import compute_robustness
 from src.inference.postprocess import reparse
 from src.inference.runner import InferenceRunner

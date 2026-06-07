@@ -31,6 +31,7 @@ Fünf Grundprinzipien, die durchgehend einzuhalten sind:
 ### Prinzip 1 — Config-Driven Everything
 
 **Kein Hyperparameter, kein Dateipfad, kein Modellname** darf hartkodiert werden. Alles kommt aus YAML-Dateien. Das bedeutet:
+
 - Basismodell wechseln = eine Zeile YAML ändern
 - Neues Experiment hinzufügen = neue Datei anlegen
 - Experiment von vor drei Monaten reproduzieren = dieselbe Config ausführen
@@ -47,9 +48,11 @@ class DenseRAGMethod(BaseMethod): ...
 ### Prinzip 3 — Standardisierte Schnittstellen
 
 Alle Methoden (A, B, C, D) müssen **dieselbe** Methode haben:
+
 ```python
 def generate(self, brief: DashboardBrief) -> GenerationResult
 ```
+
 Das heißt: Der Evaluierungscode wird **einmal** geschrieben und funktioniert mit allen Methoden.
 
 ### Prinzip 4 — Separation of Concerns
@@ -308,6 +311,7 @@ pip install hydra-core==1.3.* omegaconf
 ### Beispiel-Configs
 
 **`configs/config.yaml`** (Haupt):
+
 ```yaml
 defaults:
   - model: qwen2_5_7b
@@ -328,6 +332,7 @@ tracking:
 ```
 
 **`configs/model/qwen2_5_7b.yaml`**:
+
 ```yaml
 name: qwen2_5_7b
 hf_id: Qwen/Qwen2.5-7B-Instruct
@@ -335,11 +340,12 @@ size_billions: 7
 context_length: 32768
 chat_template: qwen
 dtype: bfloat16
-load_in_4bit: false        # wird für Training auf True gesetzt
+load_in_4bit: false # wird für Training auf True gesetzt
 trust_remote_code: false
 ```
 
 **`configs/method/ft_rag.yaml`**:
+
 ```yaml
 name: ft_rag
 type: fine_tuned_rag
@@ -356,6 +362,7 @@ generate:
 ```
 
 **`configs/training/qlora_default.yaml`**:
+
 ```yaml
 type: qlora
 lora:
@@ -394,6 +401,7 @@ sft:
 ```
 
 **`configs/experiment/E04_qwen7b_ft_rag.yaml`**:
+
 ```yaml
 # @package _global_
 defaults:
@@ -757,12 +765,12 @@ vLLM kann auch LoRA-Adapter ausliefern – ideal für Methode D.
 
 Alle folgen einem einheitlichen Vertrag. Die Unterschiede liegen nur in Setup und Prompt-Aufbau:
 
-| Methode | Setup | Prompt-Aufbau |
-|---|---|---|
-| **PromptOnly** | nur Basismodell | `[system, user(brief)]` |
-| **RAG** | Basismodell + Retriever + Index | `[system, user(passages + brief)]` |
-| **FT** | Basismodell + LoRA-Adapter | `[system, user(brief)]` mit FT-Modell |
-| **FT+RAG** | Basismodell + Adapter + Retriever | `[system, user(passages + brief)]` mit FT-Modell |
+| Methode        | Setup                             | Prompt-Aufbau                                    |
+| -------------- | --------------------------------- | ------------------------------------------------ |
+| **PromptOnly** | nur Basismodell                   | `[system, user(brief)]`                          |
+| **RAG**        | Basismodell + Retriever + Index   | `[system, user(passages + brief)]`               |
+| **FT**         | Basismodell + LoRA-Adapter        | `[system, user(brief)]` mit FT-Modell            |
+| **FT+RAG**     | Basismodell + Adapter + Retriever | `[system, user(passages + brief)]` mit FT-Modell |
 
 ### 4.4 Retrievers-Modul
 
@@ -982,28 +990,28 @@ class ExperimentRunner:
 
 ### 5.1 Fine-Tuning: welche Methode?
 
-| Methode | Wann verwenden? | Hinweise |
-|---|---|---|
-| **Full FT** | habe ich nicht / will ich nicht (sehr teuer) | nur als Referenz in Ablations bei genügend Ressourcen |
-| **LoRA** | wenn GPU mit ≥24 GB | rank=16, target = alle Linear-Module |
-| **QLoRA** | ⭐ Standard für diese Arbeit | 4-Bit NF4, rank=16, Double Quant |
-| **DoRA** | für Ablation im Ergebnisteil | DoRA = LoRA + Magnitude-Decomposition; meist 1–2 % besser |
-| **GaLore** | wenn Full FT geplant, aber RAM-Mangel | Gradient Low-Rank Projection |
-| **Llama-Pro / Block Expansion** | Wissen ohne Vergessen ergänzen | komplexer, seltener |
+| Methode                         | Wann verwenden?                              | Hinweise                                                  |
+| ------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
+| **Full FT**                     | habe ich nicht / will ich nicht (sehr teuer) | nur als Referenz in Ablations bei genügend Ressourcen     |
+| **LoRA**                        | wenn GPU mit ≥24 GB                          | rank=16, target = alle Linear-Module                      |
+| **QLoRA**                       | ⭐ Standard für diese Arbeit                 | 4-Bit NF4, rank=16, Double Quant                          |
+| **DoRA**                        | für Ablation im Ergebnisteil                 | DoRA = LoRA + Magnitude-Decomposition; meist 1–2 % besser |
+| **GaLore**                      | wenn Full FT geplant, aber RAM-Mangel        | Gradient Low-Rank Projection                              |
+| **Llama-Pro / Block Expansion** | Wissen ohne Vergessen ergänzen               | komplexer, seltener                                       |
 
 **Empfehlung für die Masterarbeit:** QLoRA (Standard) + Ablation mit DoRA und unterschiedlichen Ranks.
 
 ### 5.2 RAG: verschiedene Generationen
 
-| Generation | Technik | Wann verwenden? |
-|---|---|---|
-| Naive | Dense Retrieval (BGE) → in Kontext einfügen | RAG-Baseline |
-| Hybrid | Dense + BM25 + RRF | bei schwachem Retrieval |
-| **Rerank** | k=50 retrieven, mit Cross-Encoder reranken, Top 5 behalten | ⭐ empfohlen |
-| HyDE | LLM erzeugt eine hypothetische Antwort → diese wird abgefragt | bei kurzen/ambigen Queries |
-| Self-RAG | Modell entscheidet selbst, ob Retrieval nötig | komplex, evtl. übertrieben für die Arbeit |
-| CRAG | Retrieve → Evaluator-Score → bei Schwäche Websuche | externe Werkzeuge nötig |
-| GraphRAG | Knowledge Graph statt Flat Chunks | bei relationalen Domänen |
+| Generation | Technik                                                       | Wann verwenden?                           |
+| ---------- | ------------------------------------------------------------- | ----------------------------------------- |
+| Naive      | Dense Retrieval (BGE) → in Kontext einfügen                   | RAG-Baseline                              |
+| Hybrid     | Dense + BM25 + RRF                                            | bei schwachem Retrieval                   |
+| **Rerank** | k=50 retrieven, mit Cross-Encoder reranken, Top 5 behalten    | ⭐ empfohlen                              |
+| HyDE       | LLM erzeugt eine hypothetische Antwort → diese wird abgefragt | bei kurzen/ambigen Queries                |
+| Self-RAG   | Modell entscheidet selbst, ob Retrieval nötig                 | komplex, evtl. übertrieben für die Arbeit |
+| CRAG       | Retrieve → Evaluator-Score → bei Schwäche Websuche            | externe Werkzeuge nötig                   |
+| GraphRAG   | Knowledge Graph statt Flat Chunks                             | bei relationalen Domänen                  |
 
 **Empfehlung für die Masterarbeit:** Dense (BGE-small oder BGE-m3) + Cross-Encoder-Reranker + Ablation mit BM25 und Hybrid.
 
@@ -1066,17 +1074,17 @@ generator = outlines.generate.json(model, schema)
 result = generator(prompt)  # garantiert gültiges JSON
 ```
 
-Das bedeutet: **Schema-Compliance stets 100 %**. Kosten: etwas langsamer und teils geringere Inhaltsqualität. In der Arbeit kann sowohl *ohne* Constrained (Aussage über inhärente Qualität) als auch *mit* (Aussage über die Wirkung des Decodings) berichtet werden.
+Das bedeutet: **Schema-Compliance stets 100 %**. Kosten: etwas langsamer und teils geringere Inhaltsqualität. In der Arbeit kann sowohl _ohne_ Constrained (Aussage über inhärente Qualität) als auch _mit_ (Aussage über die Wirkung des Decodings) berichtet werden.
 
 ### 5.5 Decoding-Hyperparameter
 
-| Parameter | Empfehlung |
-|---|---|
-| temperature | 0.2 für strukturierte Aufgaben |
-| top_p | 0.9 |
-| repetition_penalty | 1.05 |
-| max_new_tokens | 1500 (ausreichend für vollständiges JSON) |
-| seed | stets dokumentieren |
+| Parameter          | Empfehlung                                |
+| ------------------ | ----------------------------------------- |
+| temperature        | 0.2 für strukturierte Aufgaben            |
+| top_p              | 0.9                                       |
+| repetition_penalty | 1.05                                      |
+| max_new_tokens     | 1500 (ausreichend für vollständiges JSON) |
+| seed               | stets dokumentieren                       |
 
 Für Robustheitstests kann temperature=0 (greedy) gewählt werden, um Varianz zu eliminieren.
 
@@ -1134,6 +1142,7 @@ Den Output von `pip freeze` in `results/experiments/EXX/env.txt` ablegen.
 ### 6.4 Git-Hash
 
 In Config-Snapshot zusätzlich den Git-Commit-Hash mitspeichern:
+
 ```python
 import subprocess
 git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
@@ -1146,21 +1155,25 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 1 — Fundament
 
 **Woche 1:**
+
 - [ ] Repo anlegen, Hydra einrichten, einfache CI (Unit-Tests)
 - [ ] Umgebung, GPU, W&B, HF-Tokens
 - [ ] Literatur lesen: Few, Munzner, Cleveland & McGill, LoRA, QLoRA, RAG-Survey, RAFT
 
 **Woche 2:**
+
 - [ ] Finales Rubric (10 Dimensionen, mit Referenzbeispielen)
 - [ ] Finales JSON-Schema
 - [ ] Einige manuelle Musterbeispiele (~10) als Few-Shot-Prompts
 
 **Woche 3:**
+
 - [ ] `data/builders/` implementieren
 - [ ] Erstes Dataset (≥1000 Paare) mit deterministischem Split
 - [ ] Knowledge Base sammeln (~30–50 Dokumente → ~500–1000 Chunks)
 
 **Woche 4:**
+
 - [ ] Embedder + FAISS-Index
 - [ ] BM25-Index
 - [ ] Hybrid-Retriever testen (manuelle Queries, prüfen, ob Passagen sinnvoll)
@@ -1170,23 +1183,27 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 2 — Baselines und RAG
 
 **Woche 5:**
+
 - [ ] HFCausalModel-Wrapper
 - [ ] PromptOnlyMethod
 - [ ] Finale Few-Shot-Prompts
 - [ ] Ausführung auf Val-Set als Smoke-Test
 
 **Woche 6:**
+
 - [ ] RAGMethod (Dense)
 - [ ] RAGMethod mit Reranker
 - [ ] Erste Ablation: BM25 vs. Dense vs. Hybrid (auf Val)
 - [ ] Auswahl der besten Retriever-Variante
 
 **Woche 7:**
+
 - [ ] Einfache Metriken (top_k, schema_compliance, macro_f1)
 - [ ] `eval_auto.py`
 - [ ] Erste Tabelle: A vs. B auf Val (als Sanity Check)
 
 **Woche 8:**
+
 - [ ] vLLM-Integration für Massen-Inference
 - [ ] Finale Auswahl der zu fine-tuneenden Basismodelle (2–3 Modelle reichen)
 
@@ -1195,21 +1212,25 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 3 — Fine-Tuning und FT+RAG
 
 **Woche 9:**
+
 - [ ] QLoRA-Training-Pipeline
 - [ ] Erstes Training auf Qwen2.5-7B (Smoke-Run, 1 Epoche, kleines Sample)
 - [ ] Bugfixing
 
 **Woche 10:**
+
 - [ ] Vollständiges Training für 2–3 Modelle (Qwen7B, Llama8B, optional Qwen14B mit QLoRA)
 - [ ] Kleiner Hyperparameter-Sweep (r ∈ {8,16,32}, lr ∈ {1e-4, 2e-4})
 - [ ] Auswahl der besten Hyperparameter basierend auf Val-Loss + Val-Top-1
 
 **Woche 11:**
+
 - [ ] FT-Inference auf Test-Set
 - [ ] FT+RAG-Inference auf Test-Set
 - [ ] Optional: RAFT-Training und Vergleich mit Simple FT+RAG
 
 **Woche 12:**
+
 - [ ] Vollständige Tabelle automatischer Metriken (alle 4 Methoden × alle Modelle × 3 Seeds)
 - [ ] Erste Fehleranalyse (manuelle Betrachtung von 20–30 Beispielen)
 - [ ] Reparaturen: bei niedriger Schema-Compliance Constrained Decoding einbauen
@@ -1219,12 +1240,14 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 4 — Menschliche Evaluation
 
 **Woche 13:**
+
 - [ ] Streamlit-App
 - [ ] Pilotstudie (10–15 Items, 2–3 Rater)
 - [ ] Rubric basierend auf Pilot-Feedback anpassen
 - [ ] Bewertungsvarianz schätzen → finale Stichprobengröße bestimmen
 
 **Woche 14:**
+
 - [ ] Finale Auswahl von 100 Items für die menschliche Evaluation (Diversität gewährleisten)
 - [ ] Assignment-Design (Balanced Incomplete Block Design):
   - 100 Items × 4 Systeme = 400 Outputs
@@ -1233,11 +1256,13 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Rater-Recruitment (HCI/UX-Studierende oder Praktiker)
 
 **Woche 15:**
+
 - [ ] Kalibrierungssitzung mit Ratern (1–2 Stunden): Referenzbeispiele zeigen, Meinungsverschiedenheiten diskutieren
 - [ ] Start der Ratings
 - [ ] Fortschritt täglich überwachen
 
 **Woche 16:**
+
 - [ ] Alle Ratings einsammeln
 - [ ] Krippendorffs α pro Dimension berechnen
 - [ ] Bei α < 0.67 für einzelne Dimensionen → Diskussionsabschnitt in der Arbeit
@@ -1247,22 +1272,26 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 5 — Statistische Analyse und Robustheit
 
 **Woche 17:**
+
 - [ ] Friedman-Test pro Rubric-Dimension
 - [ ] Post-hoc Wilcoxon + Holm
 - [ ] Cliffs δ für signifikante Paare
 - [ ] Bootstrap-Konfidenzintervalle
 
 **Woche 18:**
+
 - [ ] Cochrans Q + McNemar für Top-1
 - [ ] Robustheitstests: Paraphrase, Drop-Info, Noise
 - [ ] Grounding-Analyse für B und D
 
 **Woche 19:**
+
 - [ ] Systematische Fehleranalyse (Kategorisierung von 100 Fehlern)
 - [ ] Abbildungen (Matplotlib/Seaborn), hochauflösendes PDF
 - [ ] Finale Ablations (LoRA-Rank, Retriever-Typ, RAFT vs. FT+RAG)
 
 **Woche 20:**
+
 - [ ] Zusammenführung aller Ergebnisse in einem zentralen DataFrame
 - [ ] Sanity Checks: Stimmen Zahlen und Diagramme überein? Passen p-Werte zu Konfidenzintervallen?
 
@@ -1271,11 +1300,13 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ### Monat 6 — Schreiben und Verteidigung
 
 **Woche 21–23:**
+
 - [ ] Verfassen der Kapitel (Einleitung → Schluss)
 - [ ] Feedback vom Betreuer → Überarbeitung
 - [ ] Reproduzierbarkeits-Check: jemand anderes (oder Sie selbst auf einem sauberen System) muss das Repo klonen und ausführen können
 
 **Woche 24:**
+
 - [ ] Vortragsfolien
 - [ ] Generalprobe
 - [ ] Verteidigung 🎉
@@ -1285,12 +1316,14 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 ## Teil 8: Vollständige Checkliste
 
 ### Daten
+
 - [ ] Test-Set mit deterministischem Split (hash-basiert)
 - [ ] Keine Test-Beispiele in Train oder Val (über Set-Mitgliedschaft prüfen)
 - [ ] Augmented Daten (Paraphrasen) nur im Train, nicht in Val/Test
 - [ ] KB-Chunks mit stabiler ID (bei Aktualisierung der KB ändern sich alte IDs nicht)
 
 ### Modelle & Training
+
 - [ ] Jeder Training-Lauf wird mit W&B geloggt
 - [ ] env.txt und git_hash liegen im Ordner jedes Laufs
 - [ ] LoRA-Adapter, Basismodell und Tokenizer alle drei reproduzierbar abrufbar
@@ -1298,12 +1331,14 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Drei Seeds pro Konfiguration
 
 ### Inference
+
 - [ ] Cache-Mechanismus funktioniert (Test: ein Lauf, erneuter Lauf → "CACHE HIT")
 - [ ] `retrieved_docs` werden für RAG-Methoden gespeichert
 - [ ] `latency_ms` wird für alle erfasst (für Effizienz-Tabelle)
 - [ ] JSON-Parse-Fehler werden separat erfasst (nicht als Unter-Qualität, sondern als eigene Metrik)
 
 ### Evaluation – Automatisch
+
 - [ ] Top-1, Top-3, Macro-F1 (über Chart-Typ-Klassen)
 - [ ] Schema-Compliance: Valid-JSON-Rate + durchschnittliche Vollständigkeit
 - [ ] Robustheit: Konsistenz unter Paraphrase / Drop / Noise
@@ -1311,6 +1346,7 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Für RAG-Methoden: Retrieval-Precision@k (bei vorhandenen Gold-Passagen) oder Recall@k
 
 ### Evaluation – Menschlich
+
 - [ ] Pilot durchgeführt
 - [ ] Kalibrierungssitzung mit Ratern abgehalten
 - [ ] Blind: Rater wissen nicht, welches System welches ist
@@ -1320,6 +1356,7 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Inter-Rater-Varianz untersucht
 
 ### Statistische Analyse
+
 - [ ] Friedman-Test pro Rubric-Dimension (Likert-ordinal)
 - [ ] Wilcoxon Signed-Rank Post-hoc mit Holm-Korrektur
 - [ ] Cliffs δ für Effektgröße
@@ -1329,6 +1366,7 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Keine Signifikanzbehauptung ohne CI und Effektgröße
 
 ### Reproduzierbarkeit
+
 - [ ] Jeder Lauf hat `config_snapshot.yaml`
 - [ ] `config_hash.txt` für schnellen Abgleich
 - [ ] `env.txt`
@@ -1337,6 +1375,7 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 - [ ] Einzeiler zur Reproduktion: `python scripts/run_experiment.py +experiment=EXX seed=42`
 
 ### Masterarbeitsdokument
+
 - [ ] Formeln (LaTeX): LoRA, RRF, RAFT, Cliffs δ, Krippendorffs α
 - [ ] Referenztabelle mit Chart-Typ-Labels
 - [ ] Threats to Validity: subjektive Ratings, Dataset-Bias, Modellgröße, Compute
@@ -1351,27 +1390,32 @@ git_hash = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
 Verzeichnis aller Algorithmen und Formeln, die in der Masterarbeit verwendet oder zumindest erwähnt werden:
 
 ### Adaptationsalgorithmen
+
 1. **LoRA** — Hu et al. 2021. \( W' = W + BA \), mit \( B \in \mathbb{R}^{d \times r}, A \in \mathbb{R}^{r \times k} \), \( r \ll \min(d,k) \).
 2. **QLoRA** — Dettmers et al. 2023. NF4-Quantisierung + Double Quant + Paged Optimizers.
-3. **DoRA** — Liu et al. 2024. \( W' = m \cdot \frac{W_0 + BA}{\|W_0 + BA\|_c} \) — Trennung von Magnitude und Direction.
+3. **DoRA** — Liu et al. 2024. \( W' = m \cdot \frac{W_0 + BA}{\|W_0 + BA\|\_c} \) — Trennung von Magnitude und Direction.
 
 ### Retrieval-Algorithmen
+
 4. **BM25** — Robertson & Spärck Jones. Klassisch, transparent.
 5. **Dense Retrieval (BGE/E5)** — Bi-Encoder mit kontrastivem Training.
 6. **Cross-Encoder Reranking** — Query und Dokument werden gemeinsam enkodiert für präziseren Score.
-7. **Reciprocal Rank Fusion (RRF)** — \( \text{score}(d) = \sum_i \frac{1}{k + \text{rank}_i(d)} \), üblicherweise \( k=60 \).
+7. **Reciprocal Rank Fusion (RRF)** — \( \text{score}(d) = \sum_i \frac{1}{k + \text{rank}\_i(d)} \), üblicherweise \( k=60 \).
 8. **HyDE** — Hypothetical Document Embeddings: LLM erzeugt eine hypothetische Antwort, die abgefragt wird.
 
 ### Generation-/Decoding-Algorithmen
+
 9. **Nucleus (Top-p) Sampling**
 10. **Constrained Decoding (Outlines / lm-format-enforcer)** — Garantierte Grammar-/JSON-Schema-Konformität.
 
 ### Fortgeschrittene RAG-Algorithmen
+
 11. **RAFT** — Zhang et al. 2024. Training mit Oracle + Distraktor-Passagen.
 12. **Self-RAG** — Asai et al. 2024. Modell setzt Reflection-Tokens selbst.
 13. **CRAG** — Yan et al. 2024. Fallback bei schwachem Retrieval.
 
 ### Evaluierungsalgorithmen
+
 14. **Top-k Accuracy**
 15. **Macro-F1**
 16. **JSON Schema Validation (Draft-07)**
@@ -1380,6 +1424,7 @@ Verzeichnis aller Algorithmen und Formeln, die in der Masterarbeit verwendet ode
 19. **RAGAS-Metriken**: Faithfulness, Answer Relevance, Context Precision/Recall.
 
 ### Statistik
+
 20. **Krippendorffs α (ordinal)** — \( \alpha = 1 - \frac{D_o}{D_e} \).
 21. **Friedman-Test** — \( \chi^2_F = \frac{12}{nk(k+1)} \sum_j R_j^2 - 3n(k+1) \).
 22. **Wilcoxon Signed-Rank Test**.
@@ -1390,6 +1435,7 @@ Verzeichnis aller Algorithmen und Formeln, die in der Masterarbeit verwendet ode
 27. **McNemar-Test (exakt)** — für 2 matched dichotome Stichproben.
 
 ### Behavioral Testing
+
 28. **Paraphrase-Robustheit** — Invarianz-Test.
 29. **Drop-Info-Robustheit** — Minimum-Functionality-Test.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from src.data.perturbations import drop_info_brief, paraphrase_brief, paraphrase_text
+from src.data_pipeline.perturbations import drop_info_brief, paraphrase_brief, paraphrase_text
 
 _BRIEF = {
     "item_id": "item_abc123",

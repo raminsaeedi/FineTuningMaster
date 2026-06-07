@@ -26,8 +26,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data.dataset import compute_item_id, load_pool
-from src.data.splits import assign_split
+from src.data_pipeline.dataset import compute_item_id, load_pool
+from src.data_pipeline.splits import assign_split
 from src.utils.io import read_jsonl, write_jsonl
 
 RAW_FILES = ("train.jsonl", "val.jsonl", "test.jsonl")

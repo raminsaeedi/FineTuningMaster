@@ -29,8 +29,8 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import src.training  # noqa: F401,E402  (registers trainers under TRAINERS)
 from src.core.registry import TRAINERS  # noqa: E402
-from src.data.dataset import load_gold_items  # noqa: E402
-from src.data.formatter import format_training_example  # noqa: E402
+from src.data_pipeline.dataset import load_gold_items  # noqa: E402
+from src.data_pipeline.formatter import format_training_example  # noqa: E402
 from src.utils.artifacts import setup_run_dir, write_run_metadata  # noqa: E402
 from src.utils.config import load_cfg  # noqa: E402
 from src.utils.logging import setup_logging  # noqa: E402

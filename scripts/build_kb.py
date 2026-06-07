@@ -16,7 +16,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data.kb_builder import build_chunks
+from src.data_pipeline.kb_builder import build_chunks
 from src.utils.io import write_jsonl
 
 
