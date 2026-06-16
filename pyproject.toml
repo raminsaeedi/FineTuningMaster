@@ -59,4 +59,4 @@ dev = [
 include = ["src*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src/tests"]

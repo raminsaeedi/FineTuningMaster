@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CONFIGS_DIR = PROJECT_ROOT / "configs"
+CONFIGS_DIR = PROJECT_ROOT / "src" / "config"
 
 
 def load_cfg(experiment: Optional[str] = None, overrides: Optional[List[str]] = None):
