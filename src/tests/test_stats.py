@@ -4,8 +4,10 @@ from src.evaluation.stats import (
     bootstrap_ci,
     cliffs_delta,
     cochran_q,
+    cohen_dz,
     holm_correction,
     mcnemar_test,
+    paired_rank_biserial,
     pairwise_wilcoxon,
 )
 
@@ -44,3 +46,14 @@ def test_mcnemar_discordant():
 def test_bootstrap_ci_orders():
     out = bootstrap_ci([1, 2, 3, 4, 5], n_boot=500)
     assert out["ci_low"] <= out["point"] <= out["ci_high"]
+
+
+def test_paired_effect_sizes():
+    # x strictly above y on every pair -> max positive paired effect.
+    x = [2, 4, 4, 6]
+    y = [1, 2, 3, 4]
+    assert paired_rank_biserial(x, y) == 1.0   # all signed ranks positive
+    assert cohen_dz(x, y) > 0                   # consistent positive shift (nonzero var)
+    # All differences zero -> no effect, no divide-by-zero.
+    assert paired_rank_biserial([1, 1, 1], [1, 1, 1]) == 0.0
+    assert cohen_dz([1, 1, 1], [1, 1, 1]) == 0.0

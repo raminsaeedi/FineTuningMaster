@@ -113,6 +113,7 @@ class ExperimentRunner:
             results,
             self._load_predictions("predictions_paraphrased.jsonl"),
             self._load_predictions("predictions_missing_info.jsonl"),
+            references=references,
         )
 
         payload = {

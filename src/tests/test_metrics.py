@@ -28,22 +28,68 @@ def test_top_k_accuracy_primary_and_alternatives():
     ]
     refs = [_ref("a", ["line"]), _ref("b", ["line"])]
     out = TopKAccuracy().compute(results, refs)
-    assert out["top_1_accuracy"] == 50.0   # only 'a' has matching primary
-    assert out["top_3_accuracy"] == 100.0  # 'b' lists 'line' as an alternative
+    assert out["top_1_accuracy"] == 50.0      # only 'a' has matching primary
     assert out["n"] == 2
+    # Only 'b' carries alternatives (50% coverage) -> top-3 is valid at threshold.
+    assert out["top_3_valid"] is True
+    # 'a' primary hit + 'b' alternative hit -> both counted in global top-3.
+    assert out["top_3_accuracy"] == 100.0
+    # Supported subset = items with alternatives ('b' only), which hits.
+    assert out["top_3_accuracy_supported"] == 100.0
+    assert out["n_with_alternatives"] == 1
 
 
-def test_schema_compliance_full_and_partial():
-    full = ('{"context_summary": {}, "kpi_chart_mapping": [], "layout": {}, '
-            '"styling": {}, "interactions": [], "rationales": []}')
-    partial = '{"context_summary": {}}'
-    broken = "not json at all"
+def test_top1_counts_parse_failures_as_wrong():
+    # 'a' parses and is correct; 'b' is a parse failure (no parsed output).
+    good = _result("a", [{"kpi": "k", "task_type": "trend", "chart_type": "line"}])
+    bad = GenerationResult(item_id="b", method_name="m", model_name="x",
+                           raw_text="not json", parsed=None)
+    refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
+    out = TopKAccuracy().compute([good, bad], refs)
+    assert out["n"] == 2                  # denominator includes the failure
+    assert out["n_parse_failures"] == 1
+    assert out["top_1_accuracy"] == 50.0  # 1 correct out of 2 items (failure = wrong)
+
+
+def test_top3_invalid_when_no_alternatives():
+    # No item emits alternatives -> top-3 is degenerate and reported invalid.
     results = [
-        _result("a", [], full),
-        _result("b", [], partial),
-        _result("c", [], broken),
+        _result("a", [{"kpi": "k", "task_type": "trend", "chart_type": "line"}]),
+        _result("b", [{"kpi": "k", "task_type": "trend", "chart_type": "bar"}]),
     ]
+    refs = [_ref("a", ["line"]), _ref("b", ["line"])]
+    out = TopKAccuracy().compute(results, refs)
+    assert out["n_with_alternatives"] == 0
+    assert out["top_3_valid"] is False
+    assert out["top_3_accuracy"] is None
+
+
+def test_schema_full_validity_vs_required_keys():
+    # Required keys all present but chart_type enum is invalid -> not full-valid.
+    bad_enum = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
+                '[{"kpi": "k", "task_type": "trend", "chart_type": "column chart"}], '
+                '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
+                '"rationales": [{"claim": "c"}]}')
+    valid = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
+             '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+             '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
+             '"rationales": [{"claim": "c"}]}')
+    results = [_result("a", [], bad_enum), _result("b", [], valid)]
     out = SchemaCompliance().compute(results, None)
-    assert out["json_parse_rate"] == round(100 * 2 / 3, 2)
-    assert out["schema_validity_rate"] == round(100 * 1 / 3, 2)
-    assert 0 < out["completeness_score"] < 1
+    assert out["required_keys_rate"] == 100.0       # both have all keys
+    assert out["schema_validity_rate"] == 50.0      # only the valid-enum one passes
+
+
+def test_completeness_ignores_empty_containers():
+    # All required keys present, but every value is empty -> completeness 0.
+    empty = ('{"context_summary": {}, "kpi_chart_mapping": [], "layout": {}, '
+             '"styling": {}, "interactions": [], "rationales": []}')
+    full = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
+            '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+            '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
+            '"rationales": [{"claim": "c"}]}')
+    results = [_result("a", [], empty), _result("b", [], full)]
+    out = SchemaCompliance().compute(results, None)
+    assert out["required_keys_rate"] == 100.0   # keys present in both
+    # 'a' contributes 0 (all empty), 'b' contributes 1 -> mean 0.5.
+    assert out["completeness_score"] == 0.5

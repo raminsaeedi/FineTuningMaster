@@ -26,15 +26,17 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-from src.core.constants import REQUIRED_KEYS  # noqa: E402
 from src.core.schemas import GenerationResult  # noqa: E402
 from src.data_pipeline.dataset import load_gold_items  # noqa: E402
 from src.evaluation.metrics.base import normalise, predicted_charts, reference_charts  # noqa: E402
+from src.evaluation.metrics.schema_compliance import completeness_fraction  # noqa: E402
 from src.evaluation.stats import (  # noqa: E402
     cliffs_delta,
     cochran_q,
+    cohen_dz,
     friedman_test,
     paired_bootstrap_diff,
+    paired_rank_biserial,
     pairwise_mcnemar,
     pairwise_wilcoxon,
 )
@@ -53,11 +55,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def _completeness(raw_text: str) -> float:
-    obj = extract_json_dict(raw_text)
-    if obj is None:
-        return 0.0
-    present = sum(1 for k in REQUIRED_KEYS if k in obj)
-    return present / len(REQUIRED_KEYS)
+    # Corrected: a required key counts only if present AND non-empty.
+    return completeness_fraction(extract_json_dict(raw_text))
 
 
 def _top1_correct(result: GenerationResult, ref_charts: List[str]) -> int:
@@ -125,12 +124,15 @@ def main() -> None:
     # ── Continuous outcome (completeness) ────────────────────────────────────
     pairwise_w = pairwise_wilcoxon(completeness)
     for r in pairwise_w:
-        delta, mag = cliffs_delta(completeness[r["method_a"]], completeness[r["method_b"]])
-        r["cliffs_delta"] = delta
-        r["cliffs_magnitude"] = mag
-        r["bootstrap_diff"] = paired_bootstrap_diff(
-            completeness[r["method_a"]], completeness[r["method_b"]]
-        )
+        a, b = completeness[r["method_a"]], completeness[r["method_b"]]
+        # Paired effect sizes (correct for the matched-item design).
+        r["rank_biserial"] = paired_rank_biserial(a, b)
+        r["cohen_dz"] = cohen_dz(a, b)
+        # Cliff's delta retained as an auxiliary (unpaired) effect size only.
+        delta, mag = cliffs_delta(a, b)
+        r["cliffs_delta_unpaired"] = delta
+        r["cliffs_magnitude_unpaired"] = mag
+        r["bootstrap_diff"] = paired_bootstrap_diff(a, b)
     continuous_report = {
         "metric": "schema_completeness",
         "methods": methods,
@@ -170,7 +172,7 @@ def main() -> None:
     print("  Pairwise (completeness, Wilcoxon+Holm):")
     for r in pairwise_w:
         print(f"    {r['method_a']} vs {r['method_b']}: p_holm={r['p_holm']:.4f} "
-              f"delta={r['cliffs_delta']} ({r['cliffs_magnitude']})")
+              f"rank_biserial={r['rank_biserial']} d_z={r['cohen_dz']}")
     print("  Pairwise (top-1, McNemar+Holm):")
     for r in binary_report["pairwise_mcnemar"]:
         print(f"    {r['method_a']} vs {r['method_b']}: p_holm={r['p_holm']:.4f} "

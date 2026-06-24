@@ -27,8 +27,10 @@ from src.evaluation.human.rubric import RUBRIC_KEYS
 from src.evaluation.human.storage import load_all_ratings
 from src.evaluation.stats import (
     cliffs_delta,
+    cohen_dz,
     friedman_test,
     paired_bootstrap_diff,
+    paired_rank_biserial,
     pairwise_wilcoxon,
 )
 from src.utils.io import write_json
@@ -92,12 +94,16 @@ def main() -> None:
         human_stats["friedman"] = friedman_test(scores_by_method)
         pw = pairwise_wilcoxon(scores_by_method)
         for rrow in pw:
-            d, mag = cliffs_delta(scores_by_method[rrow["method_a"]], scores_by_method[rrow["method_b"]])
-            rrow["cliffs_delta"] = d
-            rrow["cliffs_magnitude"] = mag
-            rrow["bootstrap_diff"] = paired_bootstrap_diff(
-                scores_by_method[rrow["method_a"]], scores_by_method[rrow["method_b"]]
-            )
+            a = scores_by_method[rrow["method_a"]]
+            b = scores_by_method[rrow["method_b"]]
+            # Paired effect sizes (matched item-method design).
+            rrow["rank_biserial"] = paired_rank_biserial(a, b)
+            rrow["cohen_dz"] = cohen_dz(a, b)
+            # Cliff's delta kept as auxiliary (unpaired) only.
+            d, mag = cliffs_delta(a, b)
+            rrow["cliffs_delta_unpaired"] = d
+            rrow["cliffs_magnitude_unpaired"] = mag
+            rrow["bootstrap_diff"] = paired_bootstrap_diff(a, b)
         human_stats["pairwise_wilcoxon_holm"] = pw
 
     # ---- Write outputs ----

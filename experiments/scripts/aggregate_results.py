@@ -30,14 +30,18 @@ from src.evaluation.aggregator import aggregate  # noqa: E402
 _REPORT_COLS = [
     ("n_predictions", "n"),
     ("json_parse", "json_parse%"),
-    ("schema_valid", "schema_valid%"),
-    ("top_1_accuracy", "top1%"),
-    ("top_3_accuracy", "top3%"),
+    ("schema_validity_rate", "schema_valid%"),   # corrected: full Pydantic validity
+    ("completeness_score", "complete"),           # corrected: non-empty keys
+    ("top_1_accuracy", "top1%"),                  # over all items; parse-fail = wrong
+    ("n_parse_failures", "n_fail"),
+    ("top_3_valid", "top3_ok"),
+    ("top_3_accuracy", "top3%"),                  # None when top3_ok is False
     ("n_with_alternatives", "n_alt"),
     ("macro_f1", "macro_f1"),
     ("latency", "latency_s"),
-    ("paraphrase_consistency", "paraphrase%"),
-    ("missing_info_validity", "missinfo_valid%"),
+    ("paraphrase_consistency", "para_stab%"),
+    ("paraphrase_accuracy", "para_acc%"),
+    ("missing_info_clarification_rate", "clarify%"),
 ]
 
 
@@ -121,8 +125,10 @@ def main() -> None:
         f"{_md_table(run_rows, run_header)}\n\n"
         "## Across seeds (mean / std per model+method)\n\n"
         f"{seeds_md}\n\n"
-        "> `top3%` staying close to `top1%` is expected when `n_alt` is low (the "
-        "model emits few alternatives) - see `src/evaluation/metrics/topk_accuracy.py`.\n"
+        "> `top1%` is over ALL items with a reference (parse failures count as "
+        "wrong; see `n_fail`). `top3_ok=False` means the model emitted too few "
+        "`alternatives` for a valid top-3, so `top3%` is reported as empty - see "
+        "`src/evaluation/metrics/topk_accuracy.py`.\n"
     )
     (out_dir / "final_report.md").write_text(report, encoding="utf-8")
 
