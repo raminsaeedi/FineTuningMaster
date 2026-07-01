@@ -9,6 +9,7 @@ from src.evaluation.stats import (
     mcnemar_test,
     paired_rank_biserial,
     pairwise_wilcoxon,
+    per_method_bootstrap_cis,
 )
 
 
@@ -46,6 +47,14 @@ def test_mcnemar_discordant():
 def test_bootstrap_ci_orders():
     out = bootstrap_ci([1, 2, 3, 4, 5], n_boot=500)
     assert out["ci_low"] <= out["point"] <= out["ci_high"]
+
+
+def test_per_method_bootstrap_cis_scale_and_structure():
+    vectors = {"A": [1, 1, 1, 1], "B": [0, 0, 0, 0]}
+    out = per_method_bootstrap_cis(vectors, scale=100.0, n_boot=200)
+    assert out["A"]["point"] == 100.0 and out["B"]["point"] == 0.0
+    assert out["A"]["ci_low"] <= out["A"]["point"] <= out["A"]["ci_high"]
+    assert out["A"]["n"] == 4
 
 
 def test_paired_effect_sizes():

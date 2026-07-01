@@ -20,6 +20,13 @@ generic metric loop.
   missing_info_schema_rate   — % that instead confidently emit a full valid schema
                                despite the missing information (reported for
                                contrast; high values here are NOT a good outcome)
+
+Caveats:
+  * ``paraphrase_accuracy`` is top-1 against the available gold source (currently
+    the single synthetic gold), so it inherits that gold's chart-choice
+    circularity until the independent L1 human-effectiveness scorer is wired in.
+  * ``missing_info_clarification_rate`` is a regex/heuristic detector of
+    clarification / refusal language, not a semantic judge.
 """
 
 from __future__ import annotations

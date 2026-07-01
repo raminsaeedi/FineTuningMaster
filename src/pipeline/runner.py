@@ -18,6 +18,7 @@ from src.core.registry import METHODS, METRICS
 from src.core.schemas import GenerationResult
 from src.data_pipeline.dataset import load_gold_items
 from src.evaluation.metrics.robustness import compute_robustness
+from src.evaluation.reporting import write_per_run_reports
 from src.inference.postprocess import reparse
 from src.inference.runner import InferenceRunner
 from src.utils.artifacts import experiment_dir
@@ -125,6 +126,9 @@ class ExperimentRunner:
             "metrics": metrics,
         }
         write_json(payload, self.exp_dir / "metrics_auto.json")
+        # Additive Phase-1 reporting artifacts (do not mutate metrics_auto.json /
+        # predictions.jsonl): a layered metrics.json and a per-item scored file.
+        write_per_run_reports(self.exp_dir, payload, results, references)
         return payload
 
     def run(self) -> dict:

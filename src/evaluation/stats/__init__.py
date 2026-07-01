@@ -5,7 +5,11 @@ scores/outcomes are aligned by position. This subpackage is the scientific core
 of the evaluation and depends only on numpy/scipy.
 """
 
-from src.evaluation.stats.bootstrap_ci import bootstrap_ci, paired_bootstrap_diff
+from src.evaluation.stats.bootstrap_ci import (
+    bootstrap_ci,
+    paired_bootstrap_diff,
+    per_method_bootstrap_cis,
+)
 from src.evaluation.stats.cliff_delta import cliffs_delta
 from src.evaluation.stats.cochran_mcnemar import cochran_q, mcnemar_test, pairwise_mcnemar
 from src.evaluation.stats.effect_size import cohen_dz, paired_effect_size, paired_rank_biserial
@@ -25,4 +29,5 @@ __all__ = [
     "pairwise_mcnemar",
     "bootstrap_ci",
     "paired_bootstrap_diff",
+    "per_method_bootstrap_cis",
 ]

@@ -39,6 +39,7 @@ from src.evaluation.stats import (  # noqa: E402
     paired_rank_biserial,
     pairwise_mcnemar,
     pairwise_wilcoxon,
+    per_method_bootstrap_cis,
 )
 from src.inference.postprocess import extract_json_dict, reparse  # noqa: E402
 from src.utils.artifacts import experiment_dir  # noqa: E402
@@ -112,6 +113,14 @@ def main() -> None:
             top1[m].append(_top1_correct(r, references[item_id]))
             completeness[m].append(_completeness(r.raw_text))
 
+    # ── Per-method bootstrap CIs for headline metrics ────────────────────────
+    # Top-1 accuracy is reported as a percentage (0/1 mean x 100); completeness
+    # stays a 0..1 fraction (matching schema_compliance.completeness_score).
+    per_method_ci = {
+        "top1_accuracy_pct": per_method_bootstrap_cis(top1, scale=100.0),
+        "completeness": per_method_bootstrap_cis(completeness, scale=1.0),
+    }
+
     # ── Binary outcome (Top-1) ───────────────────────────────────────────────
     binary_report = {
         "metric": "top1_correct",
@@ -143,8 +152,9 @@ def main() -> None:
 
     out_dir = _PROJECT_ROOT / args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_json({"experiments": method_names, "binary": binary_report,
-                "continuous": continuous_report}, out_dir / "stats_report.json")
+    write_json({"experiments": method_names, "per_method_ci": per_method_ci,
+                "binary": binary_report, "continuous": continuous_report},
+               out_dir / "stats_report.json")
 
     # Flat CSVs for the thesis tables.
     try:
@@ -159,6 +169,11 @@ def main() -> None:
             }
             for r in pairwise_w
         ]).to_csv(out_dir / "posthoc_wilcoxon.csv", index=False)
+        pd.DataFrame([
+            {"metric": metric, "method": m, **ci}
+            for metric, by_method in per_method_ci.items()
+            for m, ci in by_method.items()
+        ]).to_csv(out_dir / "per_method_ci.csv", index=False)
     except ImportError:
         pass
 
@@ -167,6 +182,9 @@ def main() -> None:
     print("=" * 60)
     print(f"  Methods   : {methods}")
     print(f"  Matched n : {len(common_ids)}")
+    print("  Per-method 95% CI (top-1 accuracy %):")
+    for m, ci in per_method_ci["top1_accuracy_pct"].items():
+        print(f"    {m}: {ci['point']} [{ci['ci_low']}, {ci['ci_high']}]")
     print(f"  Friedman  : {continuous_report['friedman'].get('p_value', 'n/a (k<3)')}")
     print(f"  Cochran Q : {binary_report['cochran_q'].get('p_value', 'n/a (k<3)')}")
     print("  Pairwise (completeness, Wilcoxon+Holm):")

@@ -8,7 +8,7 @@ The default of 10,000 resamples follows the thesis protocol.
 
 from __future__ import annotations
 
-from typing import Callable, List, Sequence
+from typing import Callable, Dict, List, Sequence
 
 import numpy as np
 
@@ -74,3 +74,32 @@ def paired_bootstrap_diff(
         "n": int(n),
         "n_boot": n_boot,
     }
+
+
+def per_method_bootstrap_cis(
+    vectors_by_method: Dict[str, Sequence[float]],
+    scale: float = 1.0,
+    n_boot: int = 10_000,
+    ci: float = 0.95,
+    seed: int = 42,
+) -> Dict[str, dict]:
+    """Per-method bootstrap CI of the mean over each method's per-item vector.
+
+    ``scale`` multiplies ``point``/``ci_low``/``ci_high`` (e.g. 100 to turn a 0/1
+    accuracy mean into a percentage). Returns ``{method: {point, ci_low, ci_high, n}}``.
+    """
+    out: Dict[str, dict] = {}
+    for method, values in vectors_by_method.items():
+        ci_res = bootstrap_ci(values, n_boot=n_boot, ci=ci, seed=seed)
+
+        def _s(v):
+            return round(v * scale, 4) if v is not None else None
+
+        out[method] = {
+            "point": _s(ci_res["point"]),
+            "ci_low": _s(ci_res["ci_low"]),
+            "ci_high": _s(ci_res["ci_high"]),
+            "ci_level": ci,
+            "n": ci_res["n"],
+        }
+    return out

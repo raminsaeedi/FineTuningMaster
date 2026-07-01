@@ -20,6 +20,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
@@ -35,7 +37,9 @@ _REPORT_COLS = [
     ("top_1_accuracy", "top1%"),                  # over all items; parse-fail = wrong
     ("n_parse_failures", "n_fail"),
     ("top_3_valid", "top3_ok"),
-    ("top_3_accuracy", "top3%"),                  # None when top3_ok is False
+    ("top_3_accuracy", "top3%"),                  # None unless top3_support_rate >= 0.8
+    ("top_3_support_rate", "top3_support"),       # frac of items with 3 distinct recs
+    ("n_with_3_recs", "n_3rec"),
     ("n_with_alternatives", "n_alt"),
     ("macro_f1", "macro_f1"),
     ("latency", "latency_s"),
@@ -81,8 +85,6 @@ def main() -> None:
     out_dir = (_PROJECT_ROOT / args.out_dir) if not Path(args.out_dir).is_absolute() else Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    import pandas as pd
-
     df = aggregate(outputs_root, out_dir / "comparison_table.csv")
     if df.empty:
         raise SystemExit(
@@ -126,9 +128,9 @@ def main() -> None:
         "## Across seeds (mean / std per model+method)\n\n"
         f"{seeds_md}\n\n"
         "> `top1%` is over ALL items with a reference (parse failures count as "
-        "wrong; see `n_fail`). `top3_ok=False` means the model emitted too few "
-        "`alternatives` for a valid top-3, so `top3%` is reported as empty - see "
-        "`src/evaluation/metrics/topk_accuracy.py`.\n"
+        "wrong; see `n_fail`). `top3_ok=False` means fewer than 80% of items "
+        "carried 3 distinct ordered recommendations (`top3_support`), so `top3%` "
+        "is reported as empty - see `src/evaluation/metrics/topk_accuracy.py`.\n"
     )
     (out_dir / "final_report.md").write_text(report, encoding="utf-8")
 
