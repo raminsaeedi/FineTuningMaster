@@ -1,0 +1,5 @@
+model,method,metrics.schema_compliance.json_parse_rate_mean,metrics.schema_compliance.json_parse_rate_std,metrics.schema_compliance.json_parse_rate_count,metrics.schema_compliance.schema_validity_rate_mean,metrics.schema_compliance.schema_validity_rate_std,metrics.schema_compliance.schema_validity_rate_count,metrics.schema_compliance.completeness_score_mean,metrics.schema_compliance.completeness_score_std,metrics.schema_compliance.completeness_score_count,metrics.top_k_accuracy.top_1_accuracy_mean,metrics.top_k_accuracy.top_1_accuracy_std,metrics.top_k_accuracy.top_1_accuracy_count,metrics.macro_f1.macro_f1_mean,metrics.macro_f1.macro_f1_std,metrics.macro_f1.macro_f1_count
+Qwen/Qwen2.5-0.5B-Instruct,ft,54.0,,1,54.0,,1,0.54,,1,77.78,,1,0.1496,,1
+Qwen/Qwen2.5-0.5B-Instruct,ft_rag,84.0,,1,84.0,,1,0.84,,1,86.67,,1,0.3317,,1
+Qwen/Qwen2.5-0.5B-Instruct,prompt_only,66.0,,1,66.0,,1,0.66,,1,15.62,,1,0.0338,,1
+Qwen/Qwen2.5-0.5B-Instruct,rag,52.0,,1,44.0,,1,0.4667,,1,11.54,,1,0.0251,,1
