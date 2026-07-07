@@ -1,0 +1,40 @@
+# Independent analytical-task crosswalk for benchmark labeling.
+#
+# Authored from published analytical-task and visualization taxonomies:
+#   - Amar, Eagan & Stasko (2005), "Low-Level Components of Analytic Activity".
+#   - Brehmer & Munzner (2013), "A Multi-Level Typology of Abstract Visualization Tasks".
+#   - Munzner (2014), "Visualization Analysis and Design".
+#   - Cleveland & McGill (1984); Few (2006) for encoding preferences.
+#
+# IMPORTANT: This crosswalk is authored INDEPENDENTLY and is NOT derived from, and
+# must not be reconciled with, src/data_pipeline/synth_generator.py (KEYWORD_TASK /
+# TASK_CHART). It exists solely to assign benchmark task_type labels from documented
+# analytical intent, keeping the benchmark's label lineage disjoint from the
+# synthetic generator.
+version: v1
+
+# Map analytical-intent keywords (found in a brief's goals/KPIs) to a TaskType.
+# First match wins in the order listed; multi-word phrases are matched as substrings.
+intent_to_task:
+  - {task_type: flow,          keywords: ["funnel", "pipeline", "conversion path", "stage-to-stage", "flow between"]}
+  - {task_type: part_to_whole, keywords: ["share of", "market share", "proportion", "percent of total", "mix", "part of total", "composition of total"]}
+  - {task_type: composition,   keywords: ["breakdown by", "composed of", "stacked", "makeup", "split across categories"]}
+  - {task_type: correlation,   keywords: ["correlation", "relationship between", "driver of", "impact of", "associated with", "relate to"]}
+  - {task_type: distribution,  keywords: ["distribution", "spread", "range of", "variability", "histogram", "percentile"]}
+  - {task_type: deviation,     keywords: ["variance", "deviation", "plan vs actual", "budget", "vs target", "spike", "anomaly", "over/under"]}
+  - {task_type: ranking,       keywords: ["rank", "top ", "best", "worst", "highest", "lowest", "most ", "least ", "leaderboard"]}
+  - {task_type: comparison,    keywords: ["compare", "versus", " vs ", "against last", "against prior", "benchmark against", "difference between"]}
+  - {task_type: trend,         keywords: ["trend", "over time", "month over month", "year over year", "growth", "trajectory", "time series"]}
+
+# Fallback when no keyword matches: comparison is the most common dashboard default.
+default_task: comparison
+
+# Expert acceptable-chart sets for task types NOT covered by the independent L1
+# literature table (Saket 2019 / Kim & Heer 2018 cover only comparison, correlation,
+# ranking, distribution, deviation, trend). These are documented expert judgments
+# (Cleveland & McGill 1984; Few 2006; Munzner 2014), used ONLY for human-eval
+# reference on non-auto-scorable items — never for automatic L1 scoring.
+expert_acceptable_charts:
+  composition:   [stacked_bar, area, bar]
+  part_to_whole: [donut, pie, treemap, bar]
+  flow:          [sankey, table, bar]

@@ -1,0 +1,134 @@
+{
+  "benchmark": "data/eval/benchmark_v1.jsonl",
+  "predictions_root": "experiments/outputs/benchmark_v1_smoke",
+  "n_benchmark_items": 30,
+  "per_method": {
+    "E01_smoke__benchmark_v1_42": {
+      "benchmark_chart_acceptability": {
+        "n_total": 30,
+        "n_covered": 22,
+        "n_uncovered": 8,
+        "coverage_rate": 0.7333,
+        "covered_accuracy": 0.0455,
+        "covered_correct": 1,
+        "parse_failures": 21,
+        "per_task_type": {
+          "comparison": {
+            "covered": 4,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "correlation": {
+            "covered": 3,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "deviation": {
+            "covered": 6,
+            "correct": 1,
+            "accuracy": 0.1667
+          },
+          "distribution": {
+            "covered": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "ranking": {
+            "covered": 5,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "trend": {
+            "covered": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "per_domain": {
+          "E-Commerce": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Energy & Utilities": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Finance": {
+            "covered": 3,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "HR & People Analytics": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Healthcare": {
+            "covered": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "IT Finance": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "IT Ops": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Logistics & Supply Chain": {
+            "covered": 3,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Manufacturing": {
+            "covered": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Marketing": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Procurement": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "Retail": {
+            "covered": 4,
+            "correct": 1,
+            "accuracy": 0.25
+          },
+          "SaaS / Software": {
+            "covered": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "evidence_strength": {
+          "strong": {
+            "covered": 9,
+            "correct": 1,
+            "accuracy": 0.1111
+          },
+          "weak": {
+            "covered": 13,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        }
+      },
+      "schema_compliance": {
+        "json_parse_rate": 50.0,
+        "schema_validity_rate": 0.0,
+        "completeness_score": 0.3333
+      }
+    }
+  }
+}

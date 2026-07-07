@@ -1,0 +1,56 @@
+# Frozen dataset v2 — generation spec.
+#
+# Documents the generation PROCESS. It does not guarantee bit-exact regeneration
+# if any external/API step is later involved; the ground truth is the frozen
+# files, whose integrity is verified by SHA256 in hashes.json.
+
+dataset: dashboard_v2
+generator_module: src/data_pipeline/synth_generator_v2.py
+generator_version: v2.0-sample
+mode: sample                 # offline, deterministic; no paid API calls
+kind: source-conditioned synthetic   # NOT a real, human-labeled dataset
+
+determinism:
+  seed: 42
+  rule: deterministic per (seed, item index); growing n never changes earlier items
+  item_id: v2_<md5-8 of canonical brief>
+  split: content-hash via src/data_pipeline/splits.py::assign_split (0.8/0.1/0.1)
+  stored_split_values: [train, val, test]   # "test" bucket is written to internal_test.jsonl
+
+targets:                     # planned final sizes (not yet generated in full)
+  train: [1200, 1500]
+  val: [150, 200]
+  internal_test: [150, 200]
+  l1_chart_effectiveness: [30, 50]   # rows
+  real_briefs: [30, 40]
+
+sources:
+  description: >
+    Each item is conditioned on a documented domain source template drawn from the
+    shared INDUSTRIES catalogue; every item records source_id + source_ref in
+    brief.extra. Chart-task labels use the principled mapping below.
+  chart_task_mapping_refs:
+    - Cleveland & McGill 1984
+    - Few 2006
+    - Munzner 2014
+  domains:
+    - E-Commerce
+    - Healthcare
+    - Finance & Banking
+    - SaaS / Software
+    - Manufacturing
+    - Logistics & Supply Chain
+    - Marketing & Advertising
+    - HR & People Analytics
+    - Retail
+    - Energy & Utilities
+
+perturbations:
+  module: src/data_pipeline/perturbations.py
+  paraphrased: meaning-preserving synonym swaps on framing words (domain nouns intact)
+  missing_info: drop constraints + last KPI + last column
+  pairing: extra.base_item_id links each variant to its internal_test source item
+
+evaluation_gold_not_for_training:
+  l1_chart_effectiveness: data/eval/l1_chart_effectiveness_v1.csv   # Saket2019 + KimHeer2018
+  real_briefs: data/eval/real_briefs_v1.jsonl                       # external, no chart labels

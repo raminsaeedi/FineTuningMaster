@@ -1,0 +1,364 @@
+{
+  "l1_gold_file": "data/eval/l1_chart_effectiveness_v1.csv",
+  "gold_file": "data/processed/test.jsonl",
+  "keying_case": "synthetic_v1_generator_derived_task_type (diagnostic/limited)",
+  "covered_task_types": [
+    "comparison",
+    "correlation",
+    "deviation",
+    "distribution",
+    "ranking",
+    "trend"
+  ],
+  "per_method": {
+    "prompt_only": {
+      "n_items_scored": 49,
+      "n_gold_kpi": 199,
+      "n_covered": 144,
+      "n_uncovered": 55,
+      "coverage_rate": 0.7236,
+      "covered_accuracy": 0.2222,
+      "covered_correct": 32,
+      "per_task_type": {
+        "comparison": {
+          "covered": 60,
+          "correct": 15,
+          "accuracy": 0.25
+        },
+        "correlation": {
+          "covered": 7,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "deviation": {
+          "covered": 21,
+          "correct": 6,
+          "accuracy": 0.2857
+        },
+        "distribution": {
+          "covered": 22,
+          "correct": 5,
+          "accuracy": 0.2273
+        },
+        "ranking": {
+          "covered": 5,
+          "correct": 1,
+          "accuracy": 0.2
+        },
+        "trend": {
+          "covered": 29,
+          "correct": 5,
+          "accuracy": 0.1724
+        }
+      },
+      "predicted_chart_acceptance": {
+        "area": {
+          "n": 6,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "bar": {
+          "n": 21,
+          "accepted": 17,
+          "acceptance_rate": 0.8095
+        },
+        "grouped_bar": {
+          "n": 4,
+          "accepted": 1,
+          "acceptance_rate": 0.25
+        },
+        "heatmap": {
+          "n": 3,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "histogram": {
+          "n": 1,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "line": {
+          "n": 17,
+          "accepted": 9,
+          "acceptance_rate": 0.5294
+        },
+        "pie": {
+          "n": 8,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "scatter": {
+          "n": 17,
+          "accepted": 5,
+          "acceptance_rate": 0.2941
+        },
+        "stacked_bar": {
+          "n": 2,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        }
+      },
+      "uncovered_task_types": {
+        "composition": 10,
+        "flow": 10,
+        "part_to_whole": 35
+      },
+      "covered_task_types": [
+        "comparison",
+        "correlation",
+        "deviation",
+        "distribution",
+        "ranking",
+        "trend"
+      ]
+    },
+    "rag": {
+      "n_items_scored": 49,
+      "n_gold_kpi": 199,
+      "n_covered": 144,
+      "n_uncovered": 55,
+      "coverage_rate": 0.7236,
+      "covered_accuracy": 0.1667,
+      "covered_correct": 24,
+      "per_task_type": {
+        "comparison": {
+          "covered": 60,
+          "correct": 10,
+          "accuracy": 0.1667
+        },
+        "correlation": {
+          "covered": 7,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "deviation": {
+          "covered": 21,
+          "correct": 7,
+          "accuracy": 0.3333
+        },
+        "distribution": {
+          "covered": 22,
+          "correct": 1,
+          "accuracy": 0.0455
+        },
+        "ranking": {
+          "covered": 5,
+          "correct": 2,
+          "accuracy": 0.4
+        },
+        "trend": {
+          "covered": 29,
+          "correct": 4,
+          "accuracy": 0.1379
+        }
+      },
+      "predicted_chart_acceptance": {
+        "area": {
+          "n": 3,
+          "accepted": 1,
+          "acceptance_rate": 0.3333
+        },
+        "bar": {
+          "n": 17,
+          "accepted": 13,
+          "acceptance_rate": 0.7647
+        },
+        "grouped_bar": {
+          "n": 4,
+          "accepted": 1,
+          "acceptance_rate": 0.25
+        },
+        "heatmap": {
+          "n": 1,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "histogram": {
+          "n": 2,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "line": {
+          "n": 13,
+          "accepted": 4,
+          "acceptance_rate": 0.3077
+        },
+        "pie": {
+          "n": 5,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        },
+        "scatter": {
+          "n": 14,
+          "accepted": 5,
+          "acceptance_rate": 0.3571
+        },
+        "stacked_bar": {
+          "n": 1,
+          "accepted": 0,
+          "acceptance_rate": 0.0
+        }
+      },
+      "uncovered_task_types": {
+        "composition": 10,
+        "flow": 10,
+        "part_to_whole": 35
+      },
+      "covered_task_types": [
+        "comparison",
+        "correlation",
+        "deviation",
+        "distribution",
+        "ranking",
+        "trend"
+      ]
+    },
+    "ft": {
+      "n_items_scored": 49,
+      "n_gold_kpi": 199,
+      "n_covered": 144,
+      "n_uncovered": 55,
+      "coverage_rate": 0.7236,
+      "covered_accuracy": 0.1944,
+      "covered_correct": 28,
+      "per_task_type": {
+        "comparison": {
+          "covered": 60,
+          "correct": 17,
+          "accuracy": 0.2833
+        },
+        "correlation": {
+          "covered": 7,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "deviation": {
+          "covered": 21,
+          "correct": 3,
+          "accuracy": 0.1429
+        },
+        "distribution": {
+          "covered": 22,
+          "correct": 4,
+          "accuracy": 0.1818
+        },
+        "ranking": {
+          "covered": 5,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "trend": {
+          "covered": 29,
+          "correct": 4,
+          "accuracy": 0.1379
+        }
+      },
+      "predicted_chart_acceptance": {
+        "bar": {
+          "n": 20,
+          "accepted": 20,
+          "acceptance_rate": 1.0
+        },
+        "histogram": {
+          "n": 4,
+          "accepted": 4,
+          "acceptance_rate": 1.0
+        },
+        "line": {
+          "n": 8,
+          "accepted": 4,
+          "acceptance_rate": 0.5
+        }
+      },
+      "uncovered_task_types": {
+        "composition": 10,
+        "flow": 10,
+        "part_to_whole": 35
+      },
+      "covered_task_types": [
+        "comparison",
+        "correlation",
+        "deviation",
+        "distribution",
+        "ranking",
+        "trend"
+      ]
+    },
+    "ft_rag": {
+      "n_items_scored": 49,
+      "n_gold_kpi": 199,
+      "n_covered": 144,
+      "n_uncovered": 55,
+      "coverage_rate": 0.7236,
+      "covered_accuracy": 0.2778,
+      "covered_correct": 40,
+      "per_task_type": {
+        "comparison": {
+          "covered": 60,
+          "correct": 19,
+          "accuracy": 0.3167
+        },
+        "correlation": {
+          "covered": 7,
+          "correct": 0,
+          "accuracy": 0.0
+        },
+        "deviation": {
+          "covered": 21,
+          "correct": 6,
+          "accuracy": 0.2857
+        },
+        "distribution": {
+          "covered": 22,
+          "correct": 10,
+          "accuracy": 0.4545
+        },
+        "ranking": {
+          "covered": 5,
+          "correct": 1,
+          "accuracy": 0.2
+        },
+        "trend": {
+          "covered": 29,
+          "correct": 4,
+          "accuracy": 0.1379
+        }
+      },
+      "predicted_chart_acceptance": {
+        "bar": {
+          "n": 28,
+          "accepted": 26,
+          "acceptance_rate": 0.9286
+        },
+        "histogram": {
+          "n": 9,
+          "accepted": 9,
+          "acceptance_rate": 1.0
+        },
+        "line": {
+          "n": 10,
+          "accepted": 4,
+          "acceptance_rate": 0.4
+        },
+        "table": {
+          "n": 1,
+          "accepted": 1,
+          "acceptance_rate": 1.0
+        }
+      },
+      "uncovered_task_types": {
+        "composition": 10,
+        "flow": 10,
+        "part_to_whole": 35
+      },
+      "covered_task_types": [
+        "comparison",
+        "correlation",
+        "deviation",
+        "distribution",
+        "ranking",
+        "trend"
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "generator_version": "v2.0-sample",
+  "files": {
+    "train.jsonl": {
+      "sha256": "01fbffd0cdbcdd0e782db6f43ccf517f9f0708d65e0329146dd578d7a4e58a32",
+      "n_records": 18
+    },
+    "val.jsonl": {
+      "sha256": "25cd0137a40d5b38ddd9f075dc0c83052b025e2064c4e7e0d5cb37f37d8e661c",
+      "n_records": 3
+    },
+    "internal_test.jsonl": {
+      "sha256": "1bc80e37a327f2379a977f91bd7674348392e053d5876efa9adbf1793778b0a6",
+      "n_records": 3
+    },
+    "test_paraphrased.jsonl": {
+      "sha256": "9dd6147fc11253edc12026232dc00e4e027fb1deb33f8bacb708d4dc0c4d3d88",
+      "n_records": 3
+    },
+    "test_missing_info.jsonl": {
+      "sha256": "43be2bfde2aea7a3f56b62e7208730ba51ca7c5fc60ec94389436f1ed62e4e47",
+      "n_records": 3
+    }
+  }
+}

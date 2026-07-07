@@ -1,0 +1,33 @@
+{
+  "note": "internal diagnostic on the generator mapping; not real design quality; single seed (42)",
+  "n_train_combos": 79,
+  "n_test_combos": 62,
+  "n_novel_combos": 0,
+  "novel_combos": [],
+  "per_method": {
+    "prompt_only": {
+      "seen_acc": 0.0854,
+      "seen_n": 199,
+      "novel_acc": null,
+      "novel_n": 0
+    },
+    "rag": {
+      "seen_acc": 0.0804,
+      "seen_n": 199,
+      "novel_acc": null,
+      "novel_n": 0
+    },
+    "ft": {
+      "seen_acc": 0.1709,
+      "seen_n": 199,
+      "novel_acc": null,
+      "novel_n": 0
+    },
+    "ft_rag": {
+      "seen_acc": 0.2412,
+      "seen_n": 199,
+      "novel_acc": null,
+      "novel_n": 0
+    }
+  }
+}

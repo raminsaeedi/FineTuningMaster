@@ -1,0 +1,87 @@
+{
+  "threshold_near_duplicate": 0.8,
+  "n_train": 21,
+  "overall": "rule_leakage",
+  "findings": [
+    {
+      "check": "exact_item_id::train~benchmark_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "exact_brief::train~benchmark_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "near_duplicate::train~benchmark_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "label_lineage::train~benchmark_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "exact_item_id::train~real_briefs_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "exact_brief::train~real_briefs_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "near_duplicate::train~real_briefs_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "label_lineage::train~real_briefs_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "exact_item_id::train~internal_test",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "exact_brief::train~internal_test",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "near_duplicate::train~internal_test",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    },
+    {
+      "check": "label_lineage::train~internal_test",
+      "severity": "rule_leakage",
+      "detail": [
+        "synthetic_generator"
+      ],
+      "n": 1
+    },
+    {
+      "check": "same_source::train~benchmark_v1",
+      "severity": "no_issue",
+      "detail": [],
+      "n": 0
+    }
+  ]
+}

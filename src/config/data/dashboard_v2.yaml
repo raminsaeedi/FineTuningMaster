@@ -1,0 +1,36 @@
+# Frozen dataset v2 paths.
+#
+# Build order:
+#   python experiments/scripts/generate_dataset_v2.py --n <N>   # -> raw_batches/
+#   python experiments/scripts/freeze_dataset_v2.py             # -> train/val/internal_test
+#   python experiments/scripts/build_perturbations_v2.py        # -> test_* variants
+#   python experiments/scripts/validate_frozen_dataset.py       # -> report + hashes.json
+#
+# TRAINING MUST ONLY READ train_file + val_file (val is validation-only, no
+# gradient updates). Everything under `not_for_training` is diagnostic or
+# independent evaluation gold and must never enter training/augmentation.
+name: dashboard_v2
+frozen_dir: data/frozen/dashboard_v2
+
+# --- Trainable inputs (the ONLY files training may read) ---
+train_file: data/frozen/dashboard_v2/train.jsonl
+val_file: data/frozen/dashboard_v2/val.jsonl # validation-only
+
+# --- Diagnostic / evaluation inputs (never trained on) ---
+test_file: data/frozen/dashboard_v2/internal_test.jsonl
+paraphrased_file: data/frozen/dashboard_v2/test_paraphrased.jsonl
+missing_info_file: data/frozen/dashboard_v2/test_missing_info.jsonl
+
+# Independent evaluation gold (separate lineage from the generator).
+l1_effectiveness_file: data/eval/l1_chart_effectiveness_v1.csv
+real_briefs_file: data/eval/real_briefs_v1.jsonl
+
+# Explicit never-train guard (consumed by tests / any loader that honours it).
+not_for_training:
+  - data/frozen/dashboard_v2/internal_test.jsonl
+  - data/frozen/dashboard_v2/test_paraphrased.jsonl
+  - data/frozen/dashboard_v2/test_missing_info.jsonl
+  - data/eval/l1_chart_effectiveness_v1.csv
+  - data/eval/real_briefs_v1.jsonl
+
+max_samples: null # cap items (useful for smoke tests)

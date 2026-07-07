@@ -1,0 +1,17 @@
+task_type,data_shape,effective_charts,source,confidence,notes
+comparison,categorical_single,bar|table,Saket2019,high,Bar length gives precise magnitude comparison (find-extremum/order/retrieve-value).
+comparison,categorical_multi,grouped_bar|bar|table,KimHeer2018,medium,Grouped bars for comparison across two categorical dimensions.
+comparison,two_numeric,scatter|table,KimHeer2018,medium,Scatter/table when comparing two quantitative measures per item.
+correlation,two_numeric,scatter|heatmap,Saket2019,high,Scatter best for find-correlation between two quantitative variables.
+correlation,categorical_matrix,heatmap,KimHeer2018,medium,Heatmap for correlation over a category-by-category matrix.
+ranking,categorical_single,bar|table,Saket2019,high,Sorted bars make rank order and gaps easy to read (order task).
+ranking,categorical_topn,bar|table,Saket2019,medium,Top-N ranking reads well as a sorted bar or a table.
+distribution,single_numeric,histogram|box,KimHeer2018,medium,Histogram/box for characterize-distribution of one variable.
+distribution,grouped_numeric,box,KimHeer2018,medium,Box plots compare distributions across groups.
+deviation,categorical_single,bar|table,KimHeer2018,medium,Bars baselined at zero make positive/negative deviation explicit.
+deviation,time_series,line|bar,KimHeer2018,medium,Deviation over time as a zero-baselined line or bar.
+trend,time_series,line|area,Saket2019,high,Position along a common time axis is most accurate for temporal trend.
+trend,multi_series,line,Saket2019,high,Multiple lines compare trends across a few series.
+comparison,part_of_total,bar|table,Saket2019,medium,Bars/table preferred over pie for precise part comparison (Saket find-extremum).
+distribution,proportion,bar|table,KimHeer2018,low,Proportions read more accurately from bars than angular encodings.
+correlation,ordered_pairs,scatter,Saket2019,medium,Scatter for relationship between paired ordered measures.

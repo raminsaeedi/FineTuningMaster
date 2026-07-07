@@ -1,0 +1,38 @@
+# Field contract for data/eval/benchmark_v1.jsonl (one JSON object per line).
+#
+# BENCHMARK LOCK: benchmark_v1.jsonl is EVALUATION-ONLY. It must never be used for
+# training, augmentation, prompt optimization, retriever tuning, hyperparameter
+# tuning, or model selection.
+#
+# Independence rule: `acceptable_chart_types` lineage is the independent L1
+# literature table (data/eval/l1_chart_effectiveness_v1.csv) or documented expert
+# judgment — NEVER the synthetic generator (TASK_CHART / KEYWORD_TASK). `task_type`
+# is assigned independently via data/eval/task_crosswalk.yaml.
+
+version: benchmark_v1
+record_type: object            # one per line in benchmark_v1.jsonl
+
+fields:
+  benchmark_id:            {type: string, required: true, desc: "stable id, e.g. bm_v1_001"}
+  domain:                  {type: string, required: true}
+  users:                   {type: string, required: true}
+  goals:                   {type: list[string], required: true, min_len: 1}
+  kpis:                    {type: list[string], required: true, min_len: 1}
+  columns:                 {type: list[object], required: true, item: {name: string, dtype: string}}
+  constraints:             {type: string_or_null, required: false}
+  task_type:               {type: enum[TaskType], required: true, desc: "independently assigned primary analytical task"}
+  acceptable_chart_types:  {type: set[enum[ChartType]], required: true, min_len: 1, desc: "set-valued; L1 or expert lineage"}
+  rationale:               {type: string, required: true}
+  source_name:             {type: string, required: true}
+  source_type:             {type: enum, required: true, values: [real_public, realistic_manual]}
+  source_reference:        {type: string, required: true, desc: "URL/citation, or explicit 'author-drafted' note"}
+  license_or_usage_note:   {type: string, required: true}
+  label_source:            {type: enum, required: true, values: [literature_L1, manual_expert]}
+  label_confidence:        {type: enum, required: true, values: [high, medium, low]}
+  suitable_for_auto_scoring: {type: bool, required: true, desc: "true iff task_type is covered by the independent L1 table"}
+  suitable_for_human_eval: {type: bool, required: true}
+  notes:                   {type: string, required: false}
+
+evidence_strength:
+  strong: "source_type=real_public AND label_source=literature_L1"
+  weak:   "source_type=realistic_manual OR label_source=manual_expert"

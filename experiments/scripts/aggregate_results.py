@@ -130,7 +130,19 @@ def main() -> None:
         "> `top1%` is over ALL items with a reference (parse failures count as "
         "wrong; see `n_fail`). `top3_ok=False` means fewer than 80% of items "
         "carried 3 distinct ordered recommendations (`top3_support`), so `top3%` "
-        "is reported as empty - see `src/evaluation/metrics/topk_accuracy.py`.\n"
+        "is reported as empty - see `src/evaluation/metrics/topk_accuracy.py`.\n\n"
+        "## Evidence tier & limitations (read before citing)\n\n"
+        "- **INTERNAL SYNTHETIC DIAGNOSTICS ONLY.** `top1%`, `top3%` and `macro_f1` here "
+        "are scored against the synthetic generator's own labels (shared "
+        "`KEYWORD_TASK -> task_type -> TASK_CHART` lineage). High values reflect "
+        "reproduction of the generator rule, **not** real dashboard-design quality. See "
+        "`experiments/results/rule_leakage_report.md`.\n"
+        "- **Independent chart-selection** is in `experiments/results/l1_independent_results.md` "
+        "(covered items only, coverage reported) — do not substitute the circular `top1%` for it.\n"
+        "- **Usefulness / actionability / real-dashboard quality:** NOT supported here (require "
+        "human evaluation; no ratings collected yet).\n"
+        "- **Single seed (42) only**; confidence intervals deferred. No multi-seed variance is "
+        "available, so significance claims are not supported from this table alone.\n"
     )
     (out_dir / "final_report.md").write_text(report, encoding="utf-8")
 
