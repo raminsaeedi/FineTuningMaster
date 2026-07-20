@@ -31,11 +31,15 @@ def mapping():
 
 
 def _record(chart="Bar", db_id="db1", x="cat", y="count(*)", classify=None, nl=None):
+    # GROUP BY includes a second field ("series_field") so grouped charts (Stacked
+    # Bar / Grouping Line / Grouping Scatter) can recover a group field; harmless
+    # for non-grouped charts, which never call recover_group_field.
+    sql = f"SELECT {x} , {y} FROM t GROUP BY {x} , series_field"
     return {
         "chart": chart,
         "db_id": db_id,
         "hardness": "Easy",
-        "vis_query": {"vis_part": f"Visualize {chart.upper()}", "data_part": {"sql_part": "SELECT ...", "binning": ""}, "VQL": "..."},
+        "vis_query": {"vis_part": f"Visualize {chart.upper()}", "data_part": {"sql_part": sql, "binning": ""}, "VQL": sql},
         "vis_obj": {
             "chart": chart.lower(),
             "x_name": x,
@@ -59,7 +63,7 @@ def _record(chart="Bar", db_id="db1", x="cat", y="count(*)", classify=None, nl=N
         ("Pie", ChartType.PIE, False),
         ("Line", ChartType.LINE, False),
         ("Scatter", ChartType.SCATTER, False),
-        ("Stacked Bar", ChartType.STACKED_BAR, False),
+        ("Stacked Bar", ChartType.STACKED_BAR, True),
         ("Grouping Line", ChartType.LINE, True),
         ("Grouping Scatter", ChartType.SCATTER, True),
     ],
@@ -201,7 +205,16 @@ def test_db_metadata_lookup(tmp_path, mapping):
     x_col = item.brief.columns[0]
     assert x_col["name"] == "region"
     assert x_col["dtype"] == "categorical"
-    assert item.brief.extra["lineage"]["column_dtype"] == "source-provided(db)"
+    assert x_col["role"] == "dimension"
+    # sum(amount) is a derived expression: brief.columns holds the raw base field
+    # "amount", never the aggregate expression itself.
+    y_col = item.brief.columns[1]
+    assert y_col["name"] == "amount"
+    assert y_col["dtype"] == "number" and y_col["role"] == "measure"
+    lineage = item.brief.extra["lineage"]
+    assert lineage["raw_columns"]["region"] == "source-provided(db)"
+    assert lineage["raw_columns"]["amount"] == "source-provided(db)"
+    assert lineage["derived_expressions"]["sum(amount)"] == "aggregate-expression"
 
 
 def test_missing_cache_falls_back_to_heuristic(tmp_path, mapping):
@@ -212,13 +225,143 @@ def test_missing_cache_falls_back_to_heuristic(tmp_path, mapping):
         "1", _record(db_id="x", x="order_year", y="count(*)"), 0, "q", mapping, resolver
     )
     assert item.brief.columns[0]["dtype"] == "datetime"  # name heuristic
-    assert item.brief.extra["lineage"]["column_dtype"] == "heuristic"
+    assert item.brief.extra["lineage"]["raw_columns"]["order_year"] == "heuristic"
+    # count(*) has no physical base column -> not added, not invented.
+    assert "*" not in item.brief.extra["lineage"]["raw_columns"]
+    assert len(item.brief.columns) == 1
 
 
 def test_resolver_none_cache():
     resolver = DbMetadataResolver(None)
     assert resolver.available is False
     assert resolver.dtype_of("x", "y") is None
+
+
+# --------------------------------------------------------------------------- #
+# axis typing / KPI policy / grouping recovery regressions
+# --------------------------------------------------------------------------- #
+def _db(tmp_path):
+    cache_root = tmp_path / "databases"
+    cache_root.mkdir()
+    con = sqlite3.connect(cache_root / "shop.sqlite")
+    con.execute(
+        "CREATE TABLE t (product_price REAL, account_name TEXT, staff_gender TEXT, "
+        "company_id INTEGER, other_details TEXT, order_date DATE)"
+    )
+    con.commit()
+    con.close()
+    return DbMetadataResolver(cache_root)
+
+
+def _rec2(chart="Bar", x="x", y="y", classify=None, sql="SELECT 1", db_id="shop"):
+    return {
+        "chart": chart, "db_id": db_id, "hardness": "Easy",
+        "vis_query": {"vis_part": "V", "data_part": {"sql_part": sql, "binning": ""}, "VQL": sql},
+        "vis_obj": {"chart": chart.lower(), "x_name": x, "y_name": y,
+                    "x_data": [[1]], "y_data": [[1]], "classify": classify or [], "describe": ""},
+        "nl_queries": ["q"],
+    }
+
+
+def _axes(item):
+    at = item.brief.extra["provenance"]["axis_typing"]
+    return at["x"], at["y"]
+
+
+def test_aggregate_axis_always_number_measure(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    for expr in ("max(product_price)", "min(product_price)", "count(*)", "SUM(company_id)", "AVG(product_price)"):
+        item = build_gold_item("1", _rec2(chart="Bar", x="account_name", y=expr), 0, "q", mapping, resolver)
+        _x, y = _axes(item)
+        assert y["dtype"] == "number", expr
+        assert y["role"] == "measure", expr
+        assert y["aggregate"] is not None, expr
+        assert y["dtype_source"] == "aggregate-expression"
+        # original expression preserved
+        assert item.recommendation.kpi_chart_mapping[0].encoding["y"] == expr
+
+
+def test_non_numeric_y_not_forced_numeric(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    # account_name on the y-axis of a bar chart must NOT become numeric.
+    item = build_gold_item("1", _rec2(chart="Bar", x="company_id", y="account_name"), 0, "q", mapping, resolver)
+    _x, y = _axes(item)
+    assert y["dtype"] == "categorical"
+    assert y["role"] == "dimension"
+    assert y["dtype_source"] == "source-provided(db)"
+
+
+def test_scatter_numeric_axes_typed_independently(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    item = build_gold_item("1", _rec2(chart="Scatter", x="company_id", y="product_price"), 0, "q", mapping, resolver)
+    x, y = _axes(item)
+    assert x["dtype"] == "number" and x["role"] == "measure"
+    assert y["dtype"] == "number" and y["role"] == "measure"
+    assert not item.brief.extra["provenance"]["build_warnings"]
+
+
+def test_scatter_categorical_axes_rejected(tmp_path, mapping):
+    # v3: a categorical scatter axis is rejected outright (not just warned) —
+    # unsuitable as positive dashboard-design training data.
+    resolver = _db(tmp_path)
+    with pytest.raises(RejectedRecord) as exc:
+        build_gold_item("1", _rec2(chart="Scatter", x="account_name", y="staff_gender"), 0, "q", mapping, resolver)
+    assert exc.value.reason == "categorical_scatter_axis"
+    assert "x=account_name" in exc.value.detail and "y=staff_gender" in exc.value.detail
+
+
+def test_aggregate_on_x_becomes_kpi(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    item = build_gold_item("1", _rec2(chart="Bar", x="count(*)", y="account_name"), 0, "q", mapping, resolver)
+    sel = item.brief.extra["provenance"]["kpi_selection"]
+    assert sel["primary_axis"] == "x"
+    assert sel["primary_kpi"] == "count(*)"
+    assert item.recommendation.kpi_chart_mapping[0].kpi == "count(*)"
+    assert "count(*)" in item.brief.kpis
+
+
+def test_aggregate_on_y_becomes_kpi(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    item = build_gold_item("1", _rec2(chart="Bar", x="account_name", y="count(*)"), 0, "q", mapping, resolver)
+    sel = item.brief.extra["provenance"]["kpi_selection"]
+    assert sel["primary_axis"] == "y" and sel["primary_kpi"] == "count(*)"
+
+
+def test_aggregate_on_both_axes_preserved(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    item = build_gold_item("1", _rec2(chart="Scatter", x="count(*)", y="sum(product_price)"), 0, "q", mapping, resolver)
+    sel = item.brief.extra["provenance"]["kpi_selection"]
+    assert set(sel["aggregate_axes"]) == {"x", "y"}
+    assert sel["primary_axis"] == "y"
+    assert set(item.brief.kpis) == {"count(*)", "sum(product_price)"}
+
+
+def test_grouping_recovery_success(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    sql = ("SELECT order_date , AVG(product_price) FROM t "
+           "GROUP BY other_details , order_date ORDER BY product_price DESC")
+    item = build_gold_item("1", _rec2(chart="Grouping Line", x="order_date", y="avg(product_price)",
+                                      classify=["a", "b"], sql=sql), 0, "q", mapping, resolver)
+    g = item.brief.extra["provenance"]["grouping"]
+    assert g["recovery_status"] == "recovered"
+    assert g["series_field"] == "other_details"
+    col_names = {c["name"] for c in item.brief.columns}
+    assert "other_details" in col_names
+    assert item.recommendation.kpi_chart_mapping[0].encoding["group_field"] == "other_details"
+    assert g["classify"] == ["a", "b"]
+
+
+def test_grouping_recovery_ambiguous_rejected(tmp_path, mapping):
+    # v3: an unrecoverable group field is mandatory-reject, not a warning —
+    # Stacked Bar / Grouping Line / Grouping Scatter always require group_field.
+    resolver = _db(tmp_path)
+    sql = ("SELECT order_date , AVG(product_price) FROM t "
+           "GROUP BY other_details , staff_gender , order_date")  # two extra -> ambiguous
+    with pytest.raises(RejectedRecord) as exc:
+        build_gold_item("1", _rec2(chart="Grouping Line", x="order_date", y="avg(product_price)",
+                                   classify=["a"], sql=sql), 0, "q", mapping, resolver)
+    assert exc.value.reason == "missing_group_field"
+    assert "ambiguous" in exc.value.detail
 
 
 # --------------------------------------------------------------------------- #
@@ -229,7 +372,9 @@ def _write_nvbench(tmp_path):
         "1": _record(chart="Bar", nl=["q1a", "q1b"]),
         "2": _record(chart="Pie", nl=["q2a"]),
         "3": _record(chart="Radar", nl=["bad"]),  # unsupported -> rejected
-        "4": _record(chart="Grouping Scatter", classify=["A", "B"], nl=["q4a", "q4b"]),
+        # Stacked Bar (not Scatter): grouped, but does not require numeric axes,
+        # so the default categorical x="cat" fixture stays valid.
+        "4": _record(chart="Stacked Bar", classify=["A", "B"], nl=["q4a", "q4b"]),
     }
     path = tmp_path / "NVBench.json"
     path.write_text(json.dumps(data), encoding="utf-8")

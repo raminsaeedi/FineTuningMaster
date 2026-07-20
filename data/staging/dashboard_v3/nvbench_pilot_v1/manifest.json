@@ -1,10 +1,10 @@
 {
-  "built_at": "2026-07-20T02:27:20.711056+00:00",
+  "built_at": "2026-07-20T19:20:19.454046+00:00",
   "source": "nvbench",
   "usage_tier": "train_aug",
+  "seed": 42,
   "selection": {
     "limit": 100,
-    "seed": 42,
     "one_query_per_group": true,
     "stratify_by_chart": true
   },
@@ -15,35 +15,14 @@
   },
   "mapping_version": "v1",
   "task_rule_version": "v1",
-  "rejection_reasons": {},
   "db_metadata_available": true,
-  "source_hashes": {
-    "nvbench_json_sha256": "8c85a9454fe1343074ba915bcbb379f170ab62bb1279b6a7aed23255e6eefbcf",
-    "cache_archive_sha256": "a2e22bf648f6d8e4c387d85f75962931976f1756338b41d025de528c8ff2da3d",
-    "cache_tool_version": "1.0.0"
+  "rejection_reasons": {},
+  "determinism": {
+    "accepted_sha256_main": "3ab91866da9b27ffc9b54ba5390f45ff4ce0e40b81fc120ac81af49cf358de30",
+    "accepted_sha256_rebuild": "3ab91866da9b27ffc9b54ba5390f45ff4ce0e40b81fc120ac81af49cf358de30",
+    "rejected_sha256_main": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rejected_sha256_rebuild": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "byte_identical": true
   },
-  "distributions": {
-    "n_items": 100,
-    "chart_distribution": {
-      "bar": 20,
-      "pie": 20,
-      "scatter": 20,
-      "stacked_bar": 20,
-      "line": 20
-    },
-    "task_distribution": {
-      "comparison": 20,
-      "part_to_whole": 20,
-      "correlation": 20,
-      "composition": 20,
-      "trend": 20
-    },
-    "split_distribution": {
-      "train": 94,
-      "val": 6
-    },
-    "source_distribution": {
-      "nvbench": 100
-    }
-  }
+  "passed": true
 }

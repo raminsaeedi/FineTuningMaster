@@ -3,17 +3,22 @@
 # All source-label -> project mappings live here so they are auditable and
 # versioned. Unsupported chart labels are never silently coerced: they are
 # rejected and reported by the builder.
-mapping_version: v1
+mapping_version: v2
 
 # nvBench chart label -> project ChartType. Grouping variants keep their base
 # chart type and preserve grouping/classify information in the encoding and
 # provenance (see field lineage in the builder).
+#
+# v2: "Stacked Bar" is treated as grouped/series-based (it always carries
+# classify values in the source) — a required group_field is recovered from
+# GROUP BY, and the record is rejected if the field cannot be recovered
+# unambiguously (see nvbench_pilot_v3 correction).
 chart_map:
   "Bar": {chart_type: bar, grouped: false}
   "Pie": {chart_type: pie, grouped: false}
   "Line": {chart_type: line, grouped: false}
   "Scatter": {chart_type: scatter, grouped: false}
-  "Stacked Bar": {chart_type: stacked_bar, grouped: false}
+  "Stacked Bar": {chart_type: stacked_bar, grouped: true}
   "Grouping Line": {chart_type: line, grouped: true}
   "Grouping Scatter": {chart_type: scatter, grouped: true}
 

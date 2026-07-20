@@ -20,6 +20,11 @@ data/index/
 data/knowledge_base/chunks.jsonl
 data/knowledge_base/index/
 
+# ── Staging candidate datasets (pre-freeze, regeneratable) ──────
+# Versioned staging builds (e.g. nvBench pilots) are reproducible from the
+# builder + registered source; not versioned in Git.
+data/staging/
+
 # ── Rebuildable external caches (regeneratable from raw archives) ──
 # Extracted database caches are large and reproducible via
 # `python experiments/scripts/prepare_nvbench_cache.py`; never versioned.

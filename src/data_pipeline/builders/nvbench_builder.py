@@ -100,6 +100,7 @@ class NvBenchBuilder(BaseBuilder):
                             "detail": exc.detail,
                             "original_chart_label": record.get("chart", ""),
                             "db_id": record.get("db_id", ""),
+                            **exc.evidence,
                         }
                     )
 

@@ -1,24 +1,250 @@
 {
   "n_items": 100,
-  "chart_distribution": {
-    "bar": 20,
-    "pie": 20,
-    "scatter": 20,
-    "stacked_bar": 20,
-    "line": 20
-  },
-  "task_distribution": {
-    "comparison": 20,
-    "part_to_whole": 20,
-    "correlation": 20,
-    "composition": 20,
-    "trend": 20
-  },
-  "split_distribution": {
-    "train": 94,
-    "val": 6
-  },
-  "source_distribution": {
-    "nvbench": 100
-  }
+  "distributions": [
+    {
+      "dimension": "source_chart_label",
+      "value": "Bar",
+      "count": 20
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Pie",
+      "count": 20
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Stacked Bar",
+      "count": 20
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Line",
+      "count": 17
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Scatter",
+      "count": 14
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Grouping Scatter",
+      "count": 6
+    },
+    {
+      "dimension": "source_chart_label",
+      "value": "Grouping Line",
+      "count": 3
+    },
+    {
+      "dimension": "normalized_chart_type",
+      "value": "bar",
+      "count": 20
+    },
+    {
+      "dimension": "normalized_chart_type",
+      "value": "line",
+      "count": 20
+    },
+    {
+      "dimension": "normalized_chart_type",
+      "value": "pie",
+      "count": 20
+    },
+    {
+      "dimension": "normalized_chart_type",
+      "value": "scatter",
+      "count": 20
+    },
+    {
+      "dimension": "normalized_chart_type",
+      "value": "stacked_bar",
+      "count": 20
+    },
+    {
+      "dimension": "inferred_task_type",
+      "value": "comparison",
+      "count": 20
+    },
+    {
+      "dimension": "inferred_task_type",
+      "value": "composition",
+      "count": 20
+    },
+    {
+      "dimension": "inferred_task_type",
+      "value": "correlation",
+      "count": 20
+    },
+    {
+      "dimension": "inferred_task_type",
+      "value": "part_to_whole",
+      "count": 20
+    },
+    {
+      "dimension": "inferred_task_type",
+      "value": "trend",
+      "count": 20
+    },
+    {
+      "dimension": "split",
+      "value": "train",
+      "count": 94
+    },
+    {
+      "dimension": "split",
+      "value": "val",
+      "count": 6
+    },
+    {
+      "dimension": "database",
+      "value": "customers_card_transactions",
+      "count": 20
+    },
+    {
+      "dimension": "database",
+      "value": "customers_campaigns_ecommerce",
+      "count": 14
+    },
+    {
+      "dimension": "database",
+      "value": "customers_and_products_contacts",
+      "count": 11
+    },
+    {
+      "dimension": "database",
+      "value": "employee_hire_evaluation",
+      "count": 9
+    },
+    {
+      "dimension": "database",
+      "value": "assets_maintenance",
+      "count": 7
+    },
+    {
+      "dimension": "database",
+      "value": "department_management",
+      "count": 6
+    },
+    {
+      "dimension": "database",
+      "value": "department_store",
+      "count": 6
+    },
+    {
+      "dimension": "database",
+      "value": "dog_kennels",
+      "count": 6
+    },
+    {
+      "dimension": "database",
+      "value": "debate",
+      "count": 5
+    },
+    {
+      "dimension": "database",
+      "value": "apartment_rentals",
+      "count": 4
+    },
+    {
+      "dimension": "database",
+      "value": "behavior_monitoring",
+      "count": 3
+    },
+    {
+      "dimension": "database",
+      "value": "e_learning",
+      "count": 3
+    },
+    {
+      "dimension": "database",
+      "value": "game_injury",
+      "count": 2
+    },
+    {
+      "dimension": "database",
+      "value": "activity_1",
+      "count": 1
+    },
+    {
+      "dimension": "database",
+      "value": "architecture",
+      "count": 1
+    },
+    {
+      "dimension": "database",
+      "value": "driving_school",
+      "count": 1
+    },
+    {
+      "dimension": "database",
+      "value": "film_rank",
+      "count": 1
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "chart_type=source-provided",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "encoding=source-provided",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "goal=source-provided",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "interactions=template-derived",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "kpi=source-provided",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "layout=template-derived",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "rationales=template-derived",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "styling=template-derived",
+      "count": 100
+    },
+    {
+      "dimension": "field_lineage",
+      "value": "task_type=rule-derived",
+      "count": 100
+    },
+    {
+      "dimension": "column_dtype_origin",
+      "value": "source-provided(db)",
+      "count": 95
+    },
+    {
+      "dimension": "column_dtype_origin",
+      "value": "heuristic",
+      "count": 5
+    },
+    {
+      "dimension": "grouped",
+      "value": "non_grouped",
+      "count": 91
+    },
+    {
+      "dimension": "grouped",
+      "value": "grouped",
+      "count": 9
+    }
+  ]
 }
