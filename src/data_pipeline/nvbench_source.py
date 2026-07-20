@@ -28,7 +28,7 @@ from src.core.schemas import (
     Rationale,
     TaskType,
 )
-from src.data_pipeline.builders.base import trainval_split
+from src.data_pipeline.splits import assign_split
 from src.utils.io import read_yaml
 
 _AGG_RE = re.compile(r"^\s*(\w+)\s*\(", re.IGNORECASE)
@@ -87,8 +87,18 @@ def infer_task(base_chart: ChartType, grouped: bool, mapping: Dict[str, Any]) ->
 # --------------------------------------------------------------------------- #
 # stable ids + split
 # --------------------------------------------------------------------------- #
+def base_key(key: str) -> str:
+    """Strip nvBench sort-ordering suffixes to the base visualization key.
+
+    nvBench encodes ordering variants as ``<base>@x_name@ASC`` etc. These share
+    the same chart, database and (near-duplicate) NL queries, so they belong to
+    one visualization for grouping/splitting purposes.
+    """
+    return key.split("@", 1)[0]
+
+
 def source_group_id(key: str) -> str:
-    return f"nvbench:{key}"
+    return f"nvbench:{base_key(key)}"
 
 
 def source_record_id(key: str, query_index: int) -> str:
@@ -96,13 +106,15 @@ def source_record_id(key: str, query_index: int) -> str:
 
 
 def group_split(key: str) -> str:
-    """Group-aware split: all queries of a key land in the same train/val bucket.
+    """Group-aware split: every query of one visualization shares a bucket.
 
-    Splits are derived from the *group* id, not the per-query id, so every NL
-    query for one visualization key shares a split. Augmentation is train/val
-    only (``trainval_split`` remaps the test bucket to train).
+    Splits are derived from the *base-visualization group* id, not the per-query
+    id, so all NL queries for a visualization (including its sort variants) share
+    a split and can never straddle train/val. Augmentation is train/val only:
+    the test bucket is remapped to train so augmentation never lands in test.
     """
-    return trainval_split(source_group_id(key))
+    split = assign_split(source_group_id(key))
+    return "train" if split == "test" else split
 
 
 # --------------------------------------------------------------------------- #
@@ -145,44 +157,57 @@ class DbMetadataResolver:
     def available(self) -> bool:
         return self.cache_root is not None and self.cache_root.exists()
 
-    def _db_path(self, db_id: str) -> Optional[Path]:
+    def _db_candidates(self, db_id: str) -> List[Path]:
+        """Existing SQLite paths for a db, best first.
+
+        nvBench ships an empty top-level ``<db_id>.sqlite`` stub alongside the
+        real database at ``<db_id>/<db_id>.sqlite``; nested paths are tried first
+        and any candidate with no tables is skipped by ``columns``.
+        """
         if not self.available:
-            return None
-        candidates = [
-            self.cache_root / f"{db_id}.sqlite",
+            return []
+        ordered = [
             self.cache_root / db_id / f"{db_id}.sqlite",
-            self.cache_root / "database" / f"{db_id}.sqlite",
             self.cache_root / "database" / db_id / f"{db_id}.sqlite",
+            self.cache_root / f"{db_id}.sqlite",
+            self.cache_root / "database" / f"{db_id}.sqlite",
         ]
-        for c in candidates:
-            if c.exists():
-                return c
-        return None
+        return [c for c in ordered if c.exists() and c.stat().st_size > 0]
+
+    @staticmethod
+    def _read_columns(path: Path) -> Dict[str, str]:
+        result: Dict[str, str] = {}
+        try:
+            con = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+        except sqlite3.Error:
+            return result
+        try:
+            tables = [
+                r[0]
+                for r in con.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            ]
+            for t in tables:
+                for row in con.execute(f'PRAGMA table_info("{t}")').fetchall():
+                    col_name = str(row[1]).lower()
+                    result.setdefault(col_name, normalize_sqlite_type(str(row[2])))
+        except sqlite3.Error:
+            return {}
+        finally:
+            con.close()
+        return result
 
     def columns(self, db_id: str) -> Dict[str, str]:
         """Return ``{column_name_lower: normalized_dtype}`` for a database."""
         if db_id in self._cache:
             return self._cache[db_id]
         result: Dict[str, str] = {}
-        path = self._db_path(db_id)
-        if path is not None:
-            try:
-                con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-                try:
-                    tables = [
-                        r[0]
-                        for r in con.execute(
-                            "SELECT name FROM sqlite_master WHERE type='table'"
-                        ).fetchall()
-                    ]
-                    for t in tables:
-                        for row in con.execute(f'PRAGMA table_info("{t}")').fetchall():
-                            col_name = str(row[1]).lower()
-                            result.setdefault(col_name, normalize_sqlite_type(str(row[2])))
-                finally:
-                    con.close()
-            except sqlite3.Error:
-                result = {}
+        for path in self._db_candidates(db_id):
+            cols = self._read_columns(path)
+            if cols:  # first candidate that actually has tables wins
+                result = cols
+                break
         self._cache[db_id] = result
         return result
 
@@ -254,6 +279,7 @@ def build_gold_item(
         "source_group_id": source_group_id(key),
         "source_record_id": source_record_id(key, query_index),
         "visualization_key": key,
+        "base_visualization_key": base_key(key),
         "query_index": query_index,
         "original_chart_label": label,
         "db_id": db_id,

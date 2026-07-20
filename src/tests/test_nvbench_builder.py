@@ -107,6 +107,21 @@ def test_group_aware_split_keeps_queries_together(mapping):
     assert splits.pop() in {"train", "val"}  # augmentation is never test
 
 
+def test_sort_variants_share_one_group_and_split(mapping):
+    resolver = DbMetadataResolver(None)
+    # base + sort variants of one visualization must map to one group + split.
+    keys = ["5", "5@x_name@ASC", "5@x_name@DESC", "5@y_name@ASC", "5@y_name@DESC"]
+    items = [build_gold_item(k, _record(), 0, "q", mapping, resolver) for k in keys]
+    groups = {it.brief.extra["provenance"]["source_group_id"] for it in items}
+    splits = {it.split for it in items}
+    assert groups == {"nvbench:5"}
+    assert len(splits) == 1
+    # full key is still preserved for traceability, record ids stay unique.
+    assert {it.item_id for it in items} == {f"nvbench:{k}:query:0" for k in keys}
+    assert items[1].brief.extra["provenance"]["visualization_key"] == "5@x_name@ASC"
+    assert items[1].brief.extra["provenance"]["base_visualization_key"] == "5"
+
+
 def test_augmentation_never_lands_in_test(mapping):
     resolver = DbMetadataResolver(None)
     for k in range(300):

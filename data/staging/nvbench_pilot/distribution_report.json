@@ -1,0 +1,24 @@
+{
+  "n_items": 100,
+  "chart_distribution": {
+    "bar": 20,
+    "pie": 20,
+    "scatter": 20,
+    "stacked_bar": 20,
+    "line": 20
+  },
+  "task_distribution": {
+    "comparison": 20,
+    "part_to_whole": 20,
+    "correlation": 20,
+    "composition": 20,
+    "trend": 20
+  },
+  "split_distribution": {
+    "train": 94,
+    "val": 6
+  },
+  "source_distribution": {
+    "nvbench": 100
+  }
+}
