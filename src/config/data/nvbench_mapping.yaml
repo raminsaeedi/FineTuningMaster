@@ -1,0 +1,34 @@
+# Versioned nvBench source-label mappings for NvBenchBuilder.
+#
+# All source-label -> project mappings live here so they are auditable and
+# versioned. Unsupported chart labels are never silently coerced: they are
+# rejected and reported by the builder.
+mapping_version: v1
+
+# nvBench chart label -> project ChartType. Grouping variants keep their base
+# chart type and preserve grouping/classify information in the encoding and
+# provenance (see field lineage in the builder).
+chart_map:
+  "Bar": {chart_type: bar, grouped: false}
+  "Pie": {chart_type: pie, grouped: false}
+  "Line": {chart_type: line, grouped: false}
+  "Scatter": {chart_type: scatter, grouped: false}
+  "Stacked Bar": {chart_type: stacked_bar, grouped: false}
+  "Grouping Line": {chart_type: line, grouped: true}
+  "Grouping Scatter": {chart_type: scatter, grouped: true}
+
+# Deterministic task_type inference. Rule-derived only; never presented as a
+# source label. Every inferred task records rule version, confidence, evidence
+# and derivation status.
+task_rules:
+  version: v1
+  by_chart:
+    bar: {task_type: comparison, confidence: 0.55, evidence: "bar chart of a measure across a categorical dimension implies category comparison"}
+    pie: {task_type: part_to_whole, confidence: 0.60, evidence: "pie chart of category shares implies part-to-whole"}
+    line: {task_type: trend, confidence: 0.65, evidence: "line chart over an ordered/temporal x-axis implies trend"}
+    scatter: {task_type: correlation, confidence: 0.65, evidence: "scatter of two measures implies correlation"}
+    stacked_bar: {task_type: composition, confidence: 0.60, evidence: "stacked bar of category segments implies composition"}
+  # Additive note appended to evidence when the source label is a grouping variant.
+  grouped_evidence: "multiple series (classify) present; comparison across groups also supported"
+  # Fallback when no chart-specific rule matches.
+  default: {task_type: comparison, confidence: 0.30, evidence: "no chart-specific rule matched; dashboard default"}
