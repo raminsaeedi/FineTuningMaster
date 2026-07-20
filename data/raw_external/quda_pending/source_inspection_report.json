@@ -1,0 +1,17 @@
+{
+  "source": "quda",
+  "repository_url": null,
+  "corpus_present": false,
+  "n_files": 0,
+  "files": [],
+  "query_count": null,
+  "task_labels_present": false,
+  "ids_present": false,
+  "license": {
+    "status": "pending",
+    "license": null,
+    "evidence": "No corpus or license files present locally."
+  },
+  "note": "quda_pending is empty; the Quda corpus has not been provisioned. Registered as pending/absent. Ingestion is intentionally not implemented.",
+  "registered_at": "2026-07-20T01:22:50.681922+00:00"
+}

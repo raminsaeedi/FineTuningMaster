@@ -20,6 +20,22 @@ data/index/
 data/knowledge_base/chunks.jsonl
 data/knowledge_base/index/
 
+# ── Rebuildable external caches (regeneratable from raw archives) ──
+# Extracted database caches are large and reproducible via
+# `python experiments/scripts/prepare_nvbench_cache.py`; never versioned.
+data/cache_external/
+
+# ── External raw datasets (large, user-provisioned, immutable) ──
+# Ignore all raw archives and extracted external files, but keep the small
+# registration manifests, checksum listings and docs trackable. Directories are
+# re-included first so git can descend to the whitelisted files inside them.
+/data/raw_external/**
+!/data/raw_external/**/
+!/data/raw_external/**/source_manifest.json
+!/data/raw_external/**/SHA256SUMS.txt
+!/data/raw_external/**/source_inspection_report.json
+!/data/raw_external/**/*.md
+
 # ── Experiment outputs & model weights (large; not versioned) ─
 # NOTE: ignore any 'models/' weights directory, but keep the source package
 # src/models/ (the import-safe HF wrapper) tracked — the negation re-includes it.
@@ -38,9 +54,11 @@ notebooks/.ipynb_checkpoints/
 *.swo
 
 # ── Claude worktrees (AI-generated temporary workspaces) ─────
-.claude/worktrees/
+.claude/
+.agents/
 
 # ── OS ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
+skills-lock.json

@@ -1,0 +1,1753 @@
+{
+  "source": "nvbench2",
+  "repository_url": "https://github.com/HKUSTDial/nvBench-2.0",
+  "detected_references": [
+    "http://creativecommons.org/licenses/by-sa/4.0/",
+    "https://arxiv.org/abs/2503.12880}",
+    "https://github.com/TsinghuaDatabaseGroup/nvBench/blob/main/databases.zip",
+    "https://huggingface.co/datasets/TianqiLuo/nvBench2.0"
+  ],
+  "source_revision": {
+    "downloaded_ref": "main",
+    "pinned_commit": null,
+    "archive_name": "nvBench-2.0-main.zip",
+    "archive_sha256": "598070e1e5698f7a9c2b6019d0168222edf14ccc0db78d93df8af30fe206896e",
+    "note": "Downloaded as a GitHub branch archive; the '-<ref>' folder suffix identifies the branch, not a pinned commit. The archive SHA-256 is the immutable local source identifier."
+  },
+  "license": {
+    "status": "pending",
+    "license": null,
+    "evidence": "License (CC-BY-SA-4.0) mentioned only inside a commented-out section of extracted/nvBench-2.0-main/README.md; not an active grant."
+  },
+  "dataset_stats": null,
+  "n_files": 345,
+  "total_bytes": 257253930,
+  "files": [
+    {
+      "relative_path": "archive/nvBench-2.0-main.zip",
+      "size_bytes": 111501900,
+      "sha256": "598070e1e5698f7a9c2b6019d0168222edf14ccc0db78d93df8af30fe206896e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/.gitignore",
+      "size_bytes": 16,
+      "sha256": "97bf6c9b77ea118a79f31885ea77b4a6593bdab71233665d058f9fad1380f60d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/README.md",
+      "size_bytes": 10320,
+      "sha256": "21d1632ca24c0db487eca445bfd44cad265b883e0d8575d9957f19564ddbc754"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/0.read_database.py",
+      "size_bytes": 3983,
+      "sha256": "1aaadf73f9a6d3773805967285068ccd7a836e18088e5c39510eb766666438c1"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/1.export_sqlite_to_csv.py",
+      "size_bytes": 5353,
+      "sha256": "7e86827ca701c86dd12542d389706b22aa9c4c9f8f6d55f971cfb91d78034ab1"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/2.table_filter.py",
+      "size_bytes": 7307,
+      "sha256": "97877f4d2ef2ef2d6c9202358aea981d5e07d6e55cf797c9931e58013ed1fe43"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/3.generate_metadata.py",
+      "size_bytes": 5118,
+      "sha256": "b0e474615b9a1f578dac3eb0d8ca9064c43f8b3e125d72d9ddd5576277968448"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/4.0.column_description.py",
+      "size_bytes": 7363,
+      "sha256": "4ac06612be1e5f0a076edb92b63117bb6acd7b5bb2eaac0f1ba72034ae1bc953"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/4.1.ambiguity_prompt.py",
+      "size_bytes": 8616,
+      "sha256": "3693ff73dc0101f900a6761881e00f4cedfa86fef84300e73c90ecba387136cb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part1_metadata/4.2.field_by_type_ambi.py",
+      "size_bytes": 3449,
+      "sha256": "0151b8f4dbb43beb27fa5326d9b23a1f520d178877052e5fa2beb4daa9a9da3c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/constraints.lp",
+      "size_bytes": 937,
+      "sha256": "7f83b0a41187dfae1552e297e9fa4db22f464ce8a8da59abef4c1f67a26a5c3b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/define.lp",
+      "size_bytes": 2942,
+      "sha256": "d7764cf4e6038c510ad95e61af7cebf4c876050ba72c1bfee2b0ff9af74ccaeb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/generate.lp",
+      "size_bytes": 2016,
+      "sha256": "ed10828a20b8f0bd7be4190dd402772a1a3c456a7a9b82a09b9b5a481da98eba"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/hard.lp",
+      "size_bytes": 19772,
+      "sha256": "39a10769d3fccf3cedcc0c6d5641982a2f472cf6e3b428df89f5b1be8a9a61f6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/helpers.lp",
+      "size_bytes": 8261,
+      "sha256": "0c240582d65e1b58b778969163677aa831085a6969842e4ee19cd6e6d6c924e7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/optimize.lp",
+      "size_bytes": 93,
+      "sha256": "e28dd0ff763e7be20b1f8863a07fe6bc478c4c31a8f806ce7c04c0bfed950b21"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/soft.lp",
+      "size_bytes": 29339,
+      "sha256": "0dbe4a4441f60758152024dc2639b01f2607dc30f874c6a008c2cfe72521a6bd"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/asp/weights.lp",
+      "size_bytes": 5131,
+      "sha256": "076b1ac50b3f5ab0e55f396ffa8fb8138a66732755c122010bccda34eb027e80"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/draco2-asp-requirements.txt",
+      "size_bytes": 3528,
+      "sha256": "1cc62f24c547c3a71486a6aec71642fd14f0e91e2928e1096d34a61f9d121562"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/main_multiprocess.py",
+      "size_bytes": 10774,
+      "sha256": "642df471d9f5eba7dd9d47b7d71b61780893c8c8352fd8b4c75a3917b0fc3aa2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/main_random_select.py",
+      "size_bytes": 9754,
+      "sha256": "d3acc442b9d64c2ba9d046f765980b24848e5ac78ee188fe3b2e166c0187d580"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/asp.py",
+      "size_bytes": 18507,
+      "sha256": "bd6814e57ce199b6bb1960a3eb9fbbe46853ebc475bd55d0986b650c8ca87b6f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/date_column.py",
+      "size_bytes": 5132,
+      "sha256": "ed6abb4f8f030977fca1894539d8c71878105723e0a2edc85fdecd33167a0579"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/debug_rect.py",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/mark.py",
+      "size_bytes": 3559,
+      "sha256": "a257f539a043eca539e8a93c688fbb9be4a3cddbc9ced3c09da2ed6bd9bd7252"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/output_combine.py",
+      "size_bytes": 589,
+      "sha256": "701d7c6b30d2170c95a85ab22f1aaad7ab2ae0c5b1dc8741557d34ebbc615df6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/output_for_nl_generation.py",
+      "size_bytes": 10323,
+      "sha256": "08101544db15ffde0038edf3005c99132cedcabcb6ae0e1905328705dd9586c3"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/output_stat.py",
+      "size_bytes": 4597,
+      "sha256": "7a62f0829a81dc6be2db7563dcf6b526d26977a5c4150e8350bd6e786678df1b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/state.py",
+      "size_bytes": 18982,
+      "sha256": "85c2e6d862f66fdbbf0327a50144df4d1bd7b421efe6c96654e7e4a188e93f7b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/table.py",
+      "size_bytes": 2358,
+      "sha256": "50d377dc81813a922f0c1f45cc136f36c26be578d88f2eb48fc0ef2cfab9ca71"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part2_vis_synthesize/utils/test.py",
+      "size_bytes": 1080,
+      "sha256": "3d3540f71d20f8eecaad174046db6cb6ed8c2b92bdf0cf0100dd2b22221fd521"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part3_query_synthesize/llm_gpt_call.py",
+      "size_bytes": 2144,
+      "sha256": "7ae770707c4b9045aa35be5c8d67f7c4fb8d7fd316f57180180048d44a9b9ef9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part3_query_synthesize/nl_generation.py",
+      "size_bytes": 2143,
+      "sha256": "abb4910a805c398e2bdedf123c94d8e42ef670037081124e8d4ecb01cb8453d2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part3_query_synthesize/nl_generation_multiproess.py",
+      "size_bytes": 6085,
+      "sha256": "26305085588dcd81f5d3eeea3dc171d844c0cb94ca62ca4970dc5e5c8138b6f2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part3_query_synthesize/nl_generation_stepbystep.py",
+      "size_bytes": 3884,
+      "sha256": "6e7fcdc3bb25dcc234f9579f3805d969d5c9b4ea1eb5e84c6ff0bcfa5c13c609"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part3_query_synthesize/nl_prompt.py",
+      "size_bytes": 3428,
+      "sha256": "7ee78538884ab73525c8cb3237ed3cd646ea2d3fe5423dd15290c67e1f9ece92"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part4_reasoning_path/nvbench2_step_generation.py",
+      "size_bytes": 12973,
+      "sha256": "dd658431ddfcfe68afbb99077180e7598ee75e0b2cca8afb40f0c3d0fdb0e777"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/data_synthesis_pipeline/part4_reasoning_path/step_generation_prompt.py",
+      "size_bytes": 6584,
+      "sha256": "89dc383028dadfc8886cec8cec9dbe230966af4d854252533ec2d6e999aa72ed"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/evaluation/README.md",
+      "size_bytes": 52,
+      "sha256": "d71f7e65fdeb2e8c511f9a65c382d3af2d40e25e40b62f7090314cf6b29acad5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/evaluation/evaluation.py",
+      "size_bytes": 8835,
+      "sha256": "38fffd989ac19f3c8b92d3a7b2eee1d2ea3581edce6e5ba6293ffc112f2b373f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/evaluation/old/evaluation.py",
+      "size_bytes": 14047,
+      "sha256": "60c1e59878cf7725d7aef2dc9f89a21b857b6cc3b3fb3c2bb5181367295e11a9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/evaluation/old/utils.py",
+      "size_bytes": 9619,
+      "sha256": "4b3cd6ec86c64555510280138b5527a2d88d4a5b136e61cbe3d9e3033b8ae556"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/evaluation/utils.py",
+      "size_bytes": 9636,
+      "sha256": "9567d992e24af8b9e5583bf6ed120b5dcd2d8e3298edbb7d78d1dc0930b96036"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/sft/infer.py",
+      "size_bytes": 3423,
+      "sha256": "f993522edc18ba6e9e8a5f1d502a3151fa2dba0afbdf25bcd52f638a6a9a36fa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/sft/sft.py",
+      "size_bytes": 4780,
+      "sha256": "8e45eca1253439dac0a8924d1e6bca89be97a4535487a59084bc8c9d25fe20aa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/sft/sft_template.py",
+      "size_bytes": 2004,
+      "sha256": "60480b130176642472d0b5fca1185403357afe4cb826446f05b1c08bc08316cf"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/step-dpo/backup/train.py",
+      "size_bytes": 2473,
+      "sha256": "d3a6c3441dab4c6a5e650485f114b8db8ed15f4ef4cae4057d50b477f5659dfe"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/step-dpo/backup/train2.py",
+      "size_bytes": 2944,
+      "sha256": "453d606396665f20ecce92052fada7db207dc60f527279d3fc862788ebba7d13"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/model_finetune/step-dpo/stepdpo_trainer.py",
+      "size_bytes": 8393,
+      "sha256": "84a614fc6a88a3ff9db7cf7236ba9ee9effc85bccc0fafcd181afbd1f1ccfbd4"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/prompt_experiment/basic_prompt.py",
+      "size_bytes": 8426,
+      "sha256": "01dcdc9f05cf7d057b8b81b2f0f5a58a21e07bc967f181da2be9149957d1cf7b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/code/prompt_experiment/step_prompt.py",
+      "size_bytes": 27366,
+      "sha256": "319e503fcf6b2d72aae00affdd8b81f0692ced19ae2c0fe75ef75eaefd240795"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/data/database/database_csv.zip",
+      "size_bytes": 18395893,
+      "sha256": "d8e31b2e8a62f61146f85eb208fb304f9ca22d62f25a9b8be9757c4a17a963dd"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/data/nvbench2.0/dev.json",
+      "size_bytes": 3344581,
+      "sha256": "a815a23e0998f69f03fef7bdee45e18a69deec49490ee099b9511a133f34291c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/data/nvbench2.0/test.json",
+      "size_bytes": 3361287,
+      "sha256": "22f8802d8e3fbf391b7dccee8f979c812f0792a3853c7f9914394c8016ae6cc2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/data/nvbench2.0/train.json",
+      "size_bytes": 27469190,
+      "sha256": "12a58935f7e50fb9eec1f85d0a93a458f5ad951c5eb9e0ed3f46ce7e0659ac20"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/data/readme.md",
+      "size_bytes": 1496,
+      "sha256": "6af5cb57efe08acb33deb8dd2bb275c5fabaed342e3456e46ccb1ecac7e44f74"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/index.html",
+      "size_bytes": 23410,
+      "sha256": "6841aa1ddcfeffc79cd71661ae61b0334febedc4a59fa5e3d3ca673b16acb151"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/nvBench2.0.pdf",
+      "size_bytes": 2275723,
+      "sha256": "9554cf5c97cc772068885167047dac81e387ef4cdc9e49e453f24990f11d674d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/bulma-carousel.min.css",
+      "size_bytes": 3645,
+      "sha256": "9d586b0d953f9dedc8ff3e8b5d611bc943849afefdb0f18a11bb0fed258b9072"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/bulma-slider.min.css",
+      "size_bytes": 13782,
+      "sha256": "9bd5f05ad71360d0e87f21dd3d07d94c080486342f335ff041f5394c6aa6dac9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/bulma.css.map.txt",
+      "size_bytes": 96528,
+      "sha256": "2dd7317e7daa3390397b28665ad4398be313b93114747cb9e0052030b771143f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/bulma.min.css",
+      "size_bytes": 204030,
+      "sha256": "58b28659220961ead137cb5b346b5759562750ce703094d70fc786e0db467033"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/fontawesome.all.min.css",
+      "size_bytes": 59344,
+      "sha256": "af1e6edc875a382b338bb25bd7c5c3f474a7f1b36212002a5896dd06f2186325"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/css/index.css",
+      "size_bytes": 2118,
+      "sha256": "747bae5899d9a93f21caa423e264b2b7ed7ec2b12e1f57be1a715f8103c5c744"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/diallab.svg",
+      "size_bytes": 1982,
+      "sha256": "c345ac8b006a08f613d86f840bee707499b01673ba232d3774bb67d41532dc54"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/fig1.svg",
+      "size_bytes": 468614,
+      "sha256": "74c4f6dfebcfcb410d578772c26d28bd4d0ee29240fdab0772f5a1caf0ba2803"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/fig2.svg",
+      "size_bytes": 684176,
+      "sha256": "59418a9a7826d617bdc367e1a323778c490325c9c61b2e3efd17035f118d3ec8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/fig3.svg",
+      "size_bytes": 207985,
+      "sha256": "29b7b579e472a3f8d6d9457ae6e705b7afa650cafbbe6465d10dce5f2a5e7401"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/fig7.svg",
+      "size_bytes": 1149082,
+      "sha256": "9ebe2406d8b09c22096a2c0267e40fc1c155ff12a050130a544c95b2ab83632b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/fig8.svg",
+      "size_bytes": 225498,
+      "sha256": "2e4c593a99104741b8cb90b09a0b53934cf5a4437eee8fb6437243bd82f74e1c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/interpolate_end.jpg",
+      "size_bytes": 112628,
+      "sha256": "4fd1d5a38d4b9cdcc3ba8cec1e01851e7218cc06fb36ad5286dc2a90f5caf11f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/interpolate_start.jpg",
+      "size_bytes": 116806,
+      "sha256": "489856e8b68efb11f2aacce852765a98bf5e7e339bd0182ed65c64a0c5c2acba"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/steve.webm",
+      "size_bytes": 1090546,
+      "sha256": "95c9528dadfebb0cef5b88012f1b11a7789364d66f48513203fdb8f0794ad0df"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/table1.png",
+      "size_bytes": 249570,
+      "sha256": "6120c7d33f25bac315f12398df83363ecea60144de1ddd1f38b1476a07ee992a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/table3.png",
+      "size_bytes": 125714,
+      "sha256": "1853464ab0adff797825a3e82d796ad8dd17c3da12821d7fa4716a29635b7d59"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/table4.png",
+      "size_bytes": 101415,
+      "sha256": "67f72162143ef91d87deeea914071400ff926522f4d6badfa2168a191a93e537"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/table5.png",
+      "size_bytes": 141873,
+      "sha256": "4a49f77c7886db8cda8b1c0b7e3b7d3200fc6a8a38afe48ae1208b025df8be41"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/table6.png",
+      "size_bytes": 256667,
+      "sha256": "26f1bff95e5649bcd72d133e8a500ef30dbfaa5916183e8b087d9ff4e5ca74c2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/images/test.txt",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/._Icon",
+      "size_bytes": 4096,
+      "sha256": "40e3c974b41be019164d65ccc237a8a3f735400c9f29e2d259d418e6645d3991"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000000.jpg",
+      "size_bytes": 128084,
+      "sha256": "86d42187b81be555c0370f9f56a58a4af9cd2684c9631425140a79bcee4147f9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000001.jpg",
+      "size_bytes": 128275,
+      "sha256": "aa817f8fb6b5a644ef65632e3e8a5bffd8334b3c018961889bb35b68c3499dbc"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000002.jpg",
+      "size_bytes": 128251,
+      "sha256": "770342fbb42c3cffccdc2f9c10e84d1f6649da6e07764cff460c1ad4f60f0c58"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000003.jpg",
+      "size_bytes": 128493,
+      "sha256": "f87eefa969d9d20f272ed95d66a7600c45a7683d89bc3ef22098d10ee4f9484b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000004.jpg",
+      "size_bytes": 128250,
+      "sha256": "fa8523fb8db6bf4cb6f42651f2483d989b0507d6a292c80104cd98efbef7486c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000005.jpg",
+      "size_bytes": 128632,
+      "sha256": "7404c3dc92d782893f104e9a2b05a6dd0f019dc40007196132aea7a3ca78d1a4"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000006.jpg",
+      "size_bytes": 128541,
+      "sha256": "2a337f0cebcb83f3d531d58db2eccb6f5055fe0de1763675f704381a0c464bec"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000007.jpg",
+      "size_bytes": 128733,
+      "sha256": "baf49c91d5afa360e5c5002db94416eeae836bb2fd3fc3aac1d6995f186847b0"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000008.jpg",
+      "size_bytes": 128932,
+      "sha256": "48c660e6b18cb8ed9b8f22e0efc6585b422d6bf3ca22b5553d30621aafc564fa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000009.jpg",
+      "size_bytes": 128964,
+      "sha256": "03f0219e6c1a22c655c2f2e59e36e469bca0b2b575ca03d6c299d18f9f296a63"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000010.jpg",
+      "size_bytes": 129026,
+      "sha256": "862f65f258b96e1b458e55b46646992b44a7b47a09412ba78c65dc170bdd1651"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000011.jpg",
+      "size_bytes": 129247,
+      "sha256": "c384750a890b3022baa956c366ea005129711c30ad3c04bf33003b32b36cae39"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000012.jpg",
+      "size_bytes": 129530,
+      "sha256": "0df755138d0f2d39b66c8033d5f569984c18f37557b46d82b74971815de3d26f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000013.jpg",
+      "size_bytes": 129573,
+      "sha256": "81e02ae80490eb38fdfe1f998bab20f04ef4f6c3f324933b2c95d05ac2e1edc8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000014.jpg",
+      "size_bytes": 129866,
+      "sha256": "2d8b61086348355bdab5f34ab167b2c1834c045851f305c040a0f8b39fee4bfd"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000015.jpg",
+      "size_bytes": 130193,
+      "sha256": "36a03678583479923fdb8a79cb8b51083ad86ae6d91fda8558e03c27d3be5d3c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000016.jpg",
+      "size_bytes": 130401,
+      "sha256": "8dec3d3147e24e2f1d3ddb56d23ac721c4899be1514200195b488955d3e28d98"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000017.jpg",
+      "size_bytes": 130627,
+      "sha256": "c36f5e9333b3b0ee00708c9be79c2ef1966215466f0a475cc74a716da029f28e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000018.jpg",
+      "size_bytes": 130545,
+      "sha256": "a4d8d4be682b9b557e672bfc7ac3e8dca478b6b41de283f2ba372d47b5bc4486"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000019.jpg",
+      "size_bytes": 130452,
+      "sha256": "0cb7b4350229e5fe74e9233917729abc32a1bae09cdc3a56bea69ffa22262ba8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000020.jpg",
+      "size_bytes": 130447,
+      "sha256": "c1282aab91c51aa0ace7a624fc70f5b9eb3fa8abec8056352273e0e00578d628"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000021.jpg",
+      "size_bytes": 130714,
+      "sha256": "bf8aa7e8c419caee41dbda43ad3e6d3fec7a6636f612171a7519e9f385dc3241"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000022.jpg",
+      "size_bytes": 130607,
+      "sha256": "febeca82e0b495c2f564849a16c429b31b01ff4d46cef76fe1508ca60bf3a2cb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000023.jpg",
+      "size_bytes": 130650,
+      "sha256": "133907b0ba3849add12415e43084aff5b8611ebb0c10ccfe0823afbacf37f143"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000024.jpg",
+      "size_bytes": 130950,
+      "sha256": "08e6345670fc8a686eebaedc6f3fe24a2ab8f79ae22fbc9ef5cf76fc79496da8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000025.jpg",
+      "size_bytes": 131112,
+      "sha256": "2b74919868606623601dc9bd37f1cd54709ab53d159e830e37b22c5e6dce3e57"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000026.jpg",
+      "size_bytes": 131340,
+      "sha256": "5f7de3eb7b52f7e67e46af0a8ac8fbb00983a3cb6695971e38ca4b90ec36d42f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000027.jpg",
+      "size_bytes": 131394,
+      "sha256": "261193c8421e1472f3afde88131ca2a63b64e784eb7047c952525024ad5a9755"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000028.jpg",
+      "size_bytes": 131498,
+      "sha256": "9caab6fb5f43de2cbacb30fbdae24854babc6a77acebfb231ca06251242baf36"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000029.jpg",
+      "size_bytes": 131401,
+      "sha256": "4eebad69bcd54e8470c0ce084bb1b2f034c53ccd6de3914c29c2642395d62686"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000030.jpg",
+      "size_bytes": 131226,
+      "sha256": "c7ac5a36aec5094dc9271bebeff0fc3d283076d5ab5f6bac86341ad354231179"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000031.jpg",
+      "size_bytes": 131088,
+      "sha256": "3e298807d288d92f08fefb9b0bd63b80e0d96b98c72d187a0443327d0c396ada"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000032.jpg",
+      "size_bytes": 131212,
+      "sha256": "7248ae79b0a40b98eea34f9108274b85cff12b85de4330b609c57005dbbc209d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000033.jpg",
+      "size_bytes": 131201,
+      "sha256": "4917ea6c9c4bfd85f15f67c5fe14f64f8ed018ce27ef5aca02744e08a8415313"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000034.jpg",
+      "size_bytes": 131218,
+      "sha256": "8e09f37f0ea29b5f59709f3a93b772b85356da711fca6b4151ffc3c0f326292f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000035.jpg",
+      "size_bytes": 131425,
+      "sha256": "5949eb395d66fc1c947fd895fe6c638a25720f5e2c9f0627016a213b4a9f4577"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000036.jpg",
+      "size_bytes": 131585,
+      "sha256": "539bc86cadfe24a7b79df7244297723d6d66aa0fcfaa62a473bad6b1ff006e10"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000037.jpg",
+      "size_bytes": 131553,
+      "sha256": "2ba772c07623f996d83f7a636050c1fa188a338ea6b7def91e1ab14c56d54f89"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000038.jpg",
+      "size_bytes": 131783,
+      "sha256": "a3dde545b8aede39482872ee89593fe391f4a10b859afa9f97807293bd327f1c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000039.jpg",
+      "size_bytes": 132009,
+      "sha256": "52bfe6fd0418875d1f10b4b7bd146f356ae44fae1830c2a5cdbed23a536f63d8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000040.jpg",
+      "size_bytes": 131891,
+      "sha256": "d841c5a28187afc9529f217f5afd12f4ed7bd7496c01410c9de3b984008651b9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000041.jpg",
+      "size_bytes": 131653,
+      "sha256": "31508e39f009683e638f341d59727b0d4cc2df28476e42e727e0511dd9ff549b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000042.jpg",
+      "size_bytes": 131530,
+      "sha256": "2d707432e84175bee2309b0bf4a71596018421243c93a8750a0c6576d24b6883"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000043.jpg",
+      "size_bytes": 131717,
+      "sha256": "f8e79a3f3f5a8f07fdb792020096862550552244f9e56cb0a5ca73a3f86b2b52"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000044.jpg",
+      "size_bytes": 131646,
+      "sha256": "25efe5938fa618a2344e52447c584648dcc58032f6ffb2271b29680f87479c0a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000045.jpg",
+      "size_bytes": 131621,
+      "sha256": "025c6e534e9cc23e82e04beb2400e8532cbc4e33db4feb5f3ff9eac0db1a7615"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000046.jpg",
+      "size_bytes": 131823,
+      "sha256": "e59f0de4bba88188f9659cf19b1c7bfe4fb132f8ae94fdaac9adb467cb4543ee"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000047.jpg",
+      "size_bytes": 131375,
+      "sha256": "b43d1036091cb9f723f2e1f0220ea05b7941c2101e3fd07d640add8e95dfd39f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000048.jpg",
+      "size_bytes": 131329,
+      "sha256": "0e84d9085980c69007950f44cebdfde96ea0047cd45ba99e3d1c54e76559ce63"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000049.jpg",
+      "size_bytes": 131601,
+      "sha256": "3ba48317276741d89242b3c636e8154f29c997696c9614a97cf79a2676631d0b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000050.jpg",
+      "size_bytes": 131523,
+      "sha256": "95c69c48a6d1bac39039dee806ee076cfa055b1a8fc1bc7b04f51c7fb2f24424"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000051.jpg",
+      "size_bytes": 131592,
+      "sha256": "e5894c8507d0d4b40965d5f3a45c328645073fb5064dd097d543a6ea40a46fcf"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000052.jpg",
+      "size_bytes": 131568,
+      "sha256": "c1dfb96e52a50c0e24126dac417a7eaa5cf2ec28fd2484b361d0f6d6213ac991"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000053.jpg",
+      "size_bytes": 131517,
+      "sha256": "7415473803785e191a3f545b8f7d9ec561ddff3a3d261315fee69cc30b0c2686"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000054.jpg",
+      "size_bytes": 131657,
+      "sha256": "745734e4b0c14995af16545637e31234243d7e91251f292f358a8e8a6069200c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000055.jpg",
+      "size_bytes": 131614,
+      "sha256": "49fdde4a94ee6f4fc91abdf2f30f7808af443c2133b47835eacbb950ed86214d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000056.jpg",
+      "size_bytes": 131718,
+      "sha256": "897711152fb00585c50e54239844c147ce676dc539f7e5280c30737705b9aed2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000057.jpg",
+      "size_bytes": 131514,
+      "sha256": "69d8b64cf015cd888808165ab56f61871b43f29a90ae471657c0c8a144bac2b6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000058.jpg",
+      "size_bytes": 131388,
+      "sha256": "22d64224afcd0444cfca36bd618c2d396d6f3429a30383a03e157bd02a4721ce"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000059.jpg",
+      "size_bytes": 131291,
+      "sha256": "52da491c4476b419677e602480a6d961a44f64736426e6f75c912af9b52cbbae"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000060.jpg",
+      "size_bytes": 131429,
+      "sha256": "a825d025bc780e9d001910965b95c8f9904c0c352b48d7a5499dcca6cf82bb4b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000061.jpg",
+      "size_bytes": 131455,
+      "sha256": "c5c9785881c699d159c9d87edb2aa367da167da76ac3d4e15922d8a4a13ee279"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000062.jpg",
+      "size_bytes": 131017,
+      "sha256": "fbb4652c72b259fa8d884c4242eb6c917c802a07cd0c66669d87b08c56849ff5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000063.jpg",
+      "size_bytes": 131111,
+      "sha256": "37f947cabe3a1ed2e1946e1511d88e2f9c370cdda046dcbea110731510f68ced"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000064.jpg",
+      "size_bytes": 130864,
+      "sha256": "5a875771f1f2ffb1e698557df21b0cf913ab401a3f4e9d8c1bb3ab70a0d5acc8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000065.jpg",
+      "size_bytes": 131087,
+      "sha256": "2bdf3c7a20b16e371dcd9aeb9df628611b7d41143e814fccf8a23c69d61078eb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000066.jpg",
+      "size_bytes": 130991,
+      "sha256": "71650f97f07d1bdd79a7adc3e7881c85d238c43b5e53ff3a3544fdcd34b78693"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000067.jpg",
+      "size_bytes": 130883,
+      "sha256": "d9f7087f3ab0dae4dc6c56756f6d78652e3a302ff387a77bc3da2c4695387e69"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000068.jpg",
+      "size_bytes": 130813,
+      "sha256": "ff4509795f1533822280db0281ba438b8dcd9e64a73462797db000c42ed707e0"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000069.jpg",
+      "size_bytes": 130653,
+      "sha256": "92912cecbf161b9ef3512f00a178c1625f9b97180824a79bf50913f2875d3a00"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000070.jpg",
+      "size_bytes": 131023,
+      "sha256": "aac532bcfc72a876419f10635602b117549aee18e368781a8b446c328b1e8c98"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000071.jpg",
+      "size_bytes": 131190,
+      "sha256": "4e2b0bd5b1ae6f5c9c62e7727fcb292cb9fda4d08f20c12845b2cb9bef47f53c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000072.jpg",
+      "size_bytes": 131433,
+      "sha256": "75e75b9715da4ffed47841a80f8741e518d8378030f0a3d8fa1f273ca6aa5522"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000073.jpg",
+      "size_bytes": 131600,
+      "sha256": "43163239d3ab1705bdd9787de0de53de9d5242bf35ef47617e3b9a0c97e7a64f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000074.jpg",
+      "size_bytes": 131530,
+      "sha256": "0c966b9d32b3949b8fe4a8a89214519f634c5fdeee23f8eaa050c64abb9203e5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000075.jpg",
+      "size_bytes": 131442,
+      "sha256": "a88b373d239a4616d2b52059ec461d78daf1729deeabe723e6a1223fe5780c47"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000076.jpg",
+      "size_bytes": 131547,
+      "sha256": "8a7900d7352ddeadfaba247a2e053647cbbb70a6692ad2eb21ae17fbea3d6092"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000077.jpg",
+      "size_bytes": 131501,
+      "sha256": "6f87dd9e5b8cff640eadce42deba583c5efe6b7197443dbc15c24a9493a35c7e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000078.jpg",
+      "size_bytes": 131679,
+      "sha256": "af7882828998a5704bf31d9e565e2f77bf282e0edbcf8b07fe4256dda6809be6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000079.jpg",
+      "size_bytes": 131760,
+      "sha256": "a98e4f9bda7e63aa2f4f03f810ca538006bb16f843bda88e62d9e9c93540459b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000080.jpg",
+      "size_bytes": 131730,
+      "sha256": "04a5a38eaaa6016bfc89e2e54b8d0109049ab18ac049c51b6aff19f50101ba01"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000081.jpg",
+      "size_bytes": 131680,
+      "sha256": "b0b3d16012d9285d4246db7e504cc9948056ef75af17677b9af9ffa3523441c3"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000082.jpg",
+      "size_bytes": 132088,
+      "sha256": "b82563b6c8e514620ee10c95dae7da12542e7ecc78d3451d18b04ef1c70cbafa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000083.jpg",
+      "size_bytes": 132180,
+      "sha256": "557899256564dc11d7c0a814ad103da523ecd4671ff81669f28add7373f1a90c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000084.jpg",
+      "size_bytes": 132124,
+      "sha256": "a4d0f9d7870be8c08c8c3ba3b7deece6d6cc92228ae65396a3a99a6d2479b988"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000085.jpg",
+      "size_bytes": 132066,
+      "sha256": "011a945e48e73cc5dc63f7f10fd839acb288d0e1a8b2c24e742163bedc1a1af7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000086.jpg",
+      "size_bytes": 132140,
+      "sha256": "9d9a5eaf0bb8a5e95fd3378452b2522e206fce1fd3d943fba7f347dc8297994e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000087.jpg",
+      "size_bytes": 132230,
+      "sha256": "b4dc8adbaca49fc0f63a4c495fa2fd0cbe00d737a35ffdff1bf52f18e5aa2a84"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000088.jpg",
+      "size_bytes": 132392,
+      "sha256": "4073cb92ba9dca839f264ad446de4c62555c4c4363dfc1729a1761153847dc5b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000089.jpg",
+      "size_bytes": 132640,
+      "sha256": "d8f878a07829c4a8406d8f863afc5d8354104225bcded03f39842b94ea3df7f8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000090.jpg",
+      "size_bytes": 132540,
+      "sha256": "91435a42de08bbc3f7e3e37157f3044d5d0dcc7490d4c92845f729741d23a8d6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000091.jpg",
+      "size_bytes": 132874,
+      "sha256": "46aad1c13e6af8f1d89204f32ce63313b7e7421c979fd4d6dcc407dea89399ce"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000092.jpg",
+      "size_bytes": 133056,
+      "sha256": "08e69eea440600a86373b65c5e40bc38235a8ffc4ad0a4475ebb42a5faf9849b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000093.jpg",
+      "size_bytes": 133095,
+      "sha256": "eecf61e2a4ec6fbff93c72180406203c4e17c40a011bafce3328cc03f5377d88"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000094.jpg",
+      "size_bytes": 132964,
+      "sha256": "0fe18c139de0119937a8e689caefe3a734c4b17c812c1fadb703277745b574d6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000095.jpg",
+      "size_bytes": 133061,
+      "sha256": "82312256b3e975d967b180b4943f93d62f963f3e9ba9881de65f595a74b6bed9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000096.jpg",
+      "size_bytes": 133371,
+      "sha256": "a5e9e20ddc2ef8aca5847ae8ea45a4466891644d5caadd8764accbb37c067b8b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000097.jpg",
+      "size_bytes": 133753,
+      "sha256": "bd2c8f1818faa0849328c33fd3b983acac686927adddd1f8739d4b0447088dcb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000098.jpg",
+      "size_bytes": 133816,
+      "sha256": "bf725b9a631759ba950be7b11b902903db355093fb9d551ff25ef1743f9cf0f0"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000099.jpg",
+      "size_bytes": 133698,
+      "sha256": "9f51a0c178167863e85c5f102d5be4cc15216a9c69adb70706a027e4f3c53e0e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000100.jpg",
+      "size_bytes": 133739,
+      "sha256": "df68529eaf94e4fc0cc53cefdd946b37a349faf1afe75e5e69e0db9bbf9f10d7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000101.jpg",
+      "size_bytes": 133988,
+      "sha256": "e7f1f3290832f08ba199d80a8b697242c4a50ebca0a919b53f5e7297d3aaf160"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000102.jpg",
+      "size_bytes": 134069,
+      "sha256": "a2b22741a7eb7220255cc1bfdb20b422a8e2ee6eb378d1bbf8007c1a129c5761"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000103.jpg",
+      "size_bytes": 133870,
+      "sha256": "79b4e2cd5a290faa3de9f72e6f52f3fb30afcfe94768cc8f358548d0774e6d05"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000104.jpg",
+      "size_bytes": 134150,
+      "sha256": "9266e584d5ccc1b708a8ae12363e72ff7af1b10d32b407798c9c784522505cfb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000105.jpg",
+      "size_bytes": 134261,
+      "sha256": "322ddb73b927170525f6ee891cc4cb940061978e4176345fad41e48f27165c9b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000106.jpg",
+      "size_bytes": 134470,
+      "sha256": "42dce0ac3d1bc9c0d1f702cdac23c17faef94e311ef53a1f165f47bdd2dab3be"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000107.jpg",
+      "size_bytes": 134622,
+      "sha256": "05f9787c998ab6a2c9eab6cc10c8484484fe8fbebbb6f6e4a048e5df4af732ad"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000108.jpg",
+      "size_bytes": 134706,
+      "sha256": "4b493bdc8b99446f4d1519f4921bb15fe4196659b37718f31d54f6fcc572ae17"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000109.jpg",
+      "size_bytes": 134794,
+      "sha256": "2dab5e577b44e55b4827c6174e404bff2361748d44a50ac9fcf7a4065fa4e379"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000110.jpg",
+      "size_bytes": 134835,
+      "sha256": "efc53c61e3d6c5f8e846f5d16773ac572acbe725196efdca6c5870b56554c3f7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000111.jpg",
+      "size_bytes": 134712,
+      "sha256": "b2cdeb0661f5d3f40f340ad45c9f16f1d5fd481ce199a31e0d38ba72f02c924f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000112.jpg",
+      "size_bytes": 134599,
+      "sha256": "5c46671bfe1493b3171ae4d94f4497504917cd4eff8644d2b8a3669f5f8ca5b6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000113.jpg",
+      "size_bytes": 134552,
+      "sha256": "ca030ea9408cd240f6346363f0523d7ac64089a055ce2cad68012dff0ec26f0f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000114.jpg",
+      "size_bytes": 134507,
+      "sha256": "dfe9635f3e92968b423517745f562f25f7eff8afd587cbaaa4cd1af2b59df22f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000115.jpg",
+      "size_bytes": 134438,
+      "sha256": "223ac590a05e788da63849188d02433cdfb98e039c81784fac550c2acac2fb6f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000116.jpg",
+      "size_bytes": 134325,
+      "sha256": "68c2cc0d4c953c79c7c174c4335b09f8149464a352cf8e562518480492f84838"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000117.jpg",
+      "size_bytes": 134305,
+      "sha256": "15a23b86b513e30e5ae804d561e307a299e125e0d95aa00df3b3f190bc0ae09c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000118.jpg",
+      "size_bytes": 134381,
+      "sha256": "465ae643720a5163bdf402eaa6b195d6b778cddd1d884cbba43012a34efe23a5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000119.jpg",
+      "size_bytes": 134571,
+      "sha256": "9f1944d541dc26af9e3f264aee6a096a67af8ed050940aff27a09da334ea4d7d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000120.jpg",
+      "size_bytes": 134437,
+      "sha256": "6a439df3813a0701a0fbfaec6b63cab9806e023df602deac5f4a8acc188d35e6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000121.jpg",
+      "size_bytes": 134390,
+      "sha256": "9384eea08119e1d3e95ef2c0d553e6b3b6fbf8411ba172b609e04df253334541"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000122.jpg",
+      "size_bytes": 134327,
+      "sha256": "64ab6adfde1450c8c8fad7c69ada248c86e2a1b7a603336650c55f6d4c78ce94"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000123.jpg",
+      "size_bytes": 134495,
+      "sha256": "743e918ce1357c77571ad34db5d045aae658556c3692de4483578297e97ea0f8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000124.jpg",
+      "size_bytes": 134386,
+      "sha256": "6a14608a7cf647c52f86bd7a49861f542667401ceb80bc0147e6a8fdd52ce1c4"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000125.jpg",
+      "size_bytes": 134367,
+      "sha256": "cc2883d86e4536148487d9375d0f77a5929f175a3adb086a678ab52f288118c3"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000126.jpg",
+      "size_bytes": 134216,
+      "sha256": "a5eefad792565ce7e33f6d5003ed8a3653caf024a272084d17e87fdb97870b81"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000127.jpg",
+      "size_bytes": 134041,
+      "sha256": "0e70b47ca7164bdc73d7732730580f8b7bf1b14c7f8fe857d36f1c4956b3f451"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000128.jpg",
+      "size_bytes": 134131,
+      "sha256": "8816488ca9dbcd278bde5254632e7167c4d3bfee66480f7ea082aec5e31fed7c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000129.jpg",
+      "size_bytes": 134076,
+      "sha256": "8f66a64a5d9fd7eec2ca2ec9356cc7f497504ecd4e840f6a8b56f3a8ddbcbb23"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000130.jpg",
+      "size_bytes": 134222,
+      "sha256": "04ea06d0e02649c1b9f6a7fbdce96446083b608061c333b8cedacb07dd39e878"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000131.jpg",
+      "size_bytes": 134205,
+      "sha256": "1606db7bc5577e8be4520ddb783f8ff0069a342d0e4c0e006a20ddba10fbbbf5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000132.jpg",
+      "size_bytes": 134105,
+      "sha256": "aa4c1c0ff36a5a36eca9d7239fbe20b3dae104511495b005befe14d816e76452"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000133.jpg",
+      "size_bytes": 134040,
+      "sha256": "9a7f7a975ea5c08cfaf56d2278e03a73b2db8cd52c22dfb585ea1536c824d4a1"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000134.jpg",
+      "size_bytes": 133824,
+      "sha256": "055db0761db4f1be1b4b76d715c26f533d9b2fe4101671d085b4c29793649183"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000135.jpg",
+      "size_bytes": 133914,
+      "sha256": "ce5134b47d398aafea2a3a9a383f32510935cc42fbf66ee3ece005fbb98e72bf"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000136.jpg",
+      "size_bytes": 133533,
+      "sha256": "9a3dd5ea2462310bb339aa0e58f397cde34b61c0491b5f767ebb907a4d06a2b3"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000137.jpg",
+      "size_bytes": 132750,
+      "sha256": "24387462117d4a0f6c3a50818027428c9ad605635747efececd4eeb76df870a2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000138.jpg",
+      "size_bytes": 131989,
+      "sha256": "c346f8c6de56598b9bf885b6b702306426cbf16fa28381b3e937cde7ffa02b96"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000139.jpg",
+      "size_bytes": 131513,
+      "sha256": "f91a7c2e8b666f44f7d9c764915ee92a0a13e254de352df4ce005be7cdf96a70"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000140.jpg",
+      "size_bytes": 131251,
+      "sha256": "53d69139f7c67baa658fd74bafcbba1c07d68c3480b2c5da28855735064010bd"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000141.jpg",
+      "size_bytes": 130920,
+      "sha256": "c8c80e4515568c501e7a44bf4efc969822844634685efeae3987cf7a9c135827"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000142.jpg",
+      "size_bytes": 130312,
+      "sha256": "28705d388520e8ccfd8659d6e263bd945c54f3b0d057b526bb23c628c51d9c59"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000143.jpg",
+      "size_bytes": 129917,
+      "sha256": "d130ecf5fb1d861b44a294e33d53766c965209db2e1474ed8f7809ac7b1f6b25"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000144.jpg",
+      "size_bytes": 129826,
+      "sha256": "3dbf7552b01e1e1e1e92378cee65b992103d4bf187f985e5090ad232a07f0a70"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000145.jpg",
+      "size_bytes": 129651,
+      "sha256": "024a778ce292509af5215c5279c2727fb67ae0cb88efabdd6be90b8ecbf4ccfa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000146.jpg",
+      "size_bytes": 128941,
+      "sha256": "ee3ea271bd49d09a53c962845b0779e2aa33e03852f9d90f974af26e28b3657c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000147.jpg",
+      "size_bytes": 128612,
+      "sha256": "e3c4d399e29e9f842ebbcdee824abda9422009f39ed855c8b1e253f6f34f2e95"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000148.jpg",
+      "size_bytes": 128455,
+      "sha256": "af736fa1d877ec733ead498f78c6b03fe53cbee0de4e3cc5b438431ce2c3dc55"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000149.jpg",
+      "size_bytes": 128261,
+      "sha256": "88836aeb16f0a43f25dee8f867d2971c330aa1549a0bf65cab2e68256da1e996"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000150.jpg",
+      "size_bytes": 127955,
+      "sha256": "5ac6241ae8c4249965af73575195a6b017c30615748231f9e6adc133c6edb014"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000151.jpg",
+      "size_bytes": 127486,
+      "sha256": "85df9801307a2776bdf9d23658704ffd5fc6476fd3601fceb8b65aa6d49fe1af"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000152.jpg",
+      "size_bytes": 127224,
+      "sha256": "6ef59b54738bdee281b7a209aec3707a89b89a9eee9402864dad58b6f619a88c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000153.jpg",
+      "size_bytes": 127086,
+      "sha256": "277118c8f4c37c1377a17d40ad629a7a15dcc8c3b277c38dfb44cdb10a4c2e93"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000154.jpg",
+      "size_bytes": 126686,
+      "sha256": "9650bcfaf549231c66285ea2e56b2af23686f63aa9b66a560b8fe14b19b424d7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000155.jpg",
+      "size_bytes": 126653,
+      "sha256": "36b141f9e5562dfda51a3f0f78f59356ea40ff9417746846048635b9b392e891"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000156.jpg",
+      "size_bytes": 126520,
+      "sha256": "a2cc9abb3e9937afaf588829f8a0f1803aeaf437332a529e6862a689f9c9a1d7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000157.jpg",
+      "size_bytes": 126247,
+      "sha256": "6bba45e8cd51feb82b2e21192d585d50abe1ea56020a07274bbda45f6928166c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000158.jpg",
+      "size_bytes": 126182,
+      "sha256": "0d23b82b4b47264a1bd2bb72a8a07f108f8039fd34b583b304af725cf40cc1d8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000159.jpg",
+      "size_bytes": 126141,
+      "sha256": "084185f854fdb04d9c74220f3e37c611bc2c705d6b327731bb86da276a326859"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000160.jpg",
+      "size_bytes": 125552,
+      "sha256": "1415b89a7e8256c180a35723231a349df3f4657bfecf9828f8d6c7cf46563c8b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000161.jpg",
+      "size_bytes": 125606,
+      "sha256": "ea3a6eefc80b63b055b181a2896cc30918d60a42a3efc530495a7a30bc61f5c2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000162.jpg",
+      "size_bytes": 125709,
+      "sha256": "1916266ed0089d569bf3466d0d69af38729abaab98bafbe29f72b3752e2f18c9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000163.jpg",
+      "size_bytes": 125662,
+      "sha256": "c9364bc83b4babde5a47545b504830832e45e498eedc355fd1815d6d7ab765e6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000164.jpg",
+      "size_bytes": 125550,
+      "sha256": "5433df01315024f08a5ae5d9435230aef57264d467bc9f40ad6e2b9c2b6d3f5c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000165.jpg",
+      "size_bytes": 125613,
+      "sha256": "d0c871add7bbdb6145852a6e33e3358aadd4141fa6193f9080529ec0475d12ae"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000166.jpg",
+      "size_bytes": 125521,
+      "sha256": "42d9952ce47327df66f64f63697140b5cc6a90fd120f0860ffbfe93f17c94479"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000167.jpg",
+      "size_bytes": 125222,
+      "sha256": "b8fdd044bf86cff61d1965eb29b311621d503f37537db7353f98d57fa1a6efed"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000168.jpg",
+      "size_bytes": 125269,
+      "sha256": "817872e5461bc90feb7f4b6d173a2be628d83631a411fd29562ee46344da7597"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000169.jpg",
+      "size_bytes": 125012,
+      "sha256": "bef4ae2686f492b11850680a21fbf892f190d9cbe3b257ccc21c1994468a813c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000170.jpg",
+      "size_bytes": 124469,
+      "sha256": "0abf7530e3d3d71c329ff88d6ea9cc6fe3552d61b3a0b5a6f949a99693f45dff"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000171.jpg",
+      "size_bytes": 124498,
+      "sha256": "aa580e1427af96ef4532c5b644c61ad3fcc35de1b0d2c6c19173ae5b4555a3fa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000172.jpg",
+      "size_bytes": 124891,
+      "sha256": "2aa3f8b028bcd323d339ea9932de487b16d0c96b2efd7815d3f43f35b6a2d987"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000173.jpg",
+      "size_bytes": 124886,
+      "sha256": "1440199bb20f753a9644fe3e370f3a6f78773c2b0a7d5c48984aa7362b07054e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000174.jpg",
+      "size_bytes": 125106,
+      "sha256": "63bf7225c86b1daee9733086ec5d6d308a1f8f92030fa0afbdae049ee1a689e2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000175.jpg",
+      "size_bytes": 125074,
+      "sha256": "459c84d8a9ea102652db15fbcb002736cd85ca38522a88a83b097d4c978d60fc"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000176.jpg",
+      "size_bytes": 124870,
+      "sha256": "edf1e8fceb46feb595a47d3647c0c5d4cd120e46ef4f61ab87bb669a5899c641"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000177.jpg",
+      "size_bytes": 124812,
+      "sha256": "e21a5d68033dc2ee5a39f44ec182e11301856ec9235332b66ed62dc7dea37ffb"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000178.jpg",
+      "size_bytes": 124651,
+      "sha256": "1037356994413e6ddf7e2b8a50658202ee95d82432c621c4c15ba9befc394f1a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000179.jpg",
+      "size_bytes": 124544,
+      "sha256": "be1b1471ff52f7dcc93085753bb5b5b5929718abcf9148a89cddbcbb176c8e43"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000180.jpg",
+      "size_bytes": 124332,
+      "sha256": "5784ac2e4642d77edb7e6793b0d223033a20c9d545f873531d6e607f5f015845"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000181.jpg",
+      "size_bytes": 124233,
+      "sha256": "feae74a950c1ca501e620904f1b64e80818dccc332307d5662351dfe33b99f9c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000182.jpg",
+      "size_bytes": 123911,
+      "sha256": "38c011847a7a5fc2ade1a125d6c956484273d9fb19e17095e923372db54c91a7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000183.jpg",
+      "size_bytes": 124206,
+      "sha256": "68e813310bc197388ba7885bd9b711fea23855679f4425fd1de51858cc11b802"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000184.jpg",
+      "size_bytes": 124224,
+      "sha256": "1336bc8eaada83111eedb8b99387055e35817e2bc378e8109304941e2099796e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000185.jpg",
+      "size_bytes": 124239,
+      "sha256": "e89133b78966c16eb2b75ae923ed0808ac9a5618cd3d581ee91eb928180e1f0d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000186.jpg",
+      "size_bytes": 124132,
+      "sha256": "60a5e88fb71d56e5c91156ca838d34ba35f3761ce3d98d2a5394d1b159d0a444"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000187.jpg",
+      "size_bytes": 123960,
+      "sha256": "e0910e610e6b9a24a45e0387041d21f91eb5c234a1ee075c048a16db7fc04b1d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000188.jpg",
+      "size_bytes": 124070,
+      "sha256": "4d3ff8e3ed3e2ea11d49892cced3bdea9e796d39172ec4305ec504d0cba5afb6"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000189.jpg",
+      "size_bytes": 124182,
+      "sha256": "faf140d8b8bf64689aa14ef68124e386f27d2d41b5415c7c5b5a72a4fa38d5af"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000190.jpg",
+      "size_bytes": 124429,
+      "sha256": "733bad73e15b2cdebadfc1637f4303de3760a994efb8a569063e9096de8638d8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000191.jpg",
+      "size_bytes": 124471,
+      "sha256": "803bd3a6bf0c233659ad00b92578d60c47b3e7f494ac301d97a55dfb425cca50"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000192.jpg",
+      "size_bytes": 124800,
+      "sha256": "4a3a49c601b29f527643ac045f50b11a5d18a5178260f685388a67184c839a8b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000193.jpg",
+      "size_bytes": 124683,
+      "sha256": "1135af2d06fa78498d54581ffdef3776d0f980f5773efacd5ceacfbbefc95426"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000194.jpg",
+      "size_bytes": 124798,
+      "sha256": "15905a4e152f3e82d827332c87ff130292767c2874315060f8982bc1248e0f01"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000195.jpg",
+      "size_bytes": 124522,
+      "sha256": "df8ed59798cc45ab75c903dafd27fd5abc6f45548c76a96f740a04e11fe78944"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000196.jpg",
+      "size_bytes": 124330,
+      "sha256": "251edbd514948eb7894763cae8a4c355202345cb163d8ab2f8d4991b897572ef"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000197.jpg",
+      "size_bytes": 124297,
+      "sha256": "a219e8fbdc3e486a9f770f2dafe9151965734fe8a0c9efbe1185cb61f4773e40"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000198.jpg",
+      "size_bytes": 124499,
+      "sha256": "0b77a49d754ccbc018e24934e0f351693887292b4f01683e69c5a7168073782b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000199.jpg",
+      "size_bytes": 124461,
+      "sha256": "d1d81de275b0cde7913c204a4039ccdc52b6fcb8f479feff700a34f8bfbfae46"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000200.jpg",
+      "size_bytes": 124591,
+      "sha256": "888be19538d8a3c4399753cdecfb3579d4255fd0422af0ad618306f70ef9bbaa"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000201.jpg",
+      "size_bytes": 124273,
+      "sha256": "a0620982657a178c1625a15a968482fb71afea810e578ffa8d5b510278068e5c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000202.jpg",
+      "size_bytes": 124469,
+      "sha256": "870b0cec6064e0f96fc5027d6f2c7be123493177982390e7b9222f04e06d8b06"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000203.jpg",
+      "size_bytes": 124362,
+      "sha256": "52f74b7b6ca1ff86d9a1eceb9c8112f27a895d522bce67f3aa5b7ecf55ddf3c0"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000204.jpg",
+      "size_bytes": 124172,
+      "sha256": "86ec95eb72379a4fedb70270dbc747000509a23e47e9fdb3e6fad1ccaa4a54de"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000205.jpg",
+      "size_bytes": 124248,
+      "sha256": "5c692c0c30cf8616d6eae36df3eb7d646b6531d745e8eaa465ec7b0d52536d39"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000206.jpg",
+      "size_bytes": 124092,
+      "sha256": "c27f8e85d508080f783e7fdb054fad228c3d583c93408dd41caa2c3560c2ad13"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000207.jpg",
+      "size_bytes": 123973,
+      "sha256": "b2d5879ee0ea886e36e3a9a3af133ba740f6feb647c30fcb9edc22ffa25a1a6d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000208.jpg",
+      "size_bytes": 124039,
+      "sha256": "7db8139dbc1bc90164c500ea6e42827748566bd20b1a77040f5db7ce832f6ce2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000209.jpg",
+      "size_bytes": 124172,
+      "sha256": "864f811332fcc9734ec639557a108ed37db19de306e8d499326d2169d6d8a94c"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000210.jpg",
+      "size_bytes": 124025,
+      "sha256": "65a5cb45484e72dde26096319007203e2685e2664ddc00f63fa291f7397ad599"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000211.jpg",
+      "size_bytes": 123929,
+      "sha256": "f496fead6833ee7ee7803c0e1971ccf4ebf28f976af97147048b1089afe35d84"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000212.jpg",
+      "size_bytes": 123869,
+      "sha256": "61c3ad95742b570cc22066896deff3aaf45bacdc5397a7c52bed7787a740c01b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000213.jpg",
+      "size_bytes": 123756,
+      "sha256": "57dd019824fc87bdb37782fadc64b74c1633db05074cda2c3b7775849c8bc55f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000214.jpg",
+      "size_bytes": 123963,
+      "sha256": "fb3d0a19e020762d0b8bab799d02c7be672e96dfde5d3bd63ca45494f6a884df"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000215.jpg",
+      "size_bytes": 124061,
+      "sha256": "aa7b5abf0c6db01be4b8a34bdce2e076041673161fae3c983380f84f5adc36a9"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000216.jpg",
+      "size_bytes": 123642,
+      "sha256": "2cedc7d99a2e5de13773e5a3240ecf1addf5caee96106ba5e0a0bef7ccebfcae"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000217.jpg",
+      "size_bytes": 123653,
+      "sha256": "f8c3286b988d3d54d49aac6ea65c30300c3c0854c16891b2f227ea9a919bb4c8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000218.jpg",
+      "size_bytes": 123418,
+      "sha256": "eeafd48677c18bc80ba6e4de205c5565197bbc298cbeb59fa4b41014686dc49e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000219.jpg",
+      "size_bytes": 123589,
+      "sha256": "fe6baa39396548d2e9e18dfde6c175002ba882e19a1070a139c7ca9adb69ec91"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000220.jpg",
+      "size_bytes": 123361,
+      "sha256": "7717327049e22943768f450c2f8c3a691d198661184f5cb3b54cc5b6100afd55"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000221.jpg",
+      "size_bytes": 123125,
+      "sha256": "9b1b7b16b9d253ab53ce7312fd7321f2aeefc7e45a6aa0d8e491bd492204e122"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000222.jpg",
+      "size_bytes": 123085,
+      "sha256": "3756e5ecea45efd01f796afab9af2ffa9c18d456772856e9b5cb05d6a551aa73"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000223.jpg",
+      "size_bytes": 122688,
+      "sha256": "6e3573d9e447a1c20537195b09e55e9641178b222cf8460ce4f77142ae4bdcc8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000224.jpg",
+      "size_bytes": 122408,
+      "sha256": "11cb7c2bb5119ac31dab2f2bed4ff36b19f0349b4e5d8a32b0c8874f93bf7361"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000225.jpg",
+      "size_bytes": 122601,
+      "sha256": "9b998d00a203c70f7d9cce57bb44620e4a82c639cdd2c536bd606574e0e24e56"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000226.jpg",
+      "size_bytes": 122711,
+      "sha256": "4ccc943a364d7d229a52bfebc3ee2fe1c84aed18f5d15dd4b024f45e7139758b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000227.jpg",
+      "size_bytes": 122504,
+      "sha256": "2f29a255f924d319408b026d5cb403196ccfad261c2169de938220f876cd1f71"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000228.jpg",
+      "size_bytes": 122485,
+      "sha256": "8e7985ce56cf63034079031a9fb48f4356b0ed62e62b6d76028b0890e926c6ee"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000229.jpg",
+      "size_bytes": 122643,
+      "sha256": "c91c93737c878c5eb447d99971e88652f79cbff601304db96ff9328de8507c2b"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000230.jpg",
+      "size_bytes": 122740,
+      "sha256": "4f39817ac3c02db454b0abe0bc460fe48f66f783de19d2b88f5ecfa54ae9b820"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000231.jpg",
+      "size_bytes": 122633,
+      "sha256": "fdde25a08cddf60ddde374fd32b3006e97dcd58867706ef1199e9e503543e858"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000232.jpg",
+      "size_bytes": 122677,
+      "sha256": "f0845405c902cc72eeafb978040c706165654b5f3251f2d115ea11a5d454ce81"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000233.jpg",
+      "size_bytes": 122679,
+      "sha256": "0a33a7c9f6ec63b55409be6e64c409f0da4a2c36bb84d5a58e7f59f70eff2496"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000234.jpg",
+      "size_bytes": 122497,
+      "sha256": "aa16537d3d100deb58994e0f28068c54f77c5453db30150a2b6afd59f6eedade"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000235.jpg",
+      "size_bytes": 122353,
+      "sha256": "6b5a90f4594615271124fa59c0ac74760149feb4fb274fb6838680eafe2ee30a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000236.jpg",
+      "size_bytes": 122617,
+      "sha256": "4646d51cc7fc692d23246789f5498bf155d9ce4a4ea965acdb62385ce2f0bac7"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000237.jpg",
+      "size_bytes": 122656,
+      "sha256": "ee28a77a13e462b55eb131ca861a8b533f316d0b15cfa732fdec09fefd1453f8"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000238.jpg",
+      "size_bytes": 122610,
+      "sha256": "dffeb1e0828668d047aaae85e76c29efe1026475357e923b7e8085a3e1cfa96e"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/000239.jpg",
+      "size_bytes": 122751,
+      "sha256": "b485151e4b634fc6e6121b08472702796711c659d0a19ff2f618da73b18f5813"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/interpolation/stacked/Icon",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/bulma-carousel.js",
+      "size_bytes": 82823,
+      "sha256": "ee6667c8ae6dabe1bb14d8792b32687fb9d130c31f3dcf582b03c611c2f0edf1"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/bulma-carousel.min.js",
+      "size_bytes": 40723,
+      "sha256": "a8a47bef2cd50640d82aea128360690086ccb6617c6858ee4c71559c88e4a732"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/bulma-slider.js",
+      "size_bytes": 16404,
+      "sha256": "a77efa04a36ff2815e057a0bf0ee911216f3c03904b94726018d636057f1e723"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/bulma-slider.min.js",
+      "size_bytes": 6926,
+      "sha256": "e520e9ef6e3223ecfbb50b4649d238af5a85af9161800ad1d003dac80d748f24"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/fontawesome.all.min.js",
+      "size_bytes": 1194960,
+      "sha256": "20a3ef6979bbe5e4de1afaecc703e1d34cbc5e3ceab36d378539506327692d72"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/js/index.js",
+      "size_bytes": 2344,
+      "sha256": "e3bfc9cf8875689f97ef1a79cafd61f00c0bb25e4a89ba151113b4e990db3f5a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/._Icon",
+      "size_bytes": 4096,
+      "sha256": "40e3c974b41be019164d65ccc237a8a3f735400c9f29e2d259d418e6645d3991"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/blueshirt.mp4",
+      "size_bytes": 1645904,
+      "sha256": "6e0c54eb96ee18a73f45450030999734875a7e0d0c246b1b93c850bb64bf0dd4"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/book.mp4",
+      "size_bytes": 894304,
+      "sha256": "8c7a4fefd19f195be068d6311c8f0a4dc50a99c517a8f1d73c8999877c01e83f"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/chair-tp.mp4",
+      "size_bytes": 1456453,
+      "sha256": "e10f0e5cf94b6554210c02e4db96fe9fdf46cc1df4e3db8e4263c63b70311d9a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/coffee.mp4",
+      "size_bytes": 6569381,
+      "sha256": "f94353a470aa590eb566255e64aad1ec2fb4798b25eeb545233a5da2e0cdcc8a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/dollyzoom-depth.mp4",
+      "size_bytes": 1412833,
+      "sha256": "9e7f8cabef18f1e6832004ab00c8dcf2c44328bfc72b22e0fe3b2bf04dea856d"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/dollyzoom-stacked.mp4",
+      "size_bytes": 898793,
+      "sha256": "c715f452370f55c9a7815d1620a61cd7c7334b86446269e1598d99e64e1ad681"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/dollyzoom.mp4",
+      "size_bytes": 3309556,
+      "sha256": "0f9591e6ffb6204d60a670d67ce395eb2b19d00d4a9d9a7d3b88088afd04aca2"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/fullbody.mp4",
+      "size_bytes": 758605,
+      "sha256": "b20ae5084dee4392719f4276c4d93774f00332528fccdc5d790ea40b456a6260"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/mask-nobg.mp4",
+      "size_bytes": 643757,
+      "sha256": "34881eb73f7eef0b08f07fa3eab685576ade1730575ccb9dac008d4c444a2053"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/mask.mp4",
+      "size_bytes": 1503301,
+      "sha256": "76679b22af6aa436e371b0114055468cb494c385b32d43003ed7f4d286a7a4e4"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/matting.mp4",
+      "size_bytes": 7170928,
+      "sha256": "76193a9379685b9d407beb9e815a9442a459676f6dc23de6e9c6f485f9484e80"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/replay.mp4",
+      "size_bytes": 6758131,
+      "sha256": "211fe2fe1e399385b7c861bdf28b538f600f1f16078783de1e9ad5f17a6d266a"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/shiba.mp4",
+      "size_bytes": 1372708,
+      "sha256": "1d263b4209655d5cba4ddba806f4c16ef1c3b1cadd3e08a186ad268ebcaeca53"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/steve.mp4",
+      "size_bytes": 3485178,
+      "sha256": "0a31206068b1eea351b854ec69b1a5815ac51bcf2b94008c1b6f916ec420bede"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/teaser.mp4",
+      "size_bytes": 9746783,
+      "sha256": "ac43b536f457ad039e9612688d7d168b0f49b1bdcd7ec76f4f2977d1d6e779e5"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/toby.mp4",
+      "size_bytes": 4751054,
+      "sha256": "5b57172d555fd02777744991796d614c19852d19f5fc4c27f78a7819c5e792e0"
+    },
+    {
+      "relative_path": "extracted/nvBench-2.0-main/static/videos/toby2.mp4",
+      "size_bytes": 518269,
+      "sha256": "de5a13ace1267652bdcc7034fabb0d196b437849cc6727bd0d8311ab304d1e52"
+    }
+  ],
+  "registered_at": "2026-07-20T01:22:50.681922+00:00"
+}
