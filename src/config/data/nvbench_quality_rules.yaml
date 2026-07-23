@@ -1,0 +1,35 @@
+rule_version: nvbench_quality_v1
+
+identifier:
+  strong_unique_ratio: 0.98
+  strong_min_distinct: 20
+  ambiguous_unique_ratio: 0.5
+  name_patterns:
+    - "(^|_)id$"
+    - "^id(_|$)"
+    - "identifier"
+    - "(^|_)key$"
+    - "(^|_)code$"
+
+chart:
+  pie:
+    max_categories: 8
+  scatter:
+    min_distinct_values: 10
+  stacked_bar:
+    max_group_cardinality: 8
+
+scoring:
+  weights:
+    source_fidelity: 30
+    kpi_validity: 20
+    chart_suitability: 25
+    constraint_completeness: 15
+    db_profile_support: 10
+  tier_a_min_score: 90
+
+sampling:
+  seed: 42
+  target_per_chart: 20
+  db_cap: 10
+  near_dup_threshold: 0.8

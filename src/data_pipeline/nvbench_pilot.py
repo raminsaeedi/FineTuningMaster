@@ -214,15 +214,32 @@ def build_pilot_records(
         items = apply_limit(items, limit, stratify_by_chart=stratify, seed=seed)
     records = [_record(it) for it in items]
 
+    used_v3_sampler = target_per_chart is not None
     build_meta = {
         "seed": seed,
+        # Legacy CLI selection flags. When the dedicated v3 sampler is used
+        # (selection_strategy == "balanced_v3"), these are not applicable to how
+        # records were actually chosen — see selection_policy instead — and are
+        # kept only for backward compatibility with pilot v1/v2 manifests.
         "selection": {
             "limit": limit,
             "one_query_per_group": one_per_group,
             "stratify_by_chart": stratify,
             "target_per_chart": target_per_chart,
             "db_cap": db_cap,
+            "legacy_flags_applicable": not used_v3_sampler,
         },
+        "selection_strategy": "balanced_v3" if used_v3_sampler else "legacy_stratified_limit",
+        "selection_policy": ({
+            "seed": seed,
+            "unique_source_groups": True,
+            "max_queries_per_source_group": 1,
+            "target_per_normalized_chart": target_per_chart,
+            "database_cap": db_cap,
+            "near_duplicate_threshold": sampling_report["near_dup_threshold"] if sampling_report else None,
+            "near_duplicate_aware": True,
+            "exact_goal_deduplication": True,
+        } if used_v3_sampler else None),
         "counts": {
             "accepted_total": result.stats["n_accepted"],
             "rejected_total": result.stats["n_rejected"],

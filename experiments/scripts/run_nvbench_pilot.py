@@ -183,6 +183,38 @@ def _write_audit_template(records, path: Path) -> None:
             w.writerow(row)
 
 
+def _grouping_summary_lines(report: dict) -> list:
+    """Derive the grouping/stacked-bar status from the report's own distributions
+    and checks — never hard-coded, so it can't go stale relative to the data."""
+    dist = {(d, v): c for d, v, c in report["distributions"]}
+    grouped_n = dist.get(("grouped", "grouped"), 0)
+    recovered_n = dist.get(("grouping_recovery", "recovered"), 0)
+    unresolved_n = sum(c for (d, v), c in dist.items()
+                       if d == "grouping_recovery" and v not in ("recovered", "not_grouped"))
+    stacked_bar_n = dist.get(("normalized_chart_type", "stacked_bar"), 0)
+
+    checks_by_name = {c["check"]: c for c in report["checks"]["semantic"]}
+    stacked_bar_check = checks_by_name.get("stacked_bar_has_group_field", {})
+    columns_check = checks_by_name.get("recovered_group_field_in_columns", {})
+    stacked_bar_ok = bool(stacked_bar_check.get("passed"))
+    columns_ok = bool(columns_check.get("passed"))
+    stacked_bar_valid_n = stacked_bar_n - stacked_bar_check.get("n", 0)
+
+    lines = [
+        f"- Grouping: {grouped_n} accepted record(s) contain grouping; group fields were "
+        f"recovered for {recovered_n}/{grouped_n} of them "
+        f"({unresolved_n} unresolved, none accepted).",
+        f"- Stacked bar: {stacked_bar_valid_n}/{stacked_bar_n} accepted stacked-bar record(s) "
+        f"have a valid, non-empty `group_field` present in `brief.columns` "
+        f"(`stacked_bar_has_group_field`: {'PASS' if stacked_bar_ok else 'FAIL'}; "
+        f"`recovered_group_field_in_columns`: {'PASS' if columns_ok else 'FAIL'}).",
+        "- No unresolved grouping warning remains for any accepted record."
+        if unresolved_n == 0 else
+        f"- {unresolved_n} accepted record(s) still have unresolved grouping; see warnings.jsonl.",
+    ]
+    return lines
+
+
 def _write_md(report: dict, path: Path) -> None:
     L = ["# nvBench Versioned Staging Pilot — Validation Report", ""]
     L.append(f"- pilot: `{report['pilot_dir']}`")
@@ -225,8 +257,7 @@ def _write_md(report: dict, path: Path) -> None:
     L.append("")
     L.append("## Warnings & limitations")
     L.append(f"- warnings emitted: {report['n_warnings']} (see warnings.jsonl)")
-    L.append("- Grouping series-field names are not recoverable from nvBench; raw classify "
-             "values are preserved in provenance rather than inventing a column name.")
+    L.extend(_grouping_summary_lines(report))
     path.write_text("\n".join(L), encoding="utf-8")
 
 
