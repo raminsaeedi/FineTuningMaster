@@ -67,3 +67,5 @@ notebooks/.ipynb_checkpoints/
 Thumbs.db
 desktop.ini
 skills-lock.json
+codex.md
+.codesight/

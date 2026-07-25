@@ -600,7 +600,9 @@ def duplicate_checks(records: List[dict], *, strict: bool = False) -> Tuple[List
     goal_map: Dict[str, List[str]] = collections.defaultdict(list)
     for r in records:
         for g in (r.get("brief") or {}).get("goals") or []:
-            goal_map[_norm_goal(g)].append(r["item_id"])
+            normalized_goal = _norm_goal(g)
+            if normalized_goal:
+                goal_map[normalized_goal].append(r["item_id"])
     goal_dups = sorted({iid for ids in goal_map.values() if len(ids) > 1 for iid in ids})
 
     # near-duplicate pairs within pilot (warning); store each unordered pair once.
