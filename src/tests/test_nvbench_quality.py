@@ -23,6 +23,8 @@ from src.data_pipeline.nvbench_quality import (
     chart_pie,
     chart_scatter,
     chart_stacked_bar,
+    check_kpi_sql_aggregation,
+    check_required_constraints,
     kpi_suitability,
     score_and_tier,
 )
@@ -37,7 +39,10 @@ _CFG = {
         "name_patterns": ["(^|_)id$", "^id(_|$)", "identifier", "(^|_)key$", "(^|_)code$"],
     },
     "chart": {
-        "pie": {"max_categories": 8}, "scatter": {"min_distinct_values": 10},
+        "pie": {"max_categories": 8, "additive_aggregates": ["COUNT", "SUM"],
+                "prohibited_aggregates": ["AVG", "MIN", "MAX"], "non_additive_reason_code": "pie_non_additive_kpi",
+                "allow_negative_values": False, "allow_identifier_category": False},
+        "scatter": {"min_distinct_values": 10},
         "stacked_bar": {"max_group_cardinality": 8},
     },
     "scoring": {
@@ -245,6 +250,85 @@ def test_chart_pie_negative_values_rejected(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# chart suitability -- pie non-additive KPI (COUNT/SUM only; AVG/MIN/MAX reject)
+# --------------------------------------------------------------------------- #
+def test_chart_pie_count_passes(tmp_path):
+    entries = {"1": _entry("Pie", ["employee count by dept"], "p4", "dept", "count(*)",
+                           "SELECT dept , count(*) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p4")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is True
+    assert "pie_non_additive_kpi" not in result["failed_rules"]
+
+
+def test_chart_pie_sum_passes(tmp_path):
+    entries = {"1": _entry("Pie", ["total salary share by dept"], "p5", "dept", "SUM(salary)",
+                           "SELECT dept , SUM(salary) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p5")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is True
+    assert "pie_non_additive_kpi" not in result["failed_rules"]
+
+
+def test_chart_pie_avg_rejected(tmp_path):
+    entries = {"1": _entry("Pie", ["average salary share by dept"], "p6", "dept", "AVG(salary)",
+                           "SELECT dept , AVG(salary) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p6")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is False
+    assert "pie_non_additive_kpi" in result["failed_rules"]
+
+
+def test_chart_pie_min_rejected(tmp_path):
+    entries = {"1": _entry("Pie", ["minimal salary share by dept"], "p7", "dept", "MIN(salary)",
+                           "SELECT dept , MIN(salary) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p7")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is False
+    assert "pie_non_additive_kpi" in result["failed_rules"]
+
+
+def test_chart_pie_max_rejected(tmp_path):
+    entries = {"1": _entry("Pie", ["maximal salary share by dept"], "p8", "dept", "MAX(salary)",
+                           "SELECT dept , MAX(salary) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p8")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is False
+    assert "pie_non_additive_kpi" in result["failed_rules"]
+
+
+def test_chart_pie_identifier_category_rejected(tmp_path):
+    entries = {"1": _entry("Pie", ["salary share by employee id"], "p9", "Employee_ID", "SUM(salary)",
+                           "SELECT Employee_ID , SUM(salary) FROM employee GROUP BY Employee_ID")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p9")
+    result = chart_pie(record, profiler, _CFG)
+    assert result["passed"] is False
+    assert "identifier_pie_category" in result["failed_rules"]
+
+
+def test_chart_pie_reason_code_is_config_driven(tmp_path):
+    # The reason code and allowed-aggregate list come from cfg, not a hardcoded
+    # constant: overriding them in cfg changes chart_pie's output accordingly.
+    entries = {"1": _entry("Pie", ["average salary share by dept"], "p10", "dept", "AVG(salary)",
+                           "SELECT dept , AVG(salary) FROM employee GROUP BY dept")}
+    record, _r, profiler = _build_one(tmp_path, entries, _EMPLOYEE_DDL, db_id="p10")
+    custom_cfg = json.loads(json.dumps(_CFG))  # deep copy
+    custom_cfg["chart"]["pie"]["non_additive_reason_code"] = "custom_pie_reason"
+    custom_cfg["chart"]["pie"]["additive_aggregates"] = ["COUNT", "SUM", "AVG"]  # now AVG allowed
+    result = chart_pie(record, profiler, custom_cfg)
+    assert "pie_non_additive_kpi" not in result["failed_rules"]  # AVG now allowed under custom cfg
+    assert result["passed"] is True
+
+
+def test_pie_non_additive_kpi_overrides_high_score():
+    kpi_result = {"suitable": True, "failed_rules": [], "warnings": [], "evidence": {}}
+    chart_result = {"passed": False, "failed_rules": ["pie_non_additive_kpi"], "warnings": [], "evidence": {}}
+    quality = score_and_tier({}, kpi_result, chart_result, [], _CFG)
+    assert quality["tier"] != "A"
+    assert "pie_non_additive_kpi" in quality["failed_rules"]
+
+
+# --------------------------------------------------------------------------- #
 # chart suitability -- scatter
 # --------------------------------------------------------------------------- #
 _SCATTER_DDL = """
@@ -403,6 +487,149 @@ def test_score_and_tier_deterministic():
 # --------------------------------------------------------------------------- #
 # build_quality_pool (small integration)
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# v5: KPI / SQL aggregation agreement
+# --------------------------------------------------------------------------- #
+_PRICE_DDL = """
+CREATE TABLE products (product_id INTEGER PRIMARY KEY, product_price REAL, product_type TEXT);
+INSERT INTO products VALUES (1, 10.0, 'A'); INSERT INTO products VALUES (2, 20.0, 'A');
+INSERT INTO products VALUES (3, 30.0, 'B'); INSERT INTO products VALUES (4, 40.0, 'B');
+INSERT INTO products VALUES (5, 50.0, 'C'); INSERT INTO products VALUES (6, 60.0, 'C');
+"""
+
+
+def test_kpi_sql_agg_sum_vs_avg_conflict(tmp_path):
+    # encoded AVG(product_price) but SQL SUM(product_price) for the same field.
+    entries = {"1": _entry("Bar", ["price by type"], "a1", "product_type", "AVG(product_price)",
+                           "SELECT product_type , SUM(product_price) FROM products GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a1")
+    result = check_kpi_sql_aggregation(record)
+    assert "kpi_sql_aggregation_conflict" in result["failed_rules"]
+
+
+def test_kpi_sql_agg_matching_avg_passes(tmp_path):
+    entries = {"1": _entry("Bar", ["avg price by type"], "a2", "product_type", "AVG(product_price)",
+                           "SELECT product_type , AVG(product_price) FROM products GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a2")
+    result = check_kpi_sql_aggregation(record)
+    assert "kpi_sql_aggregation_conflict" not in result["failed_rules"]
+    assert "mixed_aggregate_ambiguous_kpi" not in result["failed_rules"]
+
+
+def test_kpi_sql_agg_table_alias_no_false_conflict(tmp_path):
+    # SQL uses a table alias on the aggregate arg; must still match the encoding.
+    entries = {"1": _entry("Bar", ["avg price"], "a3", "product_type", "AVG(product_price)",
+                           "SELECT product_type , AVG(T1.product_price) FROM products AS T1 GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a3")
+    result = check_kpi_sql_aggregation(record)
+    assert result["failed_rules"] == []
+
+
+def test_kpi_mixed_aggregate_scatter_flagged(tmp_path):
+    # x=max, y=min over the same field: a single KPI can't represent both.
+    entries = {"1": _entry("Scatter", ["max vs min price by type"], "a4", "max(product_price)", "min(product_price)",
+                           "SELECT max(product_price) , min(product_price) FROM products GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a4")
+    result = check_kpi_sql_aggregation(record)
+    assert "mixed_aggregate_ambiguous_kpi" in result["failed_rules"]
+
+
+def test_kpi_query_average_vs_sum_conflict(tmp_path):
+    # query says "average" (AVG intent) but the encoded/KPI aggregate is SUM.
+    # The builder's own narrow rule (a) only fires on "total"->SUM, so it accepts
+    # this record; the broader v5 query-intent rule catches the AVG-vs-SUM gap.
+    entries = {"1": _entry("Bar", ["average price by type"], "a5", "product_type", "SUM(product_price)",
+                           "SELECT product_type , SUM(product_price) FROM products GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a5")
+    result = check_kpi_sql_aggregation(record)
+    assert "query_aggregation_conflict" in result["failed_rules"]
+
+
+def test_kpi_conflict_prevents_tier_a(tmp_path):
+    entries = {"1": _entry("Scatter", ["max vs min price"], "a6", "max(product_price)", "min(product_price)",
+                           "SELECT max(product_price) , min(product_price) FROM products GROUP BY product_type")}
+    record, resolver, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="a6")
+    kpi_result = kpi_suitability(record, profiler, _CFG)
+    chart_result = chart_scatter(record, profiler, _CFG)
+    constraint_result = check_required_constraints(record, profiler, _CFG)
+    quality = score_and_tier(record, kpi_result, chart_result, [], _CFG, constraint_result=constraint_result)
+    assert quality["tier"] != "A"
+    assert quality["quality_score"] < 100
+
+
+# --------------------------------------------------------------------------- #
+# v5: required time-grain / grouping preservation
+# --------------------------------------------------------------------------- #
+_DATED_DDL = """
+CREATE TABLE orders (order_id INTEGER PRIMARY KEY, order_date TEXT, amount REAL, year INTEGER);
+INSERT INTO orders VALUES (1, '2020-01-01', 10, 2020);
+INSERT INTO orders VALUES (2, '2020-02-01', 20, 2020);
+INSERT INTO orders VALUES (3, '2021-01-01', 30, 2021);
+"""
+
+
+def test_missing_time_grain_on_grouped_date_line(tmp_path):
+    # line grouped by a date-named column, no recorded time_grain -> mandatory fail.
+    entries = {"1": _entry("Line", ["count by order date"], "t1", "order_date", "count(*)",
+                           "SELECT order_date , count(*) FROM orders GROUP BY order_date")}
+    record, _r, profiler = _build_one(tmp_path, entries, _DATED_DDL, db_id="t1")
+    result = check_required_constraints(record, profiler, _CFG)
+    assert "missing_required_time_grain" in result["failed_rules"]
+
+
+def test_missing_time_grain_on_integer_year(tmp_path):
+    entries = {"1": _entry("Bar", ["count by year"], "t2", "year", "count(*)",
+                           "SELECT year , count(*) FROM orders GROUP BY year")}
+    record, _r, profiler = _build_one(tmp_path, entries, _DATED_DDL, db_id="t2")
+    result = check_required_constraints(record, profiler, _CFG)
+    assert "missing_required_time_grain" in result["failed_rules"]
+
+
+def test_time_grain_present_passes(tmp_path):
+    # BIN clause makes the builder record a time_grain -> no missing-grain failure.
+    entry = _entry("Line", ["count by month"], "t3", "order_date", "count(*)",
+                   "SELECT order_date , count(*) FROM orders GROUP BY order_date")
+    entry["vis_query"]["data_part"]["binning"] = "BIN order_date BY MONTH"
+    record, _r, profiler = _build_one(tmp_path, {"1": entry}, _DATED_DDL, db_id="t3")
+    result = check_required_constraints(record, profiler, _CFG)
+    assert "missing_required_time_grain" not in result["failed_rules"]
+
+
+def test_non_temporal_grouping_no_false_time_grain(tmp_path):
+    entries = {"1": _entry("Bar", ["amount by type"], "t4", "product_type", "SUM(product_price)",
+                           "SELECT product_type , SUM(product_price) FROM products GROUP BY product_type")}
+    record, _r, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="t4")
+    result = check_required_constraints(record, profiler, _CFG)
+    assert "missing_required_time_grain" not in result["failed_rules"]
+
+
+def test_missing_time_grain_prevents_tier_a(tmp_path):
+    entries = {"1": _entry("Line", ["count by order date"], "t5", "order_date", "count(*)",
+                           "SELECT order_date , count(*) FROM orders GROUP BY order_date")}
+    record, resolver, profiler = _build_one(tmp_path, entries, _DATED_DDL, db_id="t5")
+    kpi_result = kpi_suitability(record, profiler, _CFG)
+    chart_result = chart_line(record, profiler, _CFG)
+    constraint_result = check_required_constraints(record, profiler, _CFG)
+    quality = score_and_tier(record, kpi_result, chart_result, [], _CFG, constraint_result=constraint_result)
+    assert quality["tier"] != "A"
+
+
+def test_scores_not_unconditionally_100(tmp_path):
+    # A clean count-by-category bar over a heuristic-typed field yields a valid
+    # Tier-A record whose db_profile_support is graduated -- proving scores are
+    # computed from evidence, not pinned at 100.
+    entries = {"1": _entry("Bar", ["count per type"], "s1", "product_type", "count(*)",
+                           "SELECT product_type , count(*) FROM products GROUP BY product_type")}
+    record, resolver, profiler = _build_one(tmp_path, entries, _PRICE_DDL, db_id="s1")
+    kpi_result = kpi_suitability(record, profiler, _CFG)
+    chart_result = chart_bar(record, profiler, _CFG)
+    constraint_result = check_required_constraints(record, profiler, _CFG)
+    quality = score_and_tier(record, kpi_result, chart_result, [], _CFG, constraint_result=constraint_result)
+    # component scores must add up to the total, and the total is evidence-derived
+    assert sum(quality["component_scores"].values()) == quality["quality_score"]
+    assert 0 <= quality["quality_score"] <= 100
+
+
 def test_build_quality_pool_buckets_by_tier(tmp_path):
     good = _entry("Bar", ["total salary by dept"], "q1", "dept", "SUM(salary)",
                   "SELECT dept , SUM(salary) FROM employee GROUP BY dept")

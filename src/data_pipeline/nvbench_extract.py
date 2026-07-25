@@ -275,3 +275,109 @@ def extract_time_grain(binning: str) -> Optional[Dict[str, str]]:
     if not m:
         return None
     return {"field": _strip_alias(m.group(1)), "grain": m.group(2).upper()}
+
+
+# --------------------------------------------------------------------------- #
+# SELECT-list aggregate extraction (axis-aware KPI/SQL agreement)
+# --------------------------------------------------------------------------- #
+_SELECT_RE = re.compile(r"\bSELECT\b(.*?)\bFROM\b", re.IGNORECASE | re.DOTALL)
+
+
+def _split_top_level(text: str) -> List[str]:
+    """Split on commas that are not nested inside parentheses."""
+    parts: List[str] = []
+    depth = 0
+    buf = []
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        if ch == "," and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        parts.append("".join(buf))
+    return parts
+
+
+def extract_select_aggregates(sql: str) -> List[Dict[str, Any]]:
+    """Aggregate calls in a ``SELECT`` list, in order.
+
+    Returns ``[{func, base_field, position}]`` for each ``FUNC(arg)`` term
+    (FUNC in COUNT/SUM/AVG/MIN/MAX). ``base_field`` is the alias/quote-stripped
+    argument, or ``None`` for ``COUNT(*)``. Non-aggregate select terms are
+    skipped but still advance ``position`` so an aggregate keeps its column
+    index (used to line an encoded axis up with its source expression).
+    """
+    m = _SELECT_RE.search(sql or "")
+    if not m:
+        return []
+    out: List[Dict[str, Any]] = []
+    for position, term in enumerate(_split_top_level(m.group(1))):
+        # Drop a trailing ``AS alias`` so ``SUM(x) AS total`` still parses.
+        clean = re.sub(r"\s+AS\s+[\w.`\"\[\]]+\s*$", "", term.strip(), flags=re.IGNORECASE)
+        cm = _AGG_CALL_RE.match(clean)
+        if not cm or cm.group(1).upper() not in _AGG_FUNCS:
+            continue
+        func = cm.group(1).upper()
+        arg = cm.group(2).strip()
+        if arg == "*" or not arg:
+            base = None
+        else:
+            base = _strip_alias(arg).strip().strip('`"[]')
+        out.append({"func": func, "base_field": base, "position": position})
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# time-grain signals in SQL / VQL (strftime / date / EXTRACT / YEAR(...) ...)
+# --------------------------------------------------------------------------- #
+# SQLite strftime format codes are case-sensitive; map each to a normalized grain.
+_STRFTIME_GRAIN = {
+    "%Y": "YEAR", "%y": "YEAR", "%m": "MONTH", "%d": "DAY", "%w": "WEEKDAY",
+    "%W": "WEEK", "%j": "DAY", "%H": "HOUR",
+}
+_STRFTIME_RE = re.compile(r"strftime\s*\(\s*'([^']+)'\s*,\s*([\w.]+)\s*\)", re.IGNORECASE)
+_DATEFUNC_RE = re.compile(r"\b(date|datetime)\s*\(\s*([\w.]+)\s*\)", re.IGNORECASE)
+_EXTRACT_RE = re.compile(r"\bEXTRACT\s*\(\s*(\w+)\s+FROM\s+([\w.]+)\s*\)", re.IGNORECASE)
+_NAMED_GRAIN_RE = re.compile(
+    r"\b(YEAR|MONTH|DAY|WEEKDAY|WEEK|QUARTER|HOUR)\s*\(\s*([\w.]+)\s*\)", re.IGNORECASE
+)
+
+
+def extract_time_grain_signals(sql: str, vql: str = "") -> List[Dict[str, str]]:
+    """Deterministically detect explicit time-grain expressions in SQL/VQL.
+
+    Recognizes ``strftime('%Y', f)``, ``date(f)``/``datetime(f)``,
+    ``EXTRACT(YEAR FROM f)`` and ``YEAR(f)``/``MONTH(f)``/... . Returns a
+    deduplicated list of ``{field, grain, source}``; never infers an
+    unsupported grain. Grouping/x-axis over a plain datetime *column* (no
+    function) is handled by the quality layer with database evidence, not here.
+    """
+    text = " ".join(t for t in (sql, vql) if t)
+    out: List[Dict[str, str]] = []
+    seen: set = set()
+
+    def add(field: str, grain: str, source: str) -> None:
+        field = _strip_alias(field).strip().strip('`"[]')
+        key = (field.lower(), grain)
+        if field and key not in seen:
+            seen.add(key)
+            out.append({"field": field, "grain": grain, "source": source})
+
+    for m in _STRFTIME_RE.finditer(text):
+        grain = _STRFTIME_GRAIN.get(m.group(1).strip())
+        if grain:
+            add(m.group(2), grain, "strftime")
+    for m in _DATEFUNC_RE.finditer(text):
+        add(m.group(2), "DATE", m.group(1).lower())
+    for m in _EXTRACT_RE.finditer(text):
+        grain = m.group(1).upper()
+        if grain in ("YEAR", "MONTH", "DAY", "WEEK", "WEEKDAY", "QUARTER", "HOUR"):
+            add(m.group(2), grain, "extract")
+    for m in _NAMED_GRAIN_RE.finditer(text):
+        add(m.group(2), m.group(1).upper(), "named_function")
+    return out

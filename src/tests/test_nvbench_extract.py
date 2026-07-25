@@ -12,10 +12,69 @@ from src.data_pipeline.nvbench_extract import (
     extract_group_by_fields,
     extract_nested,
     extract_order_by,
+    extract_select_aggregates,
     extract_time_grain,
+    extract_time_grain_signals,
     extract_where_filters,
     resolve_nested,
 )
+
+
+# --------------------------------------------------------------------------- #
+# extract_select_aggregates (v5)
+# --------------------------------------------------------------------------- #
+def test_select_aggregates_basic_order_and_base():
+    aggs = extract_select_aggregates("SELECT max(product_price) , min(product_price) , product_type_code FROM products")
+    assert [(a["func"], a["base_field"]) for a in aggs] == [("MAX", "product_price"), ("MIN", "product_price")]
+    assert [a["position"] for a in aggs] == [0, 1]
+
+
+def test_select_aggregates_strips_alias_and_quotes():
+    aggs = extract_select_aggregates('SELECT SUM(T2.order_quantity) , avg("salary") FROM t')
+    assert aggs[0] == {"func": "SUM", "base_field": "order_quantity", "position": 0}
+    assert aggs[1]["func"] == "AVG" and aggs[1]["base_field"] == "salary"
+
+
+def test_select_aggregates_count_star_has_no_base():
+    aggs = extract_select_aggregates("SELECT year , count(*) FROM postseason GROUP BY year")
+    assert aggs == [{"func": "COUNT", "base_field": None, "position": 1}]
+
+
+def test_select_aggregates_as_alias_stripped():
+    aggs = extract_select_aggregates("SELECT SUM(x) AS total FROM t")
+    assert aggs == [{"func": "SUM", "base_field": "x", "position": 0}]
+
+
+def test_select_aggregates_none_when_no_select():
+    assert extract_select_aggregates("UPDATE t SET x=1") == []
+
+
+# --------------------------------------------------------------------------- #
+# extract_time_grain_signals (v5)
+# --------------------------------------------------------------------------- #
+def test_time_grain_signal_strftime_year():
+    sigs = extract_time_grain_signals("SELECT strftime('%Y', order_date) , count(*) FROM orders")
+    assert {"field": "order_date", "grain": "YEAR", "source": "strftime"} in sigs
+
+
+def test_time_grain_signal_strftime_month_and_weekday():
+    sigs = extract_time_grain_signals("SELECT strftime('%m', d), strftime('%w', d) FROM t")
+    grains = {s["grain"] for s in sigs}
+    assert grains == {"MONTH", "WEEKDAY"}
+
+
+def test_time_grain_signal_named_function():
+    sigs = extract_time_grain_signals("SELECT YEAR(created_at) FROM t")
+    assert sigs == [{"field": "created_at", "grain": "YEAR", "source": "named_function"}]
+
+
+def test_time_grain_signal_extract():
+    sigs = extract_time_grain_signals("SELECT EXTRACT(MONTH FROM ts) FROM t")
+    assert {"field": "ts", "grain": "MONTH", "source": "extract"} in sigs
+
+
+def test_time_grain_signal_none_when_absent():
+    assert extract_time_grain_signals("SELECT city , count(*) FROM t GROUP BY city") == []
 
 
 # --------------------------------------------------------------------------- #

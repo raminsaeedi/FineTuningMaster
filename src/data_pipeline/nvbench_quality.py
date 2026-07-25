@@ -21,17 +21,43 @@ suitability from real database evidence (Phase 5).
 from __future__ import annotations
 
 import collections
+import re
 import statistics
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.data_pipeline.nvbench_extract import detect_query_intent, extract_base_field
+from src.data_pipeline.nvbench_extract import (
+    detect_query_intent,
+    extract_base_field,
+    extract_group_by_fields,
+    extract_select_aggregates,
+    extract_time_grain_signals,
+)
 from src.data_pipeline.nvbench_identifier import detect_identifier
 from src.data_pipeline.nvbench_pilot import _lineage, _mapping0, _prov, _record, semantic_checks
 from src.data_pipeline.nvbench_profile import DbProfiler
 from src.data_pipeline.nvbench_source import parse_aggregate
 from src.utils.io import read_yaml
 
-QUALITY_RULE_VERSION = "nvbench_quality_v1"
+QUALITY_RULE_VERSION = "nvbench_quality_v4"
+
+# Mandatory rules that always block Tier A (a hit forces at least Tier B),
+# regardless of the numeric score. Extends the implicit "any failed rule blocks
+# Tier A" contract with the explicit v5 correctness rules for traceability.
+_MANDATORY_TIER_A_BLOCKERS = frozenset({
+    "kpi_sql_aggregation_conflict",
+    "mixed_aggregate_ambiguous_kpi",
+    "query_aggregation_conflict",
+    "missing_required_time_grain",
+    "missing_required_grouping",
+    "missing_required_filter",
+    "missing_required_sort",
+    "meaningless_identifier_aggregation",
+    "identifier_as_measure",
+    "identifier_as_continuous_kpi",
+    "aggregate_dtype_conflict",
+    "field_table_ambiguous",
+    "pie_non_additive_kpi",
+})
 
 # semantic_checks names that specifically cover constraint preservation (Phase 6);
 # every other failing check counts toward the general source-fidelity component.
@@ -153,7 +179,201 @@ def kpi_suitability(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str,
         elif id_flag["is_identifier"]:
             failed.append("identifier_as_continuous_kpi")
 
+    # v5: encoded/KPI aggregate vs source SQL/VQL aggregate agreement.
+    agg = check_kpi_sql_aggregation(record)
+    failed.extend(agg["failed_rules"])
+    warnings.extend(agg["warnings"])
+    evidence["aggregation_agreement"] = agg["evidence"]
+
     return {"suitable": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
+
+
+# --------------------------------------------------------------------------- #
+# v5: KPI / SQL / VQL aggregation agreement (axis-aware, not naive-global)
+# --------------------------------------------------------------------------- #
+def _norm_agg_of(expr: str) -> Optional[str]:
+    return parse_aggregate(expr or "")
+
+
+def check_kpi_sql_aggregation(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Compare encoded/KPI aggregate functions against the source SQL aggregates.
+
+    Three independent signals, all mandatory Tier-A blockers when they fire:
+      (a) ``kpi_sql_aggregation_conflict`` -- an encoded axis is an aggregate over
+          a base field, the SQL SELECT also aggregates that same base field, but
+          with a *different* function (e.g. encoded MIN(price) vs SQL MAX(price)).
+      (b) ``mixed_aggregate_ambiguous_kpi`` -- both axes are aggregates with
+          different functions, so the single recorded KPI cannot faithfully
+          represent both (e.g. a scatter of SUM(pop) vs AVG(life)).
+      (c) ``query_aggregation_conflict`` -- the natural-language query names a
+          single clear aggregate intent that disagrees with the primary KPI's
+          aggregate function.
+    Base fields are matched alias/case-insensitively, so ``SUM(order_quantity)``,
+    ``SUM(T2.order_quantity)`` and ``sum("order_quantity")`` are equivalent.
+    """
+    prov = _prov(record)
+    m = _mapping0(record)
+    enc = m.get("encoding") or {}
+    sql = _sql_of(prov)
+    vql = (prov.get("vis_query") or {}).get("VQL", "") or ""
+    kpi_sel = prov.get("kpi_selection") or {}
+    primary_kpi = kpi_sel.get("primary_kpi") or m.get("kpi") or ""
+    nl_queries = [prov.get("nl_query", "")]
+
+    failed: List[str] = []
+    warnings: List[str] = []
+
+    sql_aggs = extract_select_aggregates(sql)
+    # Prefer SQL; fall back to VQL's embedded SELECT when SQL has no aggregates.
+    if not sql_aggs and vql:
+        sql_aggs = extract_select_aggregates(vql)
+    by_base: Dict[str, set] = collections.defaultdict(set)
+    for a in sql_aggs:
+        if a["base_field"]:
+            by_base[a["base_field"].lower()].add(a["func"])
+
+    evidence = {
+        "sql_aggregates": sql_aggs,
+        "x_encoding": enc.get("x"), "y_encoding": enc.get("y"), "primary_kpi": primary_kpi,
+    }
+
+    # (a) axis-aware conflict
+    axis_funcs: Dict[str, Optional[str]] = {}
+    for axis in ("x", "y"):
+        expr = str(enc.get(axis) or "")
+        func = _norm_agg_of(expr)
+        axis_funcs[axis] = func
+        if not func:
+            continue
+        base = extract_base_field(expr)
+        if not base:
+            continue
+        src_funcs = by_base.get(base.lower())
+        if src_funcs and func not in src_funcs:
+            failed.append("kpi_sql_aggregation_conflict")
+            evidence.setdefault("conflicts", []).append(
+                {"axis": axis, "encoded": func, "base_field": base, "sql_funcs": sorted(src_funcs)}
+            )
+
+    # (b) mixed-aggregate ambiguity (both axes aggregate, different functions)
+    if axis_funcs["x"] and axis_funcs["y"] and axis_funcs["x"] != axis_funcs["y"]:
+        failed.append("mixed_aggregate_ambiguous_kpi")
+        evidence["mixed_aggregate"] = {"x_func": axis_funcs["x"], "y_func": axis_funcs["y"]}
+
+    # (c) query intent vs primary KPI aggregate
+    kpi_func = _norm_agg_of(primary_kpi)
+    if kpi_func:
+        intent = detect_query_intent(nl_queries, allow_count_number_of=True)
+        if intent and intent != kpi_func:
+            failed.append("query_aggregation_conflict")
+            evidence["query_intent"] = {"query": intent, "kpi": kpi_func}
+
+    return {"failed_rules": failed, "warnings": warnings, "evidence": evidence}
+
+
+# --------------------------------------------------------------------------- #
+# v5: required time-grain / grouping preservation
+# --------------------------------------------------------------------------- #
+def _recorded_time_grain_fields(prov: Dict[str, Any]) -> set:
+    tg = (prov.get("constraints") or {}).get("time_grain") or {}
+    field = tg.get("field")
+    return {str(field).lower()} if field else set()
+
+
+def _name_is_temporal(name: str, cfg: Dict[str, Any]) -> bool:
+    """Boundary-safe temporal name match (fallback when the DB can't confirm dtype).
+
+    Matches a hint only as a whole ``_``-delimited token (so ``installation_date``
+    and ``order_date`` hit on ``date``, ``time_of_day`` on ``time``, and bare
+    ``year`` on ``year``), but ``birthday`` does not match ``day``.
+    """
+    hints = (cfg.get("time_grain") or {}).get("name_hints") or [
+        "date", "time", "year", "month", "day", "week", "quarter", "hour",
+    ]
+    low = str(name).split(".")[-1].strip().lower()
+    pattern = r"(^|_)(" + "|".join(re.escape(h) for h in hints) + r")(_|$)"
+    return bool(re.search(pattern, low))
+
+
+def check_required_constraints(
+    record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Verify SQL/VQL-derived time-grain and grouping semantics are preserved.
+
+    ``missing_required_time_grain`` fires when the source has an explicit time
+    function (``strftime``/``date``/``EXTRACT``/``YEAR(...)``) or the chart's
+    x-dimension is a database-confirmed ``datetime`` column that the query groups
+    on, yet the transformed record records no matching ``constraints.time_grain``.
+    ``missing_required_grouping`` fires when a SQL ``GROUP BY`` column is not
+    represented anywhere in the transformed record (not x, not group_field, not
+    an aggregate base, not a recorded time-grain field).
+    """
+    prov = _prov(record)
+    m = _mapping0(record)
+    enc = m.get("encoding") or {}
+    axis_typing = prov.get("axis_typing") or {}
+    sql = _sql_of(prov)
+    vql = (prov.get("vis_query") or {}).get("VQL", "") or ""
+    db_id = prov.get("db_id", "")
+    chart_type = m.get("chart_type", "")
+    temporal_charts = set((cfg.get("time_grain") or {}).get("temporal_charts") or ["line", "bar"])
+
+    failed: List[str] = []
+    evidence: Dict[str, Any] = {}
+    recorded_tg = _recorded_time_grain_fields(prov)
+
+    # Explicit source time-grain signals must each be preserved.
+    signals = extract_time_grain_signals(sql, vql)
+    evidence["time_grain_signals"] = signals
+    for sig in signals:
+        if sig["field"].lower() not in recorded_tg:
+            failed.append("missing_required_time_grain")
+            evidence.setdefault("missing_time_grain", []).append(sig)
+
+    # x-dimension over a DB-confirmed datetime column, grouped/ordered in SQL,
+    # on a temporal chart, with no recorded grain -> the grain was dropped.
+    xt = axis_typing.get("x") or {}
+    x_name = xt.get("name") or enc.get("x") or ""
+    if chart_type in temporal_charts and x_name and not _norm_agg_of(str(x_name)):
+        group_fields = {g.lower() for g in extract_group_by_fields(sql)}
+        x_low = str(x_name).split(".")[-1].strip().lower()
+        if x_low in group_fields and x_low not in recorded_tg:
+            profile = profiler.profile_field(db_id, str(x_name), sql_context=sql)
+            db_dt = profile.get("normalized_dtype") == "datetime" or xt.get("dtype") == "datetime"
+            # Fall back to a boundary-safe temporal name hint when the database
+            # can't positively type the column as datetime. This is applied only
+            # to the chart's grouped x-*dimension* (never a y measure), and the
+            # token regex avoids compound measure names (e.g. ``day_count`` only
+            # matches the ``day`` token, ``number_of_days``/``birthday`` do not).
+            name_dt = not db_dt and _name_is_temporal(str(x_name), cfg)
+            if db_dt or name_dt:
+                failed.append("missing_required_time_grain")
+                evidence.setdefault("missing_time_grain", []).append({
+                    "field": x_name, "grain": "DATE" if db_dt else "NAME_HINT",
+                    "source": "grouped_datetime_dimension" if db_dt else "grouped_temporal_name",
+                })
+
+    # Grouping: every SQL GROUP BY column must be represented somewhere.
+    represented = set()
+    for axis in ("x", "y"):
+        t = axis_typing.get(axis) or {}
+        nm = t.get("name")
+        if nm:
+            represented.add(str(nm).split(".")[-1].strip().lower())
+            base = extract_base_field(str(nm))
+            if base:
+                represented.add(base.split(".")[-1].strip().lower())
+    gf = enc.get("group_field")
+    if gf:
+        represented.add(str(gf).split(".")[-1].strip().lower())
+    represented |= recorded_tg
+    missing_group = [g for g in extract_group_by_fields(sql)
+                     if g.split(".")[-1].strip().lower() not in represented]
+    if missing_group:
+        failed.append("missing_required_grouping")
+        evidence["missing_grouping"] = missing_group
+
+    return {"failed_rules": failed, "evidence": evidence}
 
 
 # --------------------------------------------------------------------------- #
@@ -205,24 +425,45 @@ def chart_line(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]
     return {"passed": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
 
 
+# Fallback defaults, used only when a config omits these keys (e.g. older
+# fixtures); the real quality-rules YAML states them all explicitly.
+_PIE_DEFAULT_ADDITIVE_AGGS = ("COUNT", "SUM")
+_PIE_DEFAULT_REASON_CODE = "pie_non_additive_kpi"
+
+
 def chart_pie(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]) -> Dict[str, Any]:
     prov, axis_typing, db_id, sql, (xf, xp, xid), (yf, yp, yid) = _base_chart_evidence(record, profiler, cfg)
+    pie_cfg = cfg.get("chart", {}).get("pie", {}) or {}
     failed: List[str] = []
     warnings: List[str] = []
-    max_categories = int(cfg["chart"]["pie"]["max_categories"])
+    max_categories = int(pie_cfg.get("max_categories", 8))
+    allow_negative = bool(pie_cfg.get("allow_negative_values", False))
+    allow_identifier = bool(pie_cfg.get("allow_identifier_category", False))
+    additive_aggs = frozenset(a.upper() for a in pie_cfg.get("additive_aggregates", _PIE_DEFAULT_ADDITIVE_AGGS))
+    reason_code = pie_cfg.get("non_additive_reason_code", _PIE_DEFAULT_REASON_CODE)
+
     if _chart_shape_evidence_insufficient(xp):
         failed.append("insufficient_category_evidence")
     elif xp.get("distinct_count") is not None and xp["distinct_count"] > max_categories:
         failed.append("high_cardinality_pie")
-    if xid["is_identifier"]:
+    if xid["is_identifier"] and not allow_identifier:
         failed.append("identifier_pie_category")
-    if yp is not None and yp.get("stats_available") and yp.get("n_negative"):
+    if not allow_negative and yp is not None and yp.get("stats_available") and yp.get("n_negative"):
         # The base column carries negative values; the aggregate itself could
         # still be non-negative, but a pie slice built on a base field that admits
         # negative values has no defensible part-to-whole interpretation, so this
         # is treated as a hard Tier-A blocker rather than a soft warning.
         failed.append("negative_measure_values")
-    evidence = {"x_profile": xp, "y_profile": yp, "x_identifier": xid, "max_categories": max_categories}
+    # Part-to-whole composition requires an additive measure: slices must sum to
+    # a meaningful whole. AVG/MIN/MAX over a category is not additive -- the
+    # slices don't represent parts of one total -- so it's source-faithful but
+    # design-invalid (Tier B), never a Tier-A pie. Allowed/prohibited functions
+    # and the reason code are configuration, not hardcoded production logic.
+    y_agg = (axis_typing.get("y") or {}).get("aggregate")
+    if y_agg and y_agg.upper() not in additive_aggs:
+        failed.append(reason_code)
+    evidence = {"x_profile": xp, "y_profile": yp, "x_identifier": xid, "max_categories": max_categories,
+                "y_aggregate": y_agg, "additive_aggregates": sorted(additive_aggs)}
     return {"passed": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
 
 
@@ -306,12 +547,15 @@ def score_and_tier(
     chart_result: Dict[str, Any],
     fidelity_failed: List[str],
     cfg: Dict[str, Any],
+    constraint_result: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     weights = cfg["scoring"]["weights"]
     tier_a_min_score = int(cfg["scoring"]["tier_a_min_score"])
+    constraint_result = constraint_result or {"failed_rules": [], "evidence": {}}
 
-    constraint_failed = [c for c in fidelity_failed if c in _CONSTRAINT_CHECK_NAMES]
+    semantic_constraint_failed = [c for c in fidelity_failed if c in _CONSTRAINT_CHECK_NAMES]
     general_fidelity_failed = [c for c in fidelity_failed if c not in _CONSTRAINT_CHECK_NAMES]
+    constraint_failed = list(semantic_constraint_failed) + list(constraint_result["failed_rules"])
 
     fidelity_score = 0 if general_fidelity_failed else weights["source_fidelity"]
     constraint_score = 0 if constraint_failed else weights["constraint_completeness"]
@@ -322,31 +566,50 @@ def score_and_tier(
         0, weights["chart_suitability"] - 2 * len(chart_result.get("warnings", []))
     )
 
-    def _profile_ok(p: Optional[Dict[str, Any]]) -> bool:
-        return p is None or (p.get("stats_available") and p.get("resolution") not in ("ambiguous_table", "field_not_found"))
+    # Evidence-graduated database support: fraction of the profiled axis/group
+    # fields backed by real database statistics (vs a name heuristic / missing).
+    # A record whose fields are all DB-confirmed scores the full weight; one that
+    # leans on name heuristics scores proportionally less -- so clean records are
+    # not uniformly 100.
+    def _profile_state(p: Optional[Dict[str, Any]]) -> Optional[bool]:
+        if p is None:
+            return None  # no physical field to profile (e.g. COUNT(*)); not counted
+        if p.get("resolution") in ("ambiguous_table", "field_not_found"):
+            return False
+        return bool(p.get("stats_available"))
 
-    db_support_ok = all(
-        _profile_ok(p)
-        for p in (
-            (chart_result.get("evidence") or {}).get("x_profile"),
-            (chart_result.get("evidence") or {}).get("y_profile"),
-            (chart_result.get("evidence") or {}).get("group_profile"),
-        )
-    )
-    db_score = weights["db_profile_support"] if db_support_ok else 0
+    ev = chart_result.get("evidence") or {}
+    states = [s for s in (_profile_state(ev.get("x_profile")),
+                          _profile_state(ev.get("y_profile")),
+                          _profile_state(ev.get("group_profile"))) if s is not None]
+    if not states:
+        db_fraction = 1.0
+    else:
+        db_fraction = sum(1 for s in states if s) / len(states)
+    db_score = round(weights["db_profile_support"] * db_fraction)
+    db_support_ok = db_fraction >= 1.0
 
     score = fidelity_score + constraint_score + kpi_score + chart_score + db_score
 
     failed_rules = list(general_fidelity_failed) + list(constraint_failed) + \
         list(kpi_result["failed_rules"]) + list(chart_result["failed_rules"])
-    if not db_support_ok:
-        failed_rules.append("insufficient_db_profile_support")
     warnings = list(kpi_result.get("warnings", [])) + list(chart_result.get("warnings", []))
 
+    # A partial (but non-zero) DB profile is a soft signal, not a hard blocker:
+    # v3's builder already guarantees a defensible heuristic dtype. Only a fully
+    # unsupported profile (fraction 0 with fields present) is a mandatory failure.
+    if states and db_fraction == 0.0:
+        failed_rules.append("insufficient_db_profile_support")
+
     mandatory_failure = bool(failed_rules)
-    severe_combo = (
-        "meaningless_identifier_aggregation" in kpi_result["failed_rules"]
-        and "broad_intent_mismatch" in kpi_result["failed_rules"]
+    # Tier C is reserved for a newly discovered *severe* contradiction: a
+    # meaningless identifier aggregate co-occurring with an outright aggregation
+    # conflict (SQL/query disagreement), i.e. the record is not merely uncertain
+    # but internally contradictory.
+    kpi_failed = set(kpi_result["failed_rules"])
+    severe_combo = bool(
+        {"meaningless_identifier_aggregation"} & kpi_failed
+        and {"kpi_sql_aggregation_conflict", "query_aggregation_conflict", "broad_intent_mismatch"} & kpi_failed
     )
 
     if score >= tier_a_min_score and not mandatory_failure:
@@ -366,6 +629,8 @@ def score_and_tier(
             "constraint_completeness": constraint_score,
             "db_profile_support": db_score,
         },
+        "db_profile_fraction": round(db_fraction, 3),
+        "db_support_ok": db_support_ok,
         "passed_rules": [] if mandatory_failure else ["all_mandatory_rules"],
         "failed_rules": failed_rules,
         "warnings": warnings,
@@ -417,10 +682,13 @@ def build_quality_pool(
         chart_result = checker(rec, profiler, cfg) if checker else {
             "passed": False, "failed_rules": [f"unknown_chart_type:{chart_type}"], "warnings": [], "evidence": {},
         }
+        constraint_result = check_required_constraints(rec, profiler, cfg)
         fidelity_failed = fidelity_failed_map.get(iid, [])
-        quality = score_and_tier(rec, kpi_result, chart_result, fidelity_failed, cfg)
+        quality = score_and_tier(rec, kpi_result, chart_result, fidelity_failed, cfg,
+                                 constraint_result=constraint_result)
         quality["kpi_suitability"] = kpi_result
         quality["chart_suitability"] = chart_result
+        quality["constraint_suitability"] = constraint_result
         quality["fidelity_failed"] = fidelity_failed
         quality_by_id[iid] = quality
 

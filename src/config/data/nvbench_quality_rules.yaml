@@ -1,4 +1,4 @@
-rule_version: nvbench_quality_v1
+rule_version: nvbench_quality_v4
 
 identifier:
   strong_unique_ratio: 0.98
@@ -14,10 +14,29 @@ identifier:
 chart:
   pie:
     max_categories: 8
+    # Part-to-whole composition requires an additive measure: slices must sum
+    # to a meaningful whole. AVG/MIN/MAX over a category is source-faithful but
+    # not additive -- Tier B, never Tier A.
+    additive_aggregates: ["COUNT", "SUM"]
+    prohibited_aggregates: ["AVG", "MIN", "MAX"]
+    non_additive_reason_code: "pie_non_additive_kpi"
+    allow_negative_values: false
+    allow_identifier_category: false
   scatter:
     min_distinct_values: 10
   stacked_bar:
     max_group_cardinality: 8
+
+# Time-grain preservation (v2). A source-supported time grain (explicit SQL/VQL
+# time function, or an x-axis over a database-confirmed datetime column that the
+# query groups/orders on) must be recorded in the transformed record's
+# constraints.time_grain, else `missing_required_time_grain` (mandatory).
+time_grain:
+  supported: ["YEAR", "MONTH", "DAY", "WEEKDAY", "WEEK", "QUARTER", "HOUR", "DATE"]
+  # Fallback name hints, used ONLY when the database cannot confirm the dtype.
+  name_hints: ["date", "time", "year", "month", "day", "week", "quarter", "hour"]
+  # Charts for which a datetime x-dimension implies a required grain.
+  temporal_charts: ["line", "bar"]
 
 scoring:
   weights:
