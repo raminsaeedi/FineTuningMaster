@@ -15,7 +15,11 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-ADAPTER = "experiments/outputs/E03_qwen0_5b_ft_42/adapter"
+# Default output layout (src/config/config.yaml): output_root
+# experiments/outputs/experiments, experiment_id ${experiment_name}_${seed}.
+# Fixed: the leading "experiments/" level was missing here, so this check failed
+# against a correctly trained adapter. Matches both supervisor .ps1 scripts.
+ADAPTER = "experiments/outputs/experiments/E03_qwen0_5b_ft_42/adapter"
 KB_CHUNKS = "data/knowledge_base/chunks.jsonl"
 BENCHMARK = "data/eval/benchmark_v1.jsonl"
 BENCHMARK_INFER = "data/eval/benchmark_v1_infer.jsonl"

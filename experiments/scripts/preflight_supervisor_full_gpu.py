@@ -1,5 +1,10 @@
 """Full-pipeline GPU-machine preflight (NO training / NO inference).
 
+SUPERSEDED: use `python experiments/scripts/check_experiment_release.py` instead.
+That script covers everything below and additionally verifies the frozen dataset
+SHA-256 hashes and resolves the Hydra configs. This file is kept for reference and
+now points at the current frozen dataset (data/frozen/dashboard_v3).
+
 Read-only readiness checks for the FULL final run
 (dataset build -> train -> synthetic diagnostics -> benchmark inference -> score).
 Prints PASS/WARN/FAIL and exits non-zero on any HARD failure.
@@ -27,12 +32,13 @@ ADAPTER_DEFAULT = "experiments/outputs/experiments/E03_qwen0_5b_ft_42/adapter"
 KB_CHUNKS = "data/knowledge_base/chunks.jsonl"
 BENCHMARK = "data/eval/benchmark_v1.jsonl"
 BENCHMARK_INFER = "data/eval/benchmark_v1_infer.jsonl"
-TRAIN_FILE = "data/frozen/dashboard_v2/train.jsonl"
-VAL_FILE = "data/frozen/dashboard_v2/val.jsonl"
-TEST_FILE = "data/frozen/dashboard_v2/internal_test.jsonl"
+# Current frozen dataset (selected by src/config/config.yaml and E01-E04).
+TRAIN_FILE = "data/frozen/dashboard_v3/train.jsonl"
+VAL_FILE = "data/frozen/dashboard_v3/val.jsonl"
+TEST_FILE = "data/frozen/dashboard_v3/test.jsonl"
 TRAIN_ROOT = "experiments/outputs/experiments"   # default output root (matches run_supervisor_full_gpu.ps1)
 BENCH_ROOT = "experiments/outputs/benchmark_v1"
-MIN_TRAIN = 1000  # below this the frozen set is still the sample; build step must run first
+MIN_TRAIN = 1000  # dashboard_v3 ships 1281 train records; below this the wrong set is present
 
 _hard_fail = 0
 _warn = 0
@@ -95,14 +101,15 @@ def check_cuda(require: bool) -> None:
 def check_training_data() -> None:
     n_train, n_val, n_test = _count(TRAIN_FILE), _count(VAL_FILE), _count(TEST_FILE)
     if n_train < 0:
-        warn(f"training set not built yet: {TRAIN_FILE} missing — build it with "
-             "`python experiments/scripts/generate_dataset_v2.py --n 2000` then "
-             "`freeze_dataset_v2.py` (the .ps1 does this automatically).")
+        warn(f"frozen training set missing: {TRAIN_FILE} — dashboard_v3 is a frozen artifact "
+             "and is never regenerated; verify it with "
+             "`python experiments/scripts/check_experiment_release.py`.")
         return
-    msg = f"frozen v2 counts — train={n_train}, val={n_val}, internal_test={n_test}"
+    msg = f"frozen dashboard_v3 counts — train={n_train}, val={n_val}, test={n_test}"
     if n_train < MIN_TRAIN:
-        warn(f"{msg}. Train < {MIN_TRAIN}: this is still the SAMPLE; the build step will "
-             "produce the full 1500-2000 set before training.")
+        warn(f"{msg}. Train < {MIN_TRAIN}: this is NOT the full frozen dashboard_v3 set "
+             "(expected 1281/264/274) — verify it with "
+             "`python experiments/scripts/check_experiment_release.py`.")
     else:
         ok(msg)
 
