@@ -4,7 +4,7 @@
 defaults:
   - model: qwen2_5_0_5b
   - method: prompt_only
-  - data: dashboard_v1
+  - data: dashboard_v3
   - training: qlora_default
   - eval: full
   - _self_

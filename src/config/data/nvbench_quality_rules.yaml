@@ -1,4 +1,4 @@
-rule_version: nvbench_quality_v4
+rule_version: nvbench_quality_v6
 
 identifier:
   strong_unique_ratio: 0.98
@@ -10,6 +10,18 @@ identifier:
     - "identifier"
     - "(^|_)key$"
     - "(^|_)code$"
+  entity_reference_patterns:
+    - "(^|_)id$"
+    - "^id(_|$)"
+    - "identifier"
+    - "(^|_)key$"
+    - "(^|_)code$"
+  # Identity-qualified number fields need both semantic naming and observed
+  # cardinality evidence. Quantity names such as number_of_rooms do not match.
+  entity_number_patterns:
+    - "(^|_)(card|account|customer|member|policy|invoice|order|ticket|serial|registration|passport|phone|room|flight|employee|student|player|product|case|claim|document|reference|transaction|contract|permit|license)_(number|no)$"
+  entity_number_min_unique_ratio: 0.9
+  entity_number_min_distinct: 5
 
 chart:
   pie:
@@ -24,6 +36,9 @@ chart:
     allow_identifier_category: false
   scatter:
     min_distinct_values: 10
+    result_profile_max_rows: 1000
+    identifier_axis_reason_code: "scatter_identifier_axis"
+    invalid_axes_reason_code: "invalid_scatter_axes"
   stacked_bar:
     max_group_cardinality: 8
 

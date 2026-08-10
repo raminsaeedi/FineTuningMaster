@@ -1,0 +1,46 @@
+# Final thesis experiment matrix: methods A/B/C/D across three seeds.
+#
+# This file is the ONE place to change what the final run covers. Selecting a
+# different base model is a config edit here (or `--model <name>` on the command
+# line), never a source change: `model` names a file in src/config/model/.
+#
+# Consumed by: python experiments/scripts/run_final_matrix.py
+#
+# Qwen2.5-0.5B-Instruct is the local smoke/dev model, NOT a committed final
+# thesis model. Point `model` at the intended final model config before the
+# final GPU run.
+
+model: qwen2_5_0_5b
+
+seeds: [42, 43, 44]
+
+# Final runs write to their own root so they can never be confused with earlier
+# exploratory outputs under experiments/outputs/.
+output_root: experiments/outputs/final
+
+# Ordered: the method that trains the adapter (C) must precede the method that
+# consumes it (D). The runner enforces this regardless of list order, but keeping
+# it readable matters more.
+runs:
+  - key: A
+    experiment: E01_qwen0_5b_prompt
+    description: prompt-only baseline
+    trains_adapter: false
+
+  - key: B
+    experiment: E02_qwen0_5b_rag
+    description: retrieval-augmented
+    trains_adapter: false
+
+  - key: C
+    experiment: E03_qwen0_5b_ft
+    description: QLoRA fine-tuned
+    trains_adapter: true
+
+  - key: D
+    experiment: E04_qwen0_5b_ft_rag
+    description: QLoRA fine-tuned + retrieval
+    trains_adapter: false
+    # Which run's adapter this consumes. The runner resolves it per seed, so
+    # C seed 43 feeds D seed 43.
+    adapter_from: C

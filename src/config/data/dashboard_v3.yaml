@@ -1,0 +1,28 @@
+# Frozen nvBench dashboard-design dataset v3.
+#
+# Train/validation contain the 1,545 source-backed, Phase-3-enriched records.
+# Test and human-evaluation files are held out and never trainable.
+name: dashboard_v3
+dataset_version: dashboard_v3
+schema_version: GoldItem
+enrichment_spec_version: phase3-enrichment-v1
+frozen_dir: data/frozen/dashboard_v3
+
+train_file: data/frozen/dashboard_v3/train.jsonl
+val_file: data/frozen/dashboard_v3/val.jsonl # validation-only
+test_file: data/frozen/dashboard_v3/test.jsonl
+# Robustness variants of test.jsonl, built outside the frozen package by
+# `python experiments/scripts/build_perturbations_v3.py` (deterministic, no LLM).
+paraphrased_file: data/eval/robustness_v3/test_paraphrased.jsonl
+missing_info_file: data/eval/robustness_v3/test_missing_info.jsonl
+human_eval_file: data/frozen/dashboard_v3/human_eval_test_items_40.csv
+
+not_for_training:
+  - data/frozen/dashboard_v3/test.jsonl
+  - data/frozen/dashboard_v3/human_eval_test_items_40.csv
+  - data/eval/robustness_v3/test_paraphrased.jsonl
+  - data/eval/robustness_v3/test_missing_info.jsonl
+  - data/eval/l1_chart_effectiveness_v1.csv
+  - data/eval/real_briefs_v1.jsonl
+
+max_samples: null # cap items (useful for smoke tests)

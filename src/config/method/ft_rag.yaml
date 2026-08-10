@@ -1,8 +1,16 @@
 # Method D — fine-tuned + RAG. Combines the adapter (method C) with retrieval
 # (method B).
+#
+# The adapter belongs to the method C run with the same model, dataset and seed,
+# not to this experiment. Leave adapter_path null and name the producing run in
+# adapter_source_experiment: the path is then resolved to
+#   ${output_root}/<adapter_source_experiment>_${seed}/adapter
+# so seed 43 automatically consumes the seed-43 adapter. Set adapter_path only to
+# override that deliberately.
 name: ft_rag
 type: fine_tuned_rag
-adapter_path: ${output_root}/${experiment_id}/adapter
+adapter_path: null
+adapter_source_experiment: E03_qwen0_5b_ft
 retriever:
   name: tfidf
   top_k: 3

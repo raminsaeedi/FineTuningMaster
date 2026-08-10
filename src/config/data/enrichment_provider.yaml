@@ -1,0 +1,38 @@
+# Provider configuration for the LLM enrichment stage (Phase 3).
+#
+# SECRETS ARE NEVER STORED HERE. This file only names the environment variable
+# that carries the API key; the value is read at runtime from the process
+# environment and is never printed, logged, or written to any artifact.
+#
+# Every value below can be overridden by the matching environment variable, so a
+# local shell session fully controls the provider without editing this file:
+#
+#   ENRICHMENT_BASE_URL          -> base_url
+#   ENRICHMENT_MODEL             -> model
+#   ENRICHMENT_REASONING_EFFORT  -> reasoning_effort
+#   ENRICHMENT_API_KEY           -> the API key itself (never mirrored here)
+#
+# See docs/project/ENRICHMENT_PROVIDER_SETUP.md for the PowerShell setup.
+
+provider: openai_compatible
+
+# Name of the environment variable holding the API key. The key value itself
+# must never appear in this file, in code, in tests, or in any log line.
+api_key_env: ENRICHMENT_API_KEY
+
+# Defaults used when the corresponding environment variable is unset.
+base_url: https://adesso-ai-hub.3asabc.de/v1
+model: deepseek-v4-flash-sovereign
+
+# Requested reasoning effort. The adesso OpenAI-compatible gateway is not assumed
+# to support the OpenAI `reasoning_effort` parameter: the client attempts the
+# request with it and, if the endpoint rejects the parameter, records
+# REASONING_EFFORT_UNSUPPORTED_BY_PROVIDER and retries once without it. The
+# actually applied mode is stored in the run manifest.
+reasoning_effort: xhigh
+
+# Deterministic-as-possible sampling for enrichment work.
+temperature: 0.1
+max_tokens: 1200
+timeout_seconds: 120
+max_retries: 2
