@@ -32,6 +32,23 @@ class InferenceRunner:
         self.method = method
         self.out_path = Path(out_path)
 
+    def _expected_config_hash(self) -> str:
+        return str(getattr(self.method, "config_hash", "") or "")
+
+    def _stale_config_hashes(self) -> Set[str]:
+        """Config hashes present in the cache that differ from the current run.
+
+        The cache is keyed by ``item_id`` alone, so an override that changes
+        generation settings or the adapter — without changing the experiment
+        name or seed, which is what determines the directory — would otherwise be
+        served from predictions produced under different settings.
+        """
+        expected = self._expected_config_hash()
+        if not expected or not self.out_path.exists():
+            return set()
+        seen = {str(r.get("config_hash", "") or "") for r in read_jsonl(self.out_path)}
+        return {h for h in seen if h and h != expected}
+
     def _load_done(self) -> Set[str]:
         if not self.out_path.exists():
             return set()
@@ -61,6 +78,16 @@ class InferenceRunner:
             ef.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
+        stale = self._stale_config_hashes()
+        if stale:
+            raise RuntimeError(
+                f"{self.out_path} holds predictions generated under a different "
+                f"configuration (config_hash {sorted(stale)} != "
+                f"{self._expected_config_hash()}).\n"
+                f"Reusing them would mix settings within one result file. Delete "
+                f"the file to regenerate, or run under a distinct experiment_name."
+            )
+
         done = self._load_done()
         remaining = [b for b in briefs if (b.item_id or "") not in done]
 

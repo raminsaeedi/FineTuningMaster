@@ -1,8 +1,10 @@
 """Method C — fine-tuned.
 
 Loads the base model plus the PEFT adapter produced by training. The adapter
-folder is read from ``cfg.method.adapter_path`` (filled in by the experiment
-config or at runtime). Generation is otherwise identical to method A.
+folder is resolved by :mod:`src.utils.adapter` — normally the run's own
+``adapter/`` directory, since method C both trains and consumes it — and is
+validated against the config before it is loaded, so a mismatched base model,
+seed or dataset version fails loudly instead of being silently used.
 """
 
 from __future__ import annotations
@@ -10,7 +12,8 @@ from __future__ import annotations
 from typing import Optional
 
 from src.core.registry import METHODS
-from src.methods.base import HFMethod, _get
+from src.methods.base import HFMethod
+from src.utils.adapter import resolve_adapter_path, validate_adapter
 
 
 @METHODS.register("ft")
@@ -18,10 +21,6 @@ class FineTunedMethod(HFMethod):
     name = "ft"
 
     def _adapter_path(self) -> Optional[str]:
-        path = _get(self.method_cfg, "adapter_path")
-        if not path:
-            raise ValueError(
-                "method 'ft' requires cfg.method.adapter_path to point at a "
-                "trained adapter folder (e.g. outputs/experiments/<id>/adapter)."
-            )
-        return str(path)
+        adapter_dir = resolve_adapter_path(self.cfg)
+        validate_adapter(adapter_dir, self.cfg)
+        return str(adapter_dir)

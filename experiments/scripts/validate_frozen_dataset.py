@@ -1,4 +1,4 @@
-"""Validate the frozen v2 dataset and write the report + hashes.
+"""Validate a frozen dataset and write the report + hashes.
 
 Runs the checks in DATASET_V2_IMPLEMENTATION_PLAN.md §5 over the frozen files and
 writes:
@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -41,6 +42,13 @@ FROZEN_FILES = ("train.jsonl", "val.jsonl", "internal_test.jsonl",
 EVAL_REAL_BRIEFS = "data/eval/real_briefs_v1.jsonl"
 
 
+def frozen_files_for_dir(frozen_dir: Path) -> tuple[str, ...]:
+    """Use canonical ``test.jsonl`` for dashboard_v3, keep v2 compatibility."""
+    if (frozen_dir / "test.jsonl").exists():
+        return ("train.jsonl", "val.jsonl", "test.jsonl")
+    return FROZEN_FILES
+
+
 def _fmt_dist(title: str, dist: dict) -> str:
     lines = [f"### {title}", ""]
     if not dist:
@@ -53,19 +61,34 @@ def _fmt_dist(title: str, dist: dict) -> str:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Validate frozen dataset v2")
-    p.add_argument("--frozen-dir", default="data/frozen/dashboard_v2")
+    p = argparse.ArgumentParser(
+        description="Validate a frozen dataset and write its validation report"
+    )
+    p.add_argument("--frozen-dir", default="data/frozen/dashboard_v3",
+                   help="Frozen dataset directory (default: data/frozen/dashboard_v3)")
+    p.add_argument("--write-hashes", action="store_true",
+                   help="Rewrite hashes.json. Refused when an existing hashes.json "
+                        "uses a richer schema; to only VERIFY hashes, use "
+                        "experiments/scripts/check_experiment_release.py")
     args = p.parse_args()
     frozen_dir = (_PROJECT_ROOT / args.frozen_dir) if not Path(args.frozen_dir).is_absolute() else Path(args.frozen_dir)
 
-    report: list[str] = ["# Frozen Dataset v2 — Validation Report", "",
-                         f"Generator: `{GENERATOR_VERSION}`", ""]
     hard_ok = True
     file_records: dict[str, list[dict]] = {}
     hashes: dict[str, dict] = {}
 
+    frozen_files = frozen_files_for_dir(frozen_dir)
+    dashboard_v3 = "test.jsonl" in frozen_files
+    heldout_label = "test" if dashboard_v3 else "internal_test"
+    if dashboard_v3:
+        report: list[str] = ["# Frozen dashboard_v3 — Validation Report", "",
+                             "Dataset: nvBench", ""]
+    else:
+        report = ["# Frozen Dataset v2 — Validation Report", "",
+                  f"Generator: `{GENERATOR_VERSION}`", ""]
+
     # Per-file: parse, schema/enum/non-empty, duplicate ids, hash.
-    for fname in FROZEN_FILES:
+    for fname in frozen_files:
         path = frozen_dir / fname
         report.append(f"## `{fname}`")
         if not path.exists():
@@ -100,24 +123,25 @@ def main() -> None:
         report.append("")
 
     # Distributions over the trainable + diagnostic splits.
+    heldout_name = "test.jsonl" if "test.jsonl" in file_records else "internal_test.jsonl"
     core = (file_records.get("train.jsonl", []) + file_records.get("val.jsonl", [])
-            + file_records.get("internal_test.jsonl", []))
+            + file_records.get(heldout_name, []))
     dist = distributions(core)
-    report.append("## Distributions (train + val + internal_test)\n")
+    report.append(f"## Distributions (train + val + {heldout_label})\n")
     report.append(_fmt_dist("Domain", dist["domain"]))
     report.append(_fmt_dist("task_type", dist["task_type"]))
     report.append(_fmt_dist("chart_type", dist["chart_type"]))
 
     # Leakage: {train, val} must not overlap {internal_test, real_briefs}.
     train_val = file_records.get("train.jsonl", []) + file_records.get("val.jsonl", [])
-    eval_recs = list(file_records.get("internal_test.jsonl", []))
+    eval_recs = list(file_records.get(heldout_name, []))
     rb_path = _PROJECT_ROOT / EVAL_REAL_BRIEFS
     if rb_path.exists():
         rb_records, _ = read_jsonl_strict(rb_path)
         # real briefs are DashboardBrief-only; wrap so leakage_report can read .brief
         eval_recs += [{"item_id": r.get("item_id", ""), "brief": r} for r in rb_records]
     leak = leakage_report(train_val, eval_recs)
-    report.append("## Leakage check (train/val vs internal_test + real_briefs)\n")
+    report.append(f"## Leakage check (train/val vs {heldout_label} + real_briefs)\n")
     report.append(f"- item_id overlap: {len(leak['item_id_overlap'])}")
     report.append(f"- fingerprint overlap: {len(leak['fingerprint_overlap'])}")
     if leak["item_id_overlap"] or leak["fingerprint_overlap"]:
@@ -129,21 +153,55 @@ def main() -> None:
     report.append("## Result\n")
     report.append(f"**Hard checks: {'PASS' if hard_ok else 'FAIL'}**")
     report.append("")
-    report.append("> `train.jsonl` and `val.jsonl` are the only trainable files. "
-                  "`internal_test.jsonl`, the perturbation sets, "
-                  "`data/eval/l1_chart_effectiveness_v1.csv` and "
-                  "`data/eval/real_briefs_v1.jsonl` are NEVER used for training.")
+    if dashboard_v3:
+        report.append("> `train.jsonl` and `val.jsonl` are the only trainable files. "
+                      "`test.jsonl`, the human-evaluation CSV, and all reports are "
+                      "NEVER used for training.")
+    else:
+        report.append("> `train.jsonl` and `val.jsonl` are the only trainable files. "
+                      "`internal_test.jsonl`, the perturbation sets, "
+                      "`data/eval/l1_chart_effectiveness_v1.csv` and "
+                      "`data/eval/real_briefs_v1.jsonl` are NEVER used for training.")
 
     frozen_dir.mkdir(parents=True, exist_ok=True)
     (frozen_dir / "validation_report.md").write_text("\n".join(report), encoding="utf-8")
 
-    if hard_ok:
-        write_json({"generator_version": GENERATOR_VERSION, "files": hashes},
-                   frozen_dir / "hashes.json")
-        print(f"Validation PASS. Wrote validation_report.md + hashes.json to {frozen_dir}")
-    else:
+    if not hard_ok:
         print(f"Validation FAIL. Wrote validation_report.md to {frozen_dir} (hashes.json NOT written).")
         sys.exit(1)
+
+    # A frozen dataset's hashes.json is the integrity record other tools verify
+    # against. Overwriting it in the course of a *validation* run would destroy
+    # that record — dashboard_v3's file additionally covers the schema, the
+    # human-evaluation CSV and the reports, none of which this script hashes.
+    hashes_path = frozen_dir / "hashes.json"
+    # Schema-independent test: whatever the existing file's layout, refuse if it
+    # covers files this run did not hash. dashboard_v3's record also covers the
+    # human-evaluation CSV, schema.json and the R1 report, none of which are in
+    # frozen_files — rewriting would silently drop them.
+    would_lose: list[str] = []
+    if hashes_path.exists():
+        try:
+            with hashes_path.open("r", encoding="utf-8") as f:
+                existing = json.load(f)
+            existing_files = existing.get("files") or existing.get("records") or {}
+            would_lose = sorted(set(existing_files) - set(hashes))
+        except Exception:
+            would_lose = []
+
+    if not args.write_hashes:
+        print(f"Validation PASS. Wrote validation_report.md to {frozen_dir} "
+              f"(hashes.json left untouched; pass --write-hashes to regenerate it).")
+    elif would_lose:
+        print(f"Validation PASS. Wrote validation_report.md to {frozen_dir}.")
+        print(f"REFUSED to overwrite {hashes_path}: it also covers "
+              f"{', '.join(would_lose)}, which this script does not hash, so "
+              f"rewriting would lose integrity coverage.")
+        print("To VERIFY hashes instead, run:")
+        print("    python experiments/scripts/check_experiment_release.py")
+    else:
+        write_json({"generator_version": GENERATOR_VERSION, "files": hashes}, hashes_path)
+        print(f"Validation PASS. Wrote validation_report.md + hashes.json to {frozen_dir}")
 
 
 if __name__ == "__main__":

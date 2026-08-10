@@ -23,7 +23,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from src.pipeline.runner import ExperimentRunner  # noqa: E402
-from src.utils.artifacts import setup_run_dir, write_run_metadata  # noqa: E402
+from src.utils.artifacts import (  # noqa: E402
+    finalize_manifest,
+    setup_run_dir,
+    write_run_metadata,
+)
 from src.utils.config import load_cfg  # noqa: E402
 from src.utils.logging import setup_logging  # noqa: E402
 
@@ -44,7 +48,12 @@ def main() -> None:
     write_run_metadata(exp_dir, cfg)
 
     runner = ExperimentRunner(cfg, _PROJECT_ROOT)
-    payload = runner.run()
+    try:
+        payload = runner.run()
+    except Exception:
+        finalize_manifest(exp_dir, status="failed")
+        raise
+    finalize_manifest(exp_dir, status="completed")
 
     print("\n" + "=" * 60)
     print("EXPERIMENT COMPLETE")

@@ -1,6 +1,13 @@
 <#
   run_supervisor_gpu_o3.ps1 — one-shot O3 benchmark inference for methods A/B/C/D.
 
+  SUPERSEDED — the current supported path is RUN_PROFESSOR.md at the repo root:
+      python experiments/scripts/check_experiment_release.py   # preflight
+      python experiments/scripts/run_final_matrix.py           # A/B/C/D x seeds 42/43/44
+      python experiments/scripts/package_results.py            # professor_results.zip
+  This legacy script is kept for reference. It carries no data= override, so the
+  configs' own default (data: dashboard_v3 in src/config/config.yaml) applies.
+
   Runs the EXISTING CLI scripts only. It NEVER trains and NEVER edits benchmark labels.
   Benchmark predictions are written under experiments/outputs/benchmark_v1 (separate from
   synthetic runs). Synthetic variant inference is disabled explicitly.
@@ -16,7 +23,11 @@ Set-Location (Join-Path $PSScriptRoot "..\..")   # repo root
 
 $BM      = "data/eval/benchmark_v1_infer.jsonl"
 $ROOT    = "experiments/outputs/benchmark_v1"
-$ADAPTER = "experiments/outputs/E03_qwen0_5b_ft_42/adapter"
+# Fixed: this used to be experiments/outputs/E03_qwen0_5b_ft_42/adapter, which does not
+# match the default output layout (src/config/config.yaml: output_root
+# experiments/outputs/experiments, experiment_id ${experiment_name}_${seed}). Now
+# identical to run_supervisor_full_gpu.ps1.
+$ADAPTER = "experiments/outputs/experiments/E03_qwen0_5b_ft_42/adapter"
 # REQUIRED: disable synthetic variant inference (paraphrase/missing_info default to the
 # synthetic files and are NOT limited by max_samples). Keeps a benchmark run to the
 # benchmark original set only.

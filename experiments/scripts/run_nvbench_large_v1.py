@@ -29,11 +29,19 @@ from src.data_pipeline.nvbench_large_v1 import (  # noqa: E402
     NORMALIZED_CHART_TYPES,
     _brief_of,
     compute_availability,
+    repair_selected_v1,
     select_human_eval_sample,
     select_large_v1,
     select_spotcheck_sample,
     split_train_val_test,
     validate_phase1_input,
+)
+from src.data_pipeline.nvbench_large_v2 import (  # noqa: E402
+    MINIMUM_ACCEPTABLE_V2,
+    PREFERRED_TARGET_V2,
+    repair_selected_v2,
+    select_r1_sample,
+    split_train_val_test_v2,
 )
 from src.data_pipeline.nvbench_pilot import (  # noqa: E402
     _mapping0,
@@ -54,7 +62,15 @@ DEFAULT_EXTERNAL_L1 = "data/eval/l1_chart_effectiveness_v1.csv"
 PREFERRED_TARGET = 2000
 MINIMUM_ACCEPTABLE = 1800
 EXPECTED_ACTUAL = 1819
-FINAL_STATUS = "PASS_MAXIMUM_VALID_CORPUS_WITH_HELD_OUT_TEST"
+FINAL_STATUS = "PASS_CORRECTED_CORPUS_GE_1800"
+DEFAULT_BASELINE_SELECTED = "data/staging/dashboard_v3/nvbench_large_v1/all_selected.jsonl"
+DEFAULT_PREVIOUS_QUALITY_POOL_DIR = "data/staging/dashboard_v3/nvbench_quality_pool_final"
+V2_FINAL_STATUS = "PASS_LARGE_V2_READY_FOR_HUMAN_R1"
+V2_VERSION_STATEMENT = (
+    "`nvbench_large_v2` is a materially revised dataset version created after additional "
+    "identifier-aggregation, grouping-scope and Scatter-validity checks. Version v1 is retained "
+    "as a historical intermediate artifact and is not the final Phase-3 input."
+)
 
 EVAL_ARTIFACTS = [
     ("real_briefs_v1", "data/eval/real_briefs_v1.jsonl", "top"),
@@ -79,6 +95,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--preferred-target", "--total", dest="preferred_target", type=int, default=PREFERRED_TARGET)
     p.add_argument("--minimum-acceptable", type=int, default=MINIMUM_ACCEPTABLE)
     p.add_argument("--expected-actual", type=int, default=EXPECTED_ACTUAL)
+    p.add_argument("--baseline-selected", default=DEFAULT_BASELINE_SELECTED)
+    p.add_argument("--previous-quality-pool-dir", default=DEFAULT_PREVIOUS_QUALITY_POOL_DIR)
+    p.add_argument("--dataset-version", choices=("v1", "v2"), default="v1")
     p.add_argument("--db-cap", type=int, default=100)
     p.add_argument("--val-fraction", type=float, default=0.15)
     p.add_argument("--test-fraction", type=float, default=0.15)
@@ -137,7 +156,8 @@ def _load_phase1(quality_pool_dir: Path):
 _SPOT_SOURCE_COLS = [
     "item_id", "source_group_id", "source_record_id", "db_id", "original_query",
     "source_sql", "source_vql", "original_chart_label", "normalized_chart_type",
-    "kpi", "raw_columns", "encoding", "filters", "sort", "grouping", "time_grain",
+    "kpi", "raw_columns", "encoding", "filters", "sort", "limit", "having",
+    "grouping", "visual_grouping", "time_grain",
     "quality_score", "quality_evidence", "mandatory_failures", "warnings",
 ]
 _SPOT_REVIEW_COLS = [
@@ -208,7 +228,10 @@ def _write_spotcheck_csv(sample, path: Path) -> None:
                 "encoding": json.dumps(enc, ensure_ascii=False),
                 "filters": json.dumps(constraints.get("filters", []), ensure_ascii=False),
                 "sort": json.dumps(constraints.get("sort"), ensure_ascii=False),
+                "limit": json.dumps(constraints.get("limit"), ensure_ascii=False),
+                "having": json.dumps(constraints.get("having", []), ensure_ascii=False),
                 "grouping": json.dumps(prov.get("grouping", {}), ensure_ascii=False),
+                "visual_grouping": json.dumps(constraints.get("visual_grouping"), ensure_ascii=False),
                 "time_grain": json.dumps(constraints.get("time_grain"), ensure_ascii=False),
                 "quality_score": rec.get("quality_score", ""),
                 "quality_evidence": json.dumps(rec.get("evidence", {}), ensure_ascii=False, default=str),
@@ -325,13 +348,170 @@ def _hash_outputs(out_dir: Path, relative_paths: list[str]) -> dict:
         relative: sha256_of_file(out_dir / relative)
         for relative in sorted(relative_paths)
     }
+
+
+def _chart_from_flat_record(record: dict) -> str:
+    mappings = (record.get("recommendation") or {}).get("kpi_chart_mapping") or []
+    return str((mappings[0] if mappings else {}).get("chart_type") or "")
+
+
+def _load_baseline_selected(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _load_quality_tiers(path: Path) -> dict[str, dict]:
+    by_id: dict[str, dict] = {}
+    for tier, filename in (
+        ("A", "tier_a_candidates.jsonl"),
+        ("B", "tier_b_diagnostics.jsonl"),
+        ("C", "tier_c_rejected.jsonl"),
+    ):
+        source = path / filename
+        if not source.is_file():
+            continue
+        for line in source.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            by_id[record["item_id"]] = {**record, "quality_tier": tier}
+    return by_id
+
+
+def _rule_change_summary(previous_dir: Path, current_dir: Path) -> tuple[dict, dict[str, dict]]:
+    previous = _load_quality_tiers(previous_dir)
+    current = _load_quality_tiers(current_dir)
+    common = set(previous) & set(current)
+    promoted = sorted(
+        item_id for item_id in common
+        if previous[item_id].get("quality_tier") != "A" and current[item_id].get("quality_tier") == "A"
+    )
+    demoted = sorted(
+        item_id for item_id in common
+        if previous[item_id].get("quality_tier") == "A" and current[item_id].get("quality_tier") != "A"
+    )
+    changed = promoted + demoted
+    reasons = collections.Counter(
+        reason
+        for item_id in changed
+        for reason in (current[item_id].get("failed_rules") or [])
+    )
+    affected_groups = sorted({
+        current[item_id].get("source_group_id") for item_id in changed
+        if current[item_id].get("source_group_id")
+    })
+    tier_counts = lambda rows: dict(sorted(collections.Counter(  # noqa: E731
+        record.get("quality_tier") for record in rows.values()
+    ).items()))
+    summary = {
+        "previous_quality_pool": str(previous_dir),
+        "current_quality_pool": str(current_dir),
+        "previous_tier_counts": tier_counts(previous),
+        "current_tier_counts": tier_counts(current),
+        "promoted_count": len(promoted),
+        "demoted_count": len(demoted),
+        "promoted_item_ids": promoted,
+        "demoted_item_ids": demoted,
+        "reason_code_counts_for_changed_records": dict(sorted(reasons.items())),
+        "affected_source_group_count": len(affected_groups),
+        "affected_source_groups": affected_groups,
+    }
+    return summary, current
+
+
+def _write_rule_change_reports(summary: dict, reports_dir: Path) -> None:
+    write_json(summary, reports_dir / "rule_change_summary.json")
+    lines = [
+        "# nvBench v2 Rule-Change Summary",
+        "",
+        f"- promoted records: {summary['promoted_count']}",
+        f"- demoted records: {summary['demoted_count']}",
+        f"- affected source groups: {summary['affected_source_group_count']}",
+        f"- previous tier counts: {summary['previous_tier_counts']}",
+        f"- current tier counts: {summary['current_tier_counts']}",
+        "",
+        "## Reason-code counts for changed records",
+    ]
+    for reason, count in summary["reason_code_counts_for_changed_records"].items():
+        lines.append(f"- `{reason}`: {count}")
+    lines.extend(["", "## Demoted item IDs"])
+    lines.extend(f"- `{item_id}`" for item_id in summary["demoted_item_ids"])
+    lines.extend(["", "## Promoted item IDs"])
+    lines.extend(f"- `{item_id}`" for item_id in summary["promoted_item_ids"])
+    (reports_dir / "rule_change_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_replacement_records(
+    sampling_report: dict, current_quality: dict[str, dict], reports_dir: Path,
+) -> None:
+    rows = []
+    removed_reasons = sampling_report.get("removed_previous_reasons") or {}
+    for item_id in sorted(sampling_report.get("removed_previous_ids") or []):
+        rows.append({
+            "change": "removed_from_v1_membership",
+            "item_id": item_id,
+            "reason": removed_reasons.get(item_id, "not_selected_after_v2_repair"),
+        })
+    for item_id in sorted(sampling_report.get("replacement_ids") or []):
+        record = current_quality.get(item_id) or {}
+        rows.append({
+            "change": "added_to_v2_membership",
+            "item_id": item_id,
+            "quality_tier": record.get("quality_tier"),
+            "quality_score": record.get("quality_score"),
+            "chart_type": record.get("chart_type"),
+            "db_id": record.get("db_id"),
+            "source_group_id": record.get("source_group_id"),
+            "reason": "deterministic Tier-A replacement under unchanged deduplication and leakage gates",
+        })
+    _write_jsonl(rows, reports_dir / "replacement_records.jsonl")
+
+
+def _write_spotcheck_protocol(path: Path, *, human_r1: bool = False) -> None:
+    if human_r1:
+        path.write_text(
+            "# nvBench Human Spot-Check Protocol — R1\n\n"
+            "The reviewer must be the human researcher. Set `reviewer_id = R1` for every completed row. "
+            "Do not copy AI pre-audit decisions; they are diagnostic evidence, not human gold.\n\n"
+            "- Evaluate source fidelity and design validity separately.\n"
+            "- VQL `BIN` may supply valid visual grouping only for its matching field.\n"
+            "- Identifier-like fields are invalid quantitative KPIs under SUM/AVG/MIN/MAX; justified entity counts remain allowed.\n"
+            "- Aggregate expressions are invalid grouping keys in the supported source dialect.\n"
+            "- Scatter requires multiple meaningful observations and valid quantitative axes.\n"
+            "- Review filter, grouping, sort, limit, HAVING, and time-grain scope independently.\n"
+            "- Every rejection requires source evidence, an error category, and a review comment.\n"
+            "- Do not alter source-evidence columns. Fill every critical human-review field.\n\n"
+            "Human gate: at least 27 of 30 accepted; no unresolved systematic defect; no missing critical review fields.\n\n"
+            "Expected completed file later: `manual_spotcheck_completed_r1.csv`. This build must not create it.\n",
+            encoding="utf-8",
+        )
+        return
+    path.write_text(
+        "# nvBench Manual Spot-Check Protocol v2\n\n"
+        "Review source fidelity and scientific chart suitability independently. The AI pre-audit is "
+        "diagnostic evidence, not human gold.\n\n"
+        "- VQL `BIN` is a real visual grouping operation and supplies the recorded time grain.\n"
+        "- Missing SQL `GROUP BY x` is not alone a failure when explicit VQL binning groups x.\n"
+        "- For stacked bars, review the normalized pair of the binned x field and series/group field.\n"
+        "- Identifiers, primary keys, foreign-key codes, and numeric entity references are invalid "
+        "quantitative Scatter axes.\n"
+        "- `ORDER BY` and `LIMIT` are separate constraints and must be reviewed separately.\n"
+        "- Aggregate `HAVING` conditions must be present when the query explicitly requires them.\n"
+        "- Unresolved query/SQL/VQL dimension, aggregate-condition, or time-grain conflicts require "
+        "human review or rejection.\n"
+        "- Do not change or pre-fill the human-review columns before independent review.\n",
+        encoding="utf-8",
+    )
 def main() -> None:
     args = parse_args()
+    is_v2 = args.dataset_version == "v2"
+    fixed_preferred_target = PREFERRED_TARGET_V2 if is_v2 else PREFERRED_TARGET
+    fixed_minimum = MINIMUM_ACCEPTABLE_V2 if is_v2 else MINIMUM_ACCEPTABLE
     fixed_policy = {
         "seed": 42,
-        "preferred_target": PREFERRED_TARGET,
-        "minimum_acceptable": MINIMUM_ACCEPTABLE,
-        "expected_actual": EXPECTED_ACTUAL,
+        "preferred_target": fixed_preferred_target,
+        "minimum_acceptable": fixed_minimum,
         "max_per_group": 2,
         "val_fraction": 0.15,
         "test_fraction": 0.15,
@@ -340,7 +520,6 @@ def main() -> None:
         "seed": args.seed,
         "preferred_target": args.preferred_target,
         "minimum_acceptable": args.minimum_acceptable,
-        "expected_actual": args.expected_actual,
         "max_per_group": args.max_per_group,
         "val_fraction": args.val_fraction,
         "test_fraction": args.test_fraction,
@@ -351,9 +530,19 @@ def main() -> None:
     out_dir = _resolve(args.out)
     if "frozen" in out_dir.parts:
         raise SystemExit(f"refusing to write into a frozen path: {out_dir}")
+    historical_v1_dir = _resolve("data/staging/dashboard_v3/nvbench_large_v1")
+    if is_v2 and (out_dir.resolve() == historical_v1_dir.resolve() or historical_v1_dir.resolve() in out_dir.resolve().parents):
+        raise SystemExit(f"v2 build refuses to write into historical v1 path: {out_dir}")
 
     quality_pool_dir = _resolve(args.quality_pool_dir)
     external_l1 = _resolve(args.external_l1)
+    baseline_selected_path = _resolve(args.baseline_selected)
+    previous_quality_pool_dir = _resolve(args.previous_quality_pool_dir)
+    baseline_selected = _load_baseline_selected(baseline_selected_path)
+    baseline_ids = [record.get("item_id", "") for record in baseline_selected if record.get("item_id")]
+    baseline_chart_distribution = dict(collections.Counter(
+        chart for chart in (_chart_from_flat_record(record) for record in baseline_selected) if chart
+    ))
     out_dir.mkdir(parents=True, exist_ok=True)
     reports_dir = out_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -393,15 +582,29 @@ def main() -> None:
 
     eval_sources = _load_eval_sources()
     availability = compute_availability(tier_a_records, eval_sources, seed=args.seed)
-    selected, sampling_report = select_large_v1(
-        tier_a_records,
-        eval_sources,
-        seed=args.seed,
-        total=args.preferred_target,
-        minimum_acceptable=args.minimum_acceptable,
-        db_cap=args.db_cap,
-        max_per_group=args.max_per_group,
-    )
+    if baseline_ids:
+        repair = repair_selected_v2 if is_v2 else repair_selected_v1
+        selected, sampling_report = repair(
+            tier_a_records,
+            eval_sources,
+            baseline_ids,
+            previous_chart_distribution=baseline_chart_distribution,
+            seed=args.seed,
+            preferred_target=args.preferred_target,
+            minimum_acceptable=args.minimum_acceptable,
+            db_cap=args.db_cap,
+            max_per_group=args.max_per_group,
+        )
+    else:
+        selected, sampling_report = select_large_v1(
+            tier_a_records,
+            eval_sources,
+            seed=args.seed,
+            total=args.preferred_target,
+            minimum_acceptable=args.minimum_acceptable,
+            db_cap=args.db_cap,
+            max_per_group=args.max_per_group,
+        )
 
     sampling_summary = {
         key: value for key, value in sampling_report.items()
@@ -414,6 +617,8 @@ def main() -> None:
         "selection_status": sampling_report.get("status"),
         "availability": availability,
         "sampling_summary": sampling_summary,
+        "baseline_selected_path": str(baseline_selected_path),
+        "baseline_selected_count": len(baseline_selected),
     }
     write_json(attrition_report, reports_dir / "selection_attrition.json")
     lines = [
@@ -433,7 +638,7 @@ def main() -> None:
     (reports_dir / "selection_attrition.md").write_text("\n".join(lines), encoding="utf-8")
 
     if selected is None:
-        status = "INSUFFICIENT_DISTINCT_TIER_A_RECORDS"
+        status = "FAIL_LARGE_V2_BELOW_1800" if is_v2 else "INSUFFICIENT_DISTINCT_TIER_A_RECORDS"
         validation_report = {
             "passed": False,
             "status": status,
@@ -448,7 +653,7 @@ def main() -> None:
         write_json({
             "built_at": built_at,
             "source": "nvbench",
-            "kind": "large_v1",
+            "kind": "nvbench_large_v2" if is_v2 else "large_v1",
             "passed": False,
             "status": status,
             "sampling_report": sampling_summary,
@@ -456,28 +661,8 @@ def main() -> None:
         print(f"[FAIL] {status}: achieved={sampling_report.get('achieved_total')}")
         raise SystemExit(1)
 
-    if len(selected) != args.expected_actual:
-        status = "UNEXPECTED_MAXIMUM_VALID_CORPUS_SIZE"
-        detail = (
-            f"deterministic selection produced {len(selected)} records; "
-            f"expected exactly {args.expected_actual}"
-        )
-        write_json({
-            "passed": False,
-            "status": status,
-            "detail": detail,
-            "sampling_report": sampling_summary,
-        }, reports_dir / "validation_report.json")
-        write_json({
-            "built_at": built_at,
-            "passed": False,
-            "status": status,
-            "detail": detail,
-        }, out_dir / "manifest.json")
-        print(f"[FAIL] {status}: {detail}")
-        raise SystemExit(1)
-
-    train, val, test, split_report = split_train_val_test(
+    split_function = split_train_val_test_v2 if is_v2 else split_train_val_test
+    train, val, test, split_report = split_function(
         selected,
         seed=args.seed,
         val_fraction=args.val_fraction,
@@ -507,7 +692,7 @@ def main() -> None:
     resolver = DbMetadataResolver(str(cache_root) if cache_root.exists() else None)
 
     structural = [
-        check for check in structural_checks(all_records, expected=args.expected_actual)
+        check for check in structural_checks(all_records, expected=len(selected))
         if check["check"] not in {"unique_source_group_count", "splits_train_val_only"}
     ]
     structural.append({
@@ -549,21 +734,32 @@ def main() -> None:
     review_fields_empty = all(
         all(value == "" for value in row["review"].values()) for row in human_rows
     )
+    r1_sample, r1_coverage = select_r1_sample(selected, seed=args.seed, size=30) if is_v2 else ([], {})
+    if is_v2:
+        rule_change, current_quality_by_id = _rule_change_summary(
+            previous_quality_pool_dir, quality_pool_dir
+        )
+        _write_rule_change_reports(rule_change, reports_dir)
+        _write_replacement_records(sampling_report, current_quality_by_id, reports_dir)
+    else:
+        rule_change, current_quality_by_id = {}, {}
 
     quality = [
         {
-            "check": "exactly_1819_selected_records",
-            "passed": len(selected) == EXPECTED_ACTUAL,
+            "check": "corrected_corpus_at_least_1800",
+            "passed": len(selected) >= args.minimum_acceptable,
             "severity": "mandatory",
-            "n": 0 if len(selected) == EXPECTED_ACTUAL else 1,
+            "n": 0 if len(selected) >= args.minimum_acceptable else args.minimum_acceptable - len(selected),
             "item_ids": [],
-            "detail": f"{len(selected)} selected",
+            "detail": f"{len(selected)} selected; preferred={EXPECTED_ACTUAL}; minimum={args.minimum_acceptable}",
         },
         {
             "check": "maximum_valid_corpus_acceptance_policy",
-            "passed": sampling_report.get("status") == "maximum_valid_corpus_accepted"
-                      and len(selected) >= args.minimum_acceptable
-                      and len(selected) < args.preferred_target,
+            "passed": sampling_report.get("status") in {
+                          "repaired_selected_corpus", "reoptimized_selected_corpus",
+                          "maximum_valid_corpus_accepted", "ok"
+                      }
+                      and len(selected) >= args.minimum_acceptable,
             "severity": "mandatory",
             "n": 0,
             "item_ids": [],
@@ -573,10 +769,10 @@ def main() -> None:
             ),
         },
         {
-            "check": "train_val_test_equals_1819",
-            "passed": len(train) + len(val) + len(test) == EXPECTED_ACTUAL,
+            "check": "train_val_test_equals_selected_total",
+            "passed": len(train) + len(val) + len(test) == len(selected),
             "severity": "mandatory",
-            "n": 0,
+            "n": 0 if len(train) + len(val) + len(test) == len(selected) else 1,
             "item_ids": [],
             "detail": f"train={len(train)} val={len(val)} test={len(test)}",
         },
@@ -607,10 +803,14 @@ def main() -> None:
         {
             "check": "source_records_without_nl_query_text",
             "passed": not absent_source_goal_text,
-            "severity": "warning",
+            "severity": "mandatory" if is_v2 else "warning",
             "n": len(absent_source_goal_text),
             "item_ids": absent_source_goal_text,
-            "detail": "missing source NL query text preserved; SQL/VQL evidence remains present",
+            "detail": (
+                "v2 training records require a non-empty normalized source goal"
+                if is_v2 else
+                "missing source NL query text preserved; SQL/VQL evidence remains present"
+            ),
         },
         {
             "check": "maximum_two_records_per_source_group",
@@ -670,6 +870,60 @@ def main() -> None:
             "detail": _project_relative(external_l1),
         },
     ]
+    if is_v2:
+        regression_ids = {
+            "nvbench:1048@x_name@DESC:query:0",
+            "nvbench:2780:query:1",
+            "nvbench:3257:query:3",
+        }
+        still_tier_a = sorted(
+            item_id for item_id in regression_ids
+            if (current_quality_by_id.get(item_id) or {}).get("quality_tier") == "A"
+        )
+        quality.extend([
+            {
+                "check": "human_r1_sample_exactly_30_blank_source_backed_items",
+                "passed": len(r1_sample) == 30,
+                "severity": "mandatory",
+                "n": 0 if len(r1_sample) == 30 else abs(30 - len(r1_sample)),
+                "item_ids": [],
+                "detail": f"{len(r1_sample)} deterministic source-backed rows; human fields written blank",
+            },
+            {
+                "check": "human_r1_required_coverage",
+                "passed": not r1_coverage.get("missing_available_tags")
+                          and r1_coverage.get("scatter_count") == 1
+                          and r1_coverage.get("database_count", 0) >= 3,
+                "severity": "mandatory",
+                "n": len(r1_coverage.get("missing_available_tags") or []),
+                "item_ids": [],
+                "detail": json.dumps(r1_coverage, sort_keys=True),
+            },
+            {
+                "check": "completed_human_r1_file_not_fabricated",
+                "passed": not (reports_dir / "manual_spotcheck_completed_r1.csv").exists(),
+                "severity": "mandatory",
+                "n": 0 if not (reports_dir / "manual_spotcheck_completed_r1.csv").exists() else 1,
+                "item_ids": [],
+                "detail": "manual_spotcheck_completed_r1.csv must be created only after human review",
+            },
+            {
+                "check": "three_independently_confirmed_regressions_demoted",
+                "passed": not still_tier_a,
+                "severity": "mandatory",
+                "n": len(still_tier_a),
+                "item_ids": still_tier_a,
+                "detail": "all three confirmed rule defects must be outside Tier A",
+            },
+            {
+                "check": "pre_repair_verification_report_present",
+                "passed": (reports_dir / "pre_repair_verification.md").is_file(),
+                "severity": "mandatory",
+                "n": 0 if (reports_dir / "pre_repair_verification.md").is_file() else 1,
+                "item_ids": [],
+                "detail": "independent raw-query/SQL/VQL/schema/profile adjudication",
+            },
+        ])
 
     checks = {
         "structural": structural,
@@ -683,7 +937,11 @@ def main() -> None:
         if check["severity"] == "mandatory" and not check["passed"]
     ]
     passed = not failed_mandatory
-    status = FINAL_STATUS if passed else "QUALITY_GATE_FAILED"
+    status = (V2_FINAL_STATUS if is_v2 else FINAL_STATUS) if passed else (
+        ("FAIL_LARGE_V2_BELOW_1800" if is_v2 else "FAIL_CORRECTED_CORPUS_BELOW_1800")
+        if len(selected) < args.minimum_acceptable
+        else ("FAIL_RULE_REPAIR_OR_VALIDATION" if is_v2 else "QUALITY_GATE_FAILED")
+    )
 
     distributions = _distribution_summary(selected, train, val, test)
     distribution_rows_all = distribution_rows(all_records)
@@ -708,6 +966,7 @@ def main() -> None:
         "n_warnings": len(warnings),
         "split_report": split_report,
         "sampling_summary": sampling_summary,
+        "human_r1_coverage": r1_coverage if is_v2 else None,
     }
     write_json(validation_report, reports_dir / "validation_report.json")
     lines = [
@@ -746,8 +1005,13 @@ def main() -> None:
     _write_jsonl(leakage_findings, reports_dir / "leakage_report.jsonl")
     _write_jsonl(warnings, reports_dir / "warnings.jsonl")
 
-    spotcheck = select_spotcheck_sample(selected, seed=args.seed, size=30)
-    _write_spotcheck_csv(spotcheck, reports_dir / "manual_spotcheck_template_30.csv")
+    if is_v2:
+        _write_spotcheck_csv(r1_sample, reports_dir / "manual_spotcheck_template_30_r1.csv")
+        _write_spotcheck_protocol(reports_dir / "manual_spotcheck_protocol_r1.md", human_r1=True)
+    else:
+        spotcheck = select_spotcheck_sample(selected, seed=args.seed, size=30)
+        _write_spotcheck_csv(spotcheck, reports_dir / "manual_spotcheck_template_30_v2.csv")
+        _write_spotcheck_protocol(reports_dir / "manual_spotcheck_protocol_v2.md")
     multi_record_groups = sampling_report.get("multi_record_groups", [])
     _write_multi_record_groups_csv(multi_record_groups, reports_dir / "multi_record_source_groups.csv")
     _write_multi_record_groups_md(multi_record_groups, reports_dir / "multi_record_source_groups.md")
@@ -779,25 +1043,46 @@ def main() -> None:
         "reports/selection_attrition.md",
         "reports/multi_record_source_groups.csv",
         "reports/multi_record_source_groups.md",
-        "reports/manual_spotcheck_template_30.csv",
         "reports/human_eval_test_items_40.jsonl",
         "reports/human_eval_test_items_40.csv",
         "reports/quality_report.json",
         "reports/quality_report.md",
         "reports/warnings.jsonl",
     ]
+    if is_v2:
+        hash_paths.extend([
+            "reports/pre_repair_verification.md",
+            "reports/replacement_records.jsonl",
+            "reports/rule_change_summary.json",
+            "reports/rule_change_summary.md",
+            "reports/manual_spotcheck_template_30_r1.csv",
+            "reports/manual_spotcheck_protocol_r1.md",
+        ])
+    else:
+        hash_paths.extend([
+            "reports/manual_spotcheck_template_30_v2.csv",
+            "reports/manual_spotcheck_protocol_v2.md",
+        ])
     output_hashes = _hash_outputs(out_dir, hash_paths)
     write_json({"algorithm": "sha256", "files": output_hashes}, out_dir / "hashes.json")
 
     manifest = {
         "built_at": built_at,
         "source": "nvbench",
-        "kind": "large_v1_phase_2c",
+        "kind": "nvbench_large_v2" if is_v2 else "large_v1_phase_2c",
         "passed": passed,
         "status": status,
         "preferred_target": args.preferred_target,
         "minimum_acceptable": args.minimum_acceptable,
         "actual_selected": len(selected),
+        "count_gate": (
+            V2_FINAL_STATUS if is_v2 else "PASS_CORRECTED_CORPUS_GE_1800"
+        ) if len(selected) >= args.minimum_acceptable else (
+            "FAIL_LARGE_V2_BELOW_1800" if is_v2 else "FAIL_CORRECTED_CORPUS_BELOW_1800"
+        ),
+        "baseline_selected_count": len(baseline_selected),
+        "retained_previous_count": sampling_report.get("retained_previous_count"),
+        "replacement_count": len(sampling_report.get("replacement_ids", [])),
         "seed": args.seed,
         "max_per_group": args.max_per_group,
         "split_algorithm_version": split_report["split_algorithm_version"],
@@ -826,6 +1111,20 @@ def main() -> None:
             "evidence for covered chart-selection tasks."
         ),
     }
+    if is_v2:
+        manifest.update({
+            "dataset_version": "nvbench_large_v2",
+            "material_version_statement": V2_VERSION_STATEMENT,
+            "human_gate_status": "WAITING_FOR_HUMAN_R1",
+            "human_r1_template": "reports/manual_spotcheck_template_30_r1.csv",
+            "human_r1_protocol": "reports/manual_spotcheck_protocol_r1.md",
+            "human_r1_coverage": r1_coverage,
+            "rule_change_summary": {
+                "promoted_count": rule_change.get("promoted_count"),
+                "demoted_count": rule_change.get("demoted_count"),
+                "affected_source_group_count": rule_change.get("affected_source_group_count"),
+            },
+        })
     write_json(manifest, out_dir / "manifest.json")
 
     print(
