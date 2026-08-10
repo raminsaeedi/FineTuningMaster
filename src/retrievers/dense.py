@@ -46,7 +46,8 @@ class DenseRetriever(BaseRetriever):
             chunks_path = Path(str(get_cfg(self.cfg, "chunks_path", "data/knowledge_base/chunks.jsonl")))
             if not chunks_path.exists():
                 raise FileNotFoundError(
-                    f"Knowledge-base chunks not found: {chunks_path}. Run `python scripts/build_kb.py`."
+                    f"Knowledge-base chunks not found: {chunks_path}. "
+                    "Run `python experiments/scripts/build_kb.py`."
                 )
             self.chunks = read_jsonl(chunks_path)
         if not self.chunks:

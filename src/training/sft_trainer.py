@@ -211,6 +211,9 @@ class QLoRASFTTrainer(BaseTrainer):
 
         lora_cfg = _get(self.train_cfg, "lora", {})
         sft = _get(self.train_cfg, "sft", {})
+        data_cfg = _get(self.cfg, "data", {})
+        # dataset_version / experiment_id are what src.utils.adapter checks before
+        # method D reuses this adapter, so they must be recorded at save time.
         metadata = {
             "base_model": _get(self.model_cfg, "hf_id") or _get(self.model_cfg, "name"),
             "trainer": "qlora_sft",
@@ -220,6 +223,10 @@ class QLoRASFTTrainer(BaseTrainer):
             "num_train_epochs": _get(sft, "num_train_epochs"),
             "learning_rate": _get(sft, "learning_rate"),
             "seed": self.seed,
+            "dataset_version": _get(data_cfg, "dataset_version"),
+            "train_file": _get(data_cfg, "train_file"),
+            "experiment_id": _get(self.cfg, "experiment_id"),
+            "experiment_name": _get(self.cfg, "experiment_name"),
             "train_metrics": getattr(self, "metrics", {}),
         }
         with (adapter_dir / "training_metadata.json").open("w", encoding="utf-8") as f:
