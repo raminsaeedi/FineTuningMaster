@@ -1,0 +1,118 @@
+{
+  "status": "PASS_DASHBOARD_V3_FROZEN_READY_FOR_EXPERIMENTS",
+  "files": {
+    "train": "train.jsonl",
+    "validation": "val.jsonl",
+    "test": "test.jsonl"
+  },
+  "counts": {
+    "train": 1281,
+    "validation": 264,
+    "test": 274,
+    "train_plus_validation": 1545,
+    "human_eval_test_items_40": 40
+  },
+  "json_parse_errors": {
+    "train": 0,
+    "validation": 0,
+    "test": 0
+  },
+  "schema": {
+    "train_valid": true,
+    "validation_valid": true,
+    "test_valid": true,
+    "train_rate": 1.0,
+    "validation_rate": 1.0,
+    "test_rate": 1.0,
+    "problems": {},
+    "golditem_problems": {}
+  },
+  "enrichment": {
+    "field_counts": {
+      "users": 1545,
+      "context_summary": 1545,
+      "layout": 1545,
+      "styling": 1545,
+      "interactions": 1545,
+      "rationales": 1545
+    },
+    "field_counts_by_split": {
+      "train": {
+        "users": 1281,
+        "context_summary": 1281,
+        "layout": 1281,
+        "styling": 1281,
+        "interactions": 1281,
+        "rationales": 1281
+      },
+      "val": {
+        "users": 264,
+        "context_summary": 264,
+        "layout": 264,
+        "styling": 264,
+        "interactions": 264,
+        "rationales": 264
+      }
+    },
+    "complete_rate": 1.0,
+    "phase3_content_validator_failures": 0,
+    "lineage_failures": 0,
+    "fingerprint_metadata_mismatches": 0,
+    "metadata_normalized": true,
+    "metadata_records_normalized": 1534,
+    "model": "deepseek-v4-flash-sovereign",
+    "reasoning_effort": "xhigh",
+    "temperature": 0.0,
+    "field_lineage": {
+      "users": "llm_generated",
+      "context_summary": "llm_generated",
+      "layout": "llm_generated",
+      "styling": "llm_generated",
+      "interactions": "llm_generated",
+      "rationales": "llm_generated"
+    }
+  },
+  "immutable": {
+    "violations": 0,
+    "metadata_only_verification_failures": 0
+  },
+  "semantic_checks": {
+    "source_semantic_failures": 0,
+    "source_semantic_failure_checks": [],
+    "expected_post_enrichment_lineage_flags": [
+      "template_fields_not_source_provided"
+    ],
+    "warnings": 0
+  },
+  "duplicates": {
+    "train_validation_item_ids": [],
+    "duplicate_item_ids_all_train_validation": [],
+    "duplicate_source_record_ids": [],
+    "duplicate_brief_fingerprints": []
+  },
+  "held_out": {
+    "test_processed_during_enrichment": 0,
+    "human_eval_processed_during_enrichment": 0,
+    "test_hash_matches_staging": true,
+    "human_eval_hash_matches_staging": true,
+    "human_eval_ids_in_train": 0,
+    "human_eval_ids_in_validation": 0,
+    "human_eval_source_groups_in_train_validation": 0,
+    "human_eval_rows": 40,
+    "human_eval_r1": {
+      "path": "C:\\Projects\\MasterArbeit\\master-thesis-finetuning\\data\\frozen\\dashboard_v3\\reports\\human_enrichment_r1.csv",
+      "rows": 30,
+      "accepted": 29,
+      "rejected": 1,
+      "min_accepted_required": 27,
+      "reviewer_ids": [
+        "R1"
+      ],
+      "review_kind": "human_review",
+      "rows_with_incomplete_review_fields": [],
+      "rows_flagging_immutable_violation": [],
+      "rows_with_placeholder_values": [],
+      "gate_passed": true
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "hash_algorithm": "SHA-256",
+  "dataset_version": "dashboard_v3",
+  "files": {
+    "train.jsonl": {
+      "sha256": "f9ace854c64f89e2a26d2767ad2754b4951316fbcceec4a8e9374e4624fac222",
+      "records": 1281
+    },
+    "val.jsonl": {
+      "sha256": "8394dcdb75d53de19fcd71c4c688e05e162b895d44a920f3cbb678f37ba2999d",
+      "records": 264
+    },
+    "test.jsonl": {
+      "sha256": "e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5",
+      "records": 274
+    },
+    "human_eval_test_items_40.csv": {
+      "sha256": "fa64afe0037dc6fcde9c5f9fc848aaab30ec4848d4d3aef120a7328b343b82f4",
+      "records": 40
+    },
+    "schema.json": {
+      "sha256": "4c216ad71d682468940e1a3289a8512bb0e9145d0e73f9109563ad960d567b21",
+      "records": null
+    },
+    "reports/human_enrichment_r1.csv": {
+      "sha256": "f82be2a00752eb56413e3844a16673c32bbc3b3bec7b62e097a94ca371fed438",
+      "records": 30
+    }
+  }
+}

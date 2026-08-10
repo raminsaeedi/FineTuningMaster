@@ -1,0 +1,103 @@
+{
+  "dataset_version": "dashboard_v3",
+  "freeze_timestamp_utc": "2026-08-07T13:37:12.618116+00:00",
+  "status": "PASS_DASHBOARD_V3_FROZEN_READY_FOR_EXPERIMENTS",
+  "source_dataset": "nvBench",
+  "source_dataset_version": "nvbench_large_v2",
+  "schema_version": "GoldItem",
+  "enrichment_spec_version": "phase3-enrichment-v1",
+  "freeze_inputs": {
+    "train": "data/staging/enrichment/full_train_val_v1/final/train_accepted_final.jsonl",
+    "validation": "data/staging/enrichment/full_train_val_v1/final/val_accepted_final.jsonl",
+    "test": "data/staging/dashboard_v3/nvbench_large_v2/test.jsonl",
+    "human_eval": "data/staging/dashboard_v3/nvbench_large_v2/reports/human_eval_test_items_40.csv"
+  },
+  "counts": {
+    "train": 1281,
+    "validation": 264,
+    "test": 274,
+    "train_plus_validation": 1545,
+    "human_eval_test_items_40": 40
+  },
+  "source_grounded_fields": [
+    "brief.goals",
+    "brief.kpis",
+    "brief.columns",
+    "brief.constraints",
+    "brief.extra.provenance",
+    "recommendation.kpi_chart_mapping"
+  ],
+  "deterministically_derived_fields": [
+    "brief.extra.task_inference",
+    "brief.extra.lineage.task_type",
+    "brief.extra.lineage.kpi_selection"
+  ],
+  "llm_generated_enrichment_fields": [
+    "users",
+    "context_summary",
+    "layout",
+    "styling",
+    "interactions",
+    "rationales"
+  ],
+  "enrichment_generation": {
+    "model": "deepseek-v4-flash-sovereign",
+    "reasoning_effort": "xhigh",
+    "temperature": 0.0,
+    "field_lineage": {
+      "users": "llm_generated",
+      "context_summary": "llm_generated",
+      "layout": "llm_generated",
+      "styling": "llm_generated",
+      "interactions": "llm_generated",
+      "rationales": "llm_generated"
+    },
+    "not_gold": true
+  },
+  "human_enrichment_r1": {
+    "path": "reports/human_enrichment_r1.csv",
+    "rows": 30,
+    "accepted": 29,
+    "rejected": 1,
+    "gate_passed": true
+  },
+  "validation": {
+    "schema": "100%",
+    "enrichment_completeness": "100%",
+    "immutable_field_violations": 0,
+    "duplicate_item_ids": 0,
+    "leakage": "0",
+    "test_processed_during_enrichment": 0,
+    "human_eval_processed_during_enrichment": 0
+  },
+  "checks": {
+    "train_count_1281": true,
+    "validation_count_264": true,
+    "test_count_274": true,
+    "schema_valid_train_validation_test": true,
+    "enrichment_complete_train_validation": true,
+    "immutable_source_backed_fields_unchanged": true,
+    "duplicate_item_ids_zero": true,
+    "train_test_leakage_zero": true,
+    "validation_test_leakage_zero": true,
+    "train_validation_source_group_leakage_zero": true,
+    "human_eval_not_in_train_or_validation": true,
+    "test_preserved_exactly": true,
+    "human_eval_preserved_exactly": true
+  },
+  "reports": {
+    "pre_freeze_completeness_audit": "reports/pre_freeze_completeness_audit.md",
+    "validation": "reports/validation_report.json",
+    "leakage": "reports/leakage_report.json",
+    "human_enrichment_r1": "reports/human_enrichment_r1.csv"
+  },
+  "excluded_from_package": [
+    "raw API responses",
+    "API secrets",
+    ".env files",
+    "caches",
+    "temporary generations",
+    "staging artifacts"
+  ],
+  "hashes_file": "hashes.json"
+}

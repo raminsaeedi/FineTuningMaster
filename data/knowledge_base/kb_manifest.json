@@ -1,0 +1,35 @@
+{
+  "kb_version": "46b8575d98d37312",
+  "created_utc": "2026-08-07T18:09:02Z",
+  "n_documents": 3,
+  "n_chunks": 41,
+  "chunks_file": "chunks.jsonl",
+  "chunks_sha256": "cad3bb0c1606fab3062d3235740d7701e1fb8ac46702af8b09f615f66bfc3afb",
+  "builder": {
+    "split_on": "markdown_headings",
+    "source_glob": "*.md",
+    "min_chunk_words": 5,
+    "chunk_id_hash": "md5_8",
+    "sorted_sources": true
+  },
+  "source_documents": [
+    {
+      "filename": "accessibility_guidelines.md",
+      "sha256": "7715f4bcca08f4d9b4da06dada0ab6bd4dda834f5fa0bbc197389c4da8a6c842",
+      "bytes": 4065,
+      "n_chunks": 16
+    },
+    {
+      "filename": "chart_selection_guidelines.md",
+      "sha256": "7e55403df70267c4b9cac28b97f0d7864377aee97134f716ce5a078a65fdee90",
+      "bytes": 3312,
+      "n_chunks": 9
+    },
+    {
+      "filename": "dashboard_design_guidelines.md",
+      "sha256": "49107aff15587a7dc91611ce2eca299f26bc4f7d639b43063b97190ee08bbe45",
+      "bytes": 3542,
+      "n_chunks": 16
+    }
+  ]
+}

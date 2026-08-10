@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "train_test": {
+    "item_ids": [],
+    "source_record_ids": [],
+    "source_groups": [],
+    "brief_fingerprints": 0
+  },
+  "validation_test": {
+    "item_ids": [],
+    "source_record_ids": [],
+    "source_groups": [],
+    "brief_fingerprints": 0
+  },
+  "train_validation": {
+    "item_ids": [],
+    "source_groups": [],
+    "brief_fingerprints": 0
+  },
+  "human_eval": {
+    "item_ids_in_train": 0,
+    "item_ids_in_validation": 0,
+    "source_groups_in_train_validation": 0
+  }
+}
