@@ -228,7 +228,11 @@ def test_missing_cache_falls_back_to_heuristic(tmp_path, mapping):
     assert item.brief.extra["lineage"]["raw_columns"]["order_year"] == "heuristic"
     # count(*) has no physical base column -> not added, not invented.
     assert "*" not in item.brief.extra["lineage"]["raw_columns"]
-    assert len(item.brief.columns) == 1
+    # The source SQL groups by series_field; the observation field is preserved
+    # even without a metadata cache rather than silently disappearing.
+    assert {column["name"] for column in item.brief.columns} == {
+        "order_year", "series_field"
+    }
 
 
 def test_resolver_none_cache():
@@ -334,6 +338,46 @@ def test_aggregate_on_both_axes_preserved(tmp_path, mapping):
     assert set(sel["aggregate_axes"]) == {"x", "y"}
     assert sel["primary_axis"] == "y"
     assert set(item.brief.kpis) == {"count(*)", "sum(product_price)"}
+
+
+def test_all_physical_select_projections_are_preserved_as_raw_columns(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    sql = (
+        "SELECT account_name, staff_gender, company_id, SUM(product_price) "
+        "FROM t GROUP BY account_name, staff_gender, company_id"
+    )
+    item = build_gold_item(
+        "1048", _rec2(chart="Bar", x="account_name", y="SUM(product_price)", sql=sql),
+        0, "list account, gender and company fields", mapping, resolver,
+    )
+    assert {column["name"] for column in item.brief.columns} == {
+        "account_name", "staff_gender", "company_id", "product_price"
+    }
+
+
+def test_valid_unprojected_sql_group_field_is_preserved_as_raw_column(tmp_path, mapping):
+    resolver = _db(tmp_path)
+    sql = (
+        "SELECT SUM(product_price), SUM(company_id) FROM t "
+        "GROUP BY other_details"
+    )
+    item = build_gold_item(
+        "group_observation",
+        _rec2(
+            chart="Scatter",
+            x="SUM(product_price)",
+            y="SUM(company_id)",
+            sql=sql,
+        ),
+        0,
+        "show correlation between total price and total company values by detail",
+        mapping,
+        resolver,
+    )
+    assert "other_details" in {column["name"] for column in item.brief.columns}
+    assert item.brief.extra["provenance"]["grouping"]["sql_group_by_fields"] == [
+        "other_details"
+    ]
 
 
 def test_grouping_recovery_success(tmp_path, mapping):

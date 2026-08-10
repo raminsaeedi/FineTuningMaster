@@ -3,7 +3,7 @@
 defaults:
   - override /model: qwen2_5_0_5b
   - override /method: prompt_only
-  - override /data: dashboard_v1
+  - override /data: dashboard_v3
   - override /eval: full
 
 experiment_name: E01_qwen0_5b_prompt

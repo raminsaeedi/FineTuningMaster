@@ -5,14 +5,21 @@ dataset or cache access.
 """
 
 from src.data_pipeline.nvbench_extract import (
+    classify_group_by_terms,
     check_aggregate_intent_conflict,
     check_chart_query_conflict,
     detect_query_intent,
     extract_base_field,
     extract_group_by_fields,
+    extract_having_conditions,
+    extract_limit,
+    extract_nl_aggregate_conditions,
+    extract_nl_required_dimensions,
+    extract_nl_time_grains,
     extract_nested,
     extract_order_by,
     extract_select_aggregates,
+    extract_select_projection_fields,
     extract_time_grain,
     extract_time_grain_signals,
     extract_where_filters,
@@ -40,13 +47,37 @@ def test_select_aggregates_count_star_has_no_base():
     assert aggs == [{"func": "COUNT", "base_field": None, "position": 1}]
 
 
+def test_count_distinct_identifier_preserves_base_field():
+    assert extract_base_field("COUNT(DISTINCT employee_id)") == "employee_id"
+    assert extract_select_aggregates("SELECT COUNT(DISTINCT employee_id) FROM employee") == [
+        {"func": "COUNT", "base_field": "employee_id", "position": 0}
+    ]
+
+
 def test_select_aggregates_as_alias_stripped():
     aggs = extract_select_aggregates("SELECT SUM(x) AS total FROM t")
-    assert aggs == [{"func": "SUM", "base_field": "x", "position": 0}]
+    assert aggs == [{"func": "SUM", "base_field": "x", "position": 0, "alias": "total"}]
 
 
 def test_select_aggregates_none_when_no_select():
     assert extract_select_aggregates("UPDATE t SET x=1") == []
+
+
+def test_select_projection_fields_preserve_all_raw_source_fields():
+    sql = "SELECT card_id, customer_id, card_type_code, SUM(card_number) AS total FROM cards"
+    assert extract_select_projection_fields(sql) == [
+        "card_id", "customer_id", "card_type_code", "card_number"
+    ]
+
+
+def test_group_by_aggregate_expression_is_classified_invalid_regression_3257():
+    terms = classify_group_by_terms("SELECT MAX(price), MAX(score) FROM wine GROUP BY MAX(price)")
+    assert terms == [{
+        "expression": "MAX(price)",
+        "kind": "invalid_aggregate_expression",
+        "aggregate": "MAX",
+        "field": "price",
+    }]
 
 
 # --------------------------------------------------------------------------- #
@@ -258,6 +289,46 @@ def test_order_by_none():
     assert extract_order_by("SELECT x FROM t")["status"] == "none"
 
 
+def test_order_by_and_limit_are_separate_regression_292():
+    sql = "SELECT mean_temperature_f, mean_humidity FROM weather ORDER BY max_gust_speed_mph DESC LIMIT 3"
+    assert extract_order_by(sql) == {
+        "field": "max_gust_speed_mph",
+        "expression": "max_gust_speed_mph",
+        "direction": "desc",
+        "status": "ok",
+    }
+    assert extract_limit(sql) == {"value": 3, "syntax": "limit", "status": "ok"}
+
+
+def test_limit_and_top_case_insensitive():
+    assert extract_limit("select * from t limit 5")["value"] == 5
+    assert extract_limit("SELECT TOP 7 x FROM t") == {"value": 7, "syntax": "top", "status": "ok"}
+    assert extract_limit("select distinct top (9) x from t")["value"] == 9
+
+
+def test_aggregate_order_expression_with_qualified_field():
+    result = extract_order_by("SELECT dept, MAX(T1.salary) FROM employee T1 ORDER BY MAX(T1.salary) DESC LIMIT 4")
+    assert result["field"] == "MAX(T1.salary)"
+    assert result["direction"] == "desc"
+
+
+def test_having_aggregate_condition_parsed_without_invention():
+    result = extract_having_conditions(
+        "SELECT department_id, SUM(salary) FROM employees GROUP BY department_id HAVING COUNT(*) > 2"
+    )
+    assert result == {
+        "conditions": [{
+            "expression": "COUNT(*)",
+            "aggregate": "COUNT",
+            "field": None,
+            "operator": ">",
+            "value": "2",
+        }],
+        "status": "ok",
+    }
+    assert extract_having_conditions("SELECT * FROM employees")["conditions"] == []
+
+
 # --------------------------------------------------------------------------- #
 # BIN / time grain extraction
 # --------------------------------------------------------------------------- #
@@ -272,3 +343,52 @@ def test_extract_time_grain_weekday():
 def test_extract_time_grain_none():
     assert extract_time_grain("") is None
     assert extract_time_grain("GROUP BY x") is None
+
+
+def test_vql_bin_is_a_time_grain_signal():
+    vql = "Visualize BAR SELECT created_at, COUNT(*) FROM events BIN created_at BY MONTH"
+    assert {"field": "created_at", "grain": "MONTH", "source": "vql_bin"} in \
+        extract_time_grain_signals("SELECT created_at, COUNT(*) FROM events", vql)
+
+
+def test_explicit_nl_time_grain_and_conflict_evidence():
+    assert extract_nl_time_grains(
+        "Bin all transaction dates into the weekday interval and show the trend."
+    ) == ["WEEKDAY"]
+    assert extract_nl_time_grains("Show transactions from the year 2020.") == []
+
+
+def test_exact_nl_aggregate_condition_extraction():
+    assert extract_nl_aggregate_conditions("Show each department that has more than 2 employees.") == [{
+        "aggregate": "COUNT",
+        "operator": ">",
+        "value": "2",
+        "subject": "employee",
+        "origin": "natural_language",
+    }]
+    assert extract_nl_aggregate_conditions("Show the top 5 employees.") == []
+
+
+def test_explicit_required_dimension_extraction():
+    dimensions = extract_nl_required_dimensions(
+        "Show average price for each appellation with the machine series."
+    )
+    assert {"dimension": "appellation", "origin": "for_each"} in dimensions
+    assert {"dimension": "machine_series", "origin": "entity_series"} in dimensions
+
+
+def test_each_faculty_rank_keeps_terminal_grouping_attribute():
+    assert extract_nl_required_dimensions(
+        "For each faculty rank, show the number of faculty members who have it."
+    )[0]["dimension"] == "faculty_rank"
+
+
+def test_compound_required_dimensions_are_not_truncated():
+    assert extract_nl_required_dimensions("Count each ship type and sort it.")[0]["dimension"] == "ship_type"
+    assert extract_nl_required_dimensions("Count each customer's move in date, by year.")[0]["dimension"] == \
+        "customer_move_in_date"
+
+
+def test_table_name_tv_series_is_not_a_requested_series_dimension():
+    dimensions = extract_nl_required_dimensions("Show the top episodes in the TV series table.")
+    assert not any(item["dimension"] == "tv_series" for item in dimensions)

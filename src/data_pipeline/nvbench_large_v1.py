@@ -98,13 +98,31 @@ def semantic_signature(rec: Dict[str, Any]) -> Tuple[Any, ...]:
     sort_tuple = (sort.get("field"), sort.get("direction")) if sort else None
     tg = constraints.get("time_grain")
     tg_tuple = (tg.get("field"), tg.get("grain")) if tg else None
+    limit = constraints.get("limit")
+    having = tuple(sorted(
+        (
+            condition.get("expression"), condition.get("operator"), str(condition.get("value"))
+        )
+        for condition in (constraints.get("having") or [])
+    ))
+    visual_grouping = constraints.get("visual_grouping") or {}
+    visual_group_tuple = (
+        tuple(visual_grouping.get("fields") or []),
+        visual_grouping.get("origin"),
+        visual_grouping.get("status"),
+    ) if visual_grouping else None
 
-    return (rec.get("chart_type"), base_field, agg_func, x, y, group_field, filters, sort_tuple, tg_tuple,
-           rec.get("db_id"))
+    return (
+        rec.get("chart_type"), base_field, agg_func, x, y, group_field, filters, sort_tuple,
+        limit, having, tg_tuple, visual_group_tuple, rec.get("db_id"),
+    )
 
 
-_SIGNATURE_LABELS = ("chart_type", "kpi_base_field", "aggregate", "x_field", "y_field",
-                    "group_field", "filters", "sort", "time_grain", "db_id")
+_SIGNATURE_LABELS = (
+    "chart_type", "kpi_base_field", "aggregate", "x_field", "y_field",
+    "group_field", "filters", "sort", "limit", "having", "time_grain",
+    "visual_grouping", "db_id",
+)
 
 
 def signature_diff(sig_a: Tuple[Any, ...], sig_b: Tuple[Any, ...]) -> List[str]:
@@ -519,6 +537,520 @@ def select_large_v1(
     return admitted, report
 
 
+def repair_selected_v1(
+    tier_a_records: List[Dict[str, Any]],
+    eval_sources: List[Dict[str, Any]],
+    previous_selected_ids: List[str],
+    *,
+    previous_chart_distribution: Optional[Dict[str, int]] = None,
+    seed: int = 42,
+    preferred_target: int = 2000,
+    minimum_acceptable: int = 1800,
+    db_cap: int = 100,
+    near_dup_threshold: float = 0.8,
+    max_per_group: int = 2,
+) -> Tuple[Optional[List[Dict[str, Any]]], Dict[str, Any]]:
+    """Retain valid Phase-2C rows and replace only rows no longer in Tier A.
+
+    Replacement priority is deterministic: first restore deficits in previously
+    underrepresented chart types, then interleave databases to improve source
+    diversity. Every retained or replacement row independently passes the Tier
+    A, leakage, exact-goal, near-duplicate, database-cap, and source-group gates.
+    Tier B is never considered.
+    """
+    tier_a = [record for record in tier_a_records if record.get("quality_tier") == "A"]
+    by_id = {record["item_id"]: record for record in tier_a}
+    previous_ids = list(dict.fromkeys(previous_selected_ids))
+    target_total = min(preferred_target, len(previous_ids)) if previous_ids else preferred_target
+    if not previous_ids:
+        return select_large_v1(
+            tier_a, eval_sources, seed=seed, total=preferred_target,
+            minimum_acceptable=minimum_acceptable, db_cap=db_cap,
+            near_dup_threshold=near_dup_threshold, max_per_group=max_per_group,
+        )
+
+    banned_ids, banned_fps = _leakage_banned_ids(eval_sources)
+    admitted: List[Dict[str, Any]] = []
+    admitted_ids: set = set()
+    admitted_goals: set = set()
+    ngram_cache: Dict[str, frozenset] = {}
+    admitted_ngrams: Dict[str, frozenset] = {}
+    admitted_ngram_index: Dict[str, set] = collections.defaultdict(set)
+    group_records: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+    db_counts: Dict[str, int] = collections.defaultdict(int)
+    rejected_previous: Dict[str, str] = {}
+
+    def ngrams_of(record: Dict[str, Any]) -> frozenset:
+        item_id = record["item_id"]
+        if item_id not in ngram_cache:
+            ngram_cache[item_id] = frozenset(char_ngrams(brief_text(_brief_of(record))))
+        return ngram_cache[item_id]
+
+    def near_duplicate_ids(record: Dict[str, Any]) -> set:
+        """Exact >=threshold matches via an inverted trigram index."""
+        grams = ngrams_of(record)
+        intersections: Dict[str, int] = collections.defaultdict(int)
+        for gram in grams:
+            for item_id in admitted_ngram_index.get(gram, ()):
+                intersections[item_id] += 1
+        return {
+            item_id
+            for item_id, intersection in intersections.items()
+            if intersection / (len(grams) + len(admitted_ngrams[item_id]) - intersection)
+            >= near_dup_threshold
+        }
+
+    def exclusion_reason(record: Dict[str, Any]) -> Optional[str]:
+        if record["item_id"] in admitted_ids:
+            return "duplicate_item_id"
+        if record["item_id"] in banned_ids or record.get("source_record_id") in banned_ids:
+            return "evaluation_leakage"
+        if fingerprint(_brief_of(record)) in banned_fps:
+            return "evaluation_leakage"
+        if db_counts[_db_of(record)] >= db_cap:
+            return "database_cap"
+        normalized_goal = _norm_goal(record)
+        if normalized_goal and normalized_goal in admitted_goals:
+            return "exact_duplicate_goal"
+        ngrams = ngrams_of(record)
+        if near_duplicate_ids(record):
+            return "near_duplicate"
+        same_group = group_records[_group_of(record)]
+        if len(same_group) >= max_per_group:
+            return "source_group_cap"
+        if same_group:
+            first = same_group[0]
+            first_ngrams = frozenset(char_ngrams(brief_text(_brief_of(first))))
+            if jaccard(first_ngrams, ngrams) > near_dup_threshold:
+                return "same_group_near_duplicate"
+            if semantic_signature(first) == semantic_signature(record):
+                return "same_group_semantic_duplicate"
+        return None
+
+    def admit(record: Dict[str, Any]) -> bool:
+        if exclusion_reason(record) is not None:
+            return False
+        normalized_goal = _norm_goal(record)
+        admitted.append(record)
+        admitted_ids.add(record["item_id"])
+        if normalized_goal:
+            admitted_goals.add(normalized_goal)
+        grams = ngrams_of(record)
+        admitted_ngrams[record["item_id"]] = grams
+        for gram in grams:
+            admitted_ngram_index[gram].add(record["item_id"])
+        group_records[_group_of(record)].append(record)
+        db_counts[_db_of(record)] += 1
+        return True
+
+    # Preserve the current corpus wherever the corrected Tier-A pool permits.
+    for item_id in sorted(previous_ids):
+        record = by_id.get(item_id)
+        if record is None:
+            rejected_previous[item_id] = "not_tier_a_after_repair"
+            continue
+        reason = exclusion_reason(record)
+        if reason is not None:
+            rejected_previous[item_id] = reason
+            continue
+        admit(record)
+
+    baseline_chart = collections.Counter(previous_chart_distribution or {})
+    if not baseline_chart:
+        baseline_chart.update(_chart_of(by_id[item_id]) for item_id in previous_ids if item_id in by_id)
+    current_chart = collections.Counter(_chart_of(record) for record in admitted)
+
+    def diverse_order(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        by_database: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+        for record in records:
+            if record["item_id"] not in admitted_ids:
+                by_database[_db_of(record)].append(record)
+        for database_records in by_database.values():
+            database_records.sort(key=lambda record: _hash_key(f"{seed}:replacement", record["item_id"]))
+        databases = sorted(
+            by_database,
+            key=lambda database: (db_counts[database], _hash_key(f"{seed}:database", database)),
+        )
+        ordered: List[Dict[str, Any]] = []
+        position = 0
+        while True:
+            progressed = False
+            for database in databases:
+                rows = by_database[database]
+                if position < len(rows):
+                    ordered.append(rows[position])
+                    progressed = True
+            if not progressed:
+                break
+            position += 1
+        return ordered
+
+    pools = {
+        chart: diverse_order([record for record in tier_a if _chart_of(record) == chart])
+        for chart in NORMALIZED_CHART_TYPES
+    }
+    positions = {chart: 0 for chart in NORMALIZED_CHART_TYPES}
+    exhausted: set = set()
+    replacements: List[Dict[str, Any]] = []
+
+    while len(admitted) < target_total and len(exhausted) < len(NORMALIZED_CHART_TYPES):
+        chart_order = sorted(
+            (chart for chart in NORMALIZED_CHART_TYPES if chart not in exhausted),
+            key=lambda chart: (
+                -(baseline_chart.get(chart, 0) - current_chart.get(chart, 0)),
+                current_chart.get(chart, 0),
+                chart,
+            ),
+        )
+        progressed = False
+        for chart in chart_order:
+            pool = pools[chart]
+            while positions[chart] < len(pool):
+                candidate = pool[positions[chart]]
+                positions[chart] += 1
+                if admit(candidate):
+                    replacements.append(candidate)
+                    current_chart[chart] += 1
+                    progressed = True
+                    break
+            if positions[chart] >= len(pool) and not progressed:
+                exhausted.add(chart)
+            if progressed:
+                break
+        if not progressed and all(positions[chart] >= len(pools[chart]) for chart in chart_order):
+            exhausted.update(chart_order)
+
+    # A maximal greedy set need not be a maximum-cardinality set.  In
+    # particular, one retained wording can block two analytically distinct
+    # variants from its own source group.  When the greedy repair is below the
+    # requested size, deterministically try safe 1-for-2 swaps.  Every proposed
+    # pair is passed through the *same* exclusion function after the blocker is
+    # temporarily removed, so no quality, leakage, near-duplicate, DB-cap, or
+    # two-per-group rule is relaxed.
+    count_optimization_swaps: List[Dict[str, Any]] = []
+
+    def remove_admitted(record: Dict[str, Any]) -> None:
+        admitted.remove(record)
+        admitted_ids.remove(record["item_id"])
+        normalized_goal = _norm_goal(record)
+        if normalized_goal:
+            admitted_goals.remove(normalized_goal)
+        grams = admitted_ngrams.pop(record["item_id"])
+        for gram in grams:
+            item_ids = admitted_ngram_index[gram]
+            item_ids.remove(record["item_id"])
+            if not item_ids:
+                del admitted_ngram_index[gram]
+        group_records[_group_of(record)].remove(record)
+        db_counts[_db_of(record)] -= 1
+
+    if len(admitted) < target_total:
+        tier_a_by_group: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+        for record in tier_a:
+            tier_a_by_group[_group_of(record)].append(record)
+
+        replacement_ids = {record["item_id"] for record in replacements}
+        candidate_blockers = [
+            records[0]
+            for records in group_records.values()
+            if len(records) == 1 and len(tier_a_by_group[_group_of(records[0])]) >= 2
+        ]
+        candidate_blockers.sort(key=lambda record: (
+            0 if record["item_id"] in replacement_ids else 1,
+            -(baseline_chart.get(_chart_of(record), 0) - current_chart.get(_chart_of(record), 0)),
+            db_counts[_db_of(record)],
+            _hash_key(f"{seed}:one-for-two-blocker", record["item_id"]),
+        ))
+
+        for blocker in candidate_blockers:
+            if len(admitted) >= target_total:
+                break
+            if blocker["item_id"] not in admitted_ids:
+                continue
+            # Two same-database replacements add one net row.  A database
+            # already at its cap cannot participate in such a swap.
+            if db_counts[_db_of(blocker)] >= db_cap:
+                continue
+            alternatives = sorted(
+                (
+                    record for record in tier_a_by_group[_group_of(blocker)]
+                    if record["item_id"] not in admitted_ids
+                ),
+                key=lambda record: _hash_key(f"{seed}:one-for-two-candidate", record["item_id"]),
+            )
+            if len(alternatives) < 2:
+                continue
+
+            remove_admitted(blocker)
+            chosen: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None
+            for first_index, first in enumerate(alternatives):
+                if not admit(first):
+                    continue
+                for second in alternatives[first_index + 1:]:
+                    if admit(second):
+                        chosen = (first, second)
+                        break
+                if chosen is not None:
+                    break
+                remove_admitted(first)
+
+            if chosen is None:
+                # The blocker was only removed speculatively; restore it when
+                # no valid pair exists under the unchanged gates.
+                assert admit(blocker)
+                continue
+
+            if blocker in replacements:
+                replacements.remove(blocker)
+            elif blocker["item_id"] in previous_ids:
+                rejected_previous[blocker["item_id"]] = "valid_record_replaced_for_maximum_corpus"
+            replacements.extend(chosen)
+            current_chart[_chart_of(blocker)] -= 1
+            for record in chosen:
+                current_chart[_chart_of(record)] += 1
+            count_optimization_swaps.append({
+                "removed_item_id": blocker["item_id"],
+                "replacement_item_ids": [record["item_id"] for record in chosen],
+                "source_group_id": _group_of(blocker),
+                "reason": "one-for-two maximum-cardinality augmentation under unchanged gates",
+            })
+
+    # The same conflict-graph augmentation can exist across source groups: one
+    # broadly worded selected brief may be the sole near-duplicate blocker for
+    # two otherwise independent candidates.  Build exact single-blocker
+    # buckets from the indexed trigram graph, then validate every pair through
+    # ``admit`` after removing that blocker.  Stale bucket entries caused by an
+    # earlier swap simply fail ``admit`` and cannot weaken a constraint.
+    if len(admitted) < target_total:
+        single_blocker_buckets: Dict[str, List[Dict[str, Any]]] = collections.defaultdict(list)
+        two_blocker_buckets: Dict[Tuple[str, str], List[Dict[str, Any]]] = collections.defaultdict(list)
+        for record in tier_a:
+            if record["item_id"] in admitted_ids:
+                continue
+            if record["item_id"] in banned_ids or record.get("source_record_id") in banned_ids:
+                continue
+            if fingerprint(_brief_of(record)) in banned_fps:
+                continue
+            blockers = near_duplicate_ids(record)
+            normalized_goal = _norm_goal(record)
+            if normalized_goal and normalized_goal in admitted_goals:
+                blockers.add(next(
+                    selected["item_id"] for selected in admitted
+                    if _norm_goal(selected) == normalized_goal
+                ))
+            if len(blockers) == 1:
+                single_blocker_buckets[next(iter(blockers))].append(record)
+            elif len(blockers) == 2:
+                two_blocker_buckets[tuple(sorted(blockers))].append(record)
+
+        replacement_ids = {record["item_id"] for record in replacements}
+        cross_group_blockers = [
+            next(record for record in admitted if record["item_id"] == item_id)
+            for item_id, candidates in single_blocker_buckets.items()
+            if len(candidates) >= 2
+        ]
+        cross_group_blockers.sort(key=lambda record: (
+            0 if record["item_id"] in replacement_ids else 1,
+            -(baseline_chart.get(_chart_of(record), 0) - current_chart.get(_chart_of(record), 0)),
+            db_counts[_db_of(record)],
+            _hash_key(f"{seed}:cross-group-blocker", record["item_id"]),
+        ))
+
+        for blocker in cross_group_blockers:
+            if len(admitted) >= target_total:
+                break
+            if blocker["item_id"] not in admitted_ids:
+                continue
+            alternatives = sorted(
+                (
+                    record for record in single_blocker_buckets[blocker["item_id"]]
+                    if record["item_id"] not in admitted_ids
+                ),
+                key=lambda record: (
+                    -(baseline_chart.get(_chart_of(record), 0) - current_chart.get(_chart_of(record), 0)),
+                    db_counts[_db_of(record)],
+                    _hash_key(f"{seed}:cross-group-candidate", record["item_id"]),
+                ),
+            )
+            if len(alternatives) < 2:
+                continue
+
+            remove_admitted(blocker)
+            chosen: Optional[Tuple[Dict[str, Any], Dict[str, Any]]] = None
+            for first_index, first in enumerate(alternatives):
+                if not admit(first):
+                    continue
+                for second in alternatives[first_index + 1:]:
+                    if admit(second):
+                        chosen = (first, second)
+                        break
+                if chosen is not None:
+                    break
+                remove_admitted(first)
+
+            if chosen is None:
+                assert admit(blocker)
+                continue
+
+            if blocker in replacements:
+                replacements.remove(blocker)
+            elif blocker["item_id"] in previous_ids:
+                rejected_previous[blocker["item_id"]] = "valid_record_replaced_for_maximum_corpus"
+            replacements.extend(chosen)
+            current_chart[_chart_of(blocker)] -= 1
+            for record in chosen:
+                current_chart[_chart_of(record)] += 1
+            count_optimization_swaps.append({
+                "removed_item_id": blocker["item_id"],
+                "replacement_item_ids": [record["item_id"] for record in chosen],
+                "source_group_id": _group_of(blocker),
+                "reason": "cross-group one-for-two maximum-cardinality augmentation under unchanged gates",
+            })
+
+        # Continue along length-two augmenting paths.  Candidate triples are
+        # drawn only from records whose complete pre-swap blocker set is a
+        # subset of the two removed records; the live ``admit`` checks remain
+        # authoritative after earlier swaps have changed the graph.
+        blocker_pairs = [
+            pair for pair, candidates in two_blocker_buckets.items()
+            if candidates and all(item_id in admitted_ids for item_id in pair)
+        ]
+        blocker_pairs.sort(key=lambda pair: (
+            sum(item_id not in replacement_ids for item_id in pair),
+            -(
+                len(two_blocker_buckets[pair])
+                + len(single_blocker_buckets.get(pair[0], []))
+                + len(single_blocker_buckets.get(pair[1], []))
+            ),
+            _hash_key(f"{seed}:two-for-three-blockers", "|".join(pair)),
+        ))
+
+        for pair in blocker_pairs:
+            if len(admitted) >= target_total:
+                break
+            if not all(item_id in admitted_ids for item_id in pair):
+                continue
+            blockers = [next(record for record in admitted if record["item_id"] == item_id)
+                        for item_id in pair]
+            alternatives_by_id = {
+                record["item_id"]: record
+                for record in (
+                    two_blocker_buckets[pair]
+                    + single_blocker_buckets.get(pair[0], [])
+                    + single_blocker_buckets.get(pair[1], [])
+                )
+                if record["item_id"] not in admitted_ids
+            }
+            alternatives = sorted(
+                alternatives_by_id.values(),
+                key=lambda record: (
+                    -(baseline_chart.get(_chart_of(record), 0) - current_chart.get(_chart_of(record), 0)),
+                    db_counts[_db_of(record)],
+                    _hash_key(f"{seed}:two-for-three-candidate", record["item_id"]),
+                ),
+            )
+            if len(alternatives) < 3:
+                continue
+
+            for blocker in blockers:
+                remove_admitted(blocker)
+
+            chosen: List[Dict[str, Any]] = []
+
+            def choose_three(start: int) -> bool:
+                if len(chosen) == 3:
+                    return True
+                if len(alternatives) - start < 3 - len(chosen):
+                    return False
+                for position in range(start, len(alternatives)):
+                    candidate = alternatives[position]
+                    if not admit(candidate):
+                        continue
+                    chosen.append(candidate)
+                    if choose_three(position + 1):
+                        return True
+                    chosen.pop()
+                    remove_admitted(candidate)
+                return False
+
+            if not choose_three(0):
+                for blocker in blockers:
+                    assert admit(blocker)
+                continue
+
+            for blocker in blockers:
+                if blocker in replacements:
+                    replacements.remove(blocker)
+                elif blocker["item_id"] in previous_ids:
+                    rejected_previous[blocker["item_id"]] = "valid_record_replaced_for_maximum_corpus"
+                current_chart[_chart_of(blocker)] -= 1
+            replacements.extend(chosen)
+            for record in chosen:
+                current_chart[_chart_of(record)] += 1
+            count_optimization_swaps.append({
+                "removed_item_ids": [blocker["item_id"] for blocker in blockers],
+                "replacement_item_ids": [record["item_id"] for record in chosen],
+                "source_group_ids": sorted({_group_of(blocker) for blocker in blockers}),
+                "reason": "cross-group two-for-three maximum-cardinality augmentation under unchanged gates",
+            })
+
+    admitted.sort(key=lambda record: record["item_id"])
+    admitted_group_counts = collections.Counter(_group_of(record) for record in admitted)
+    multi_record_groups: List[Dict[str, Any]] = []
+    for group_id, records in sorted(group_records.items()):
+        if len(records) != 2:
+            continue
+        first, second = sorted(records, key=lambda record: record["item_id"])
+        first_sig, second_sig = semantic_signature(first), semantic_signature(second)
+        similarity = jaccard(
+            frozenset(char_ngrams(brief_text(_brief_of(first)))),
+            frozenset(char_ngrams(brief_text(_brief_of(second)))),
+        )
+        diff = signature_diff(first_sig, second_sig)
+        multi_record_groups.append({
+            "source_group_id": group_id,
+            "item_ids": [first["item_id"], second["item_id"]],
+            "normalized_goals": [_norm_goal(first), _norm_goal(second)],
+            "signatures": [str(first_sig), str(second_sig)],
+            "differing_components": diff,
+            "goal_similarity": round(similarity, 4),
+            "justification": (
+                f"differs in {', '.join(diff) or 'no field'}; goal-text similarity "
+                f"{similarity:.3f} <= threshold {near_dup_threshold}"
+            ),
+        })
+
+    status = "repaired_selected_corpus" if len(admitted) == target_total else (
+        "maximum_valid_corpus_accepted" if len(admitted) >= minimum_acceptable
+        else "insufficient_unique_tier_a_candidates"
+    )
+    report = {
+        "status": status,
+        "requested_total": target_total,
+        "preferred_target": preferred_target,
+        "minimum_acceptable": minimum_acceptable,
+        "achieved_total": len(admitted),
+        "achieved_distribution": dict(sorted(current_chart.items())),
+        "baseline_distribution": dict(sorted(baseline_chart.items())),
+        "max_per_group": max_per_group,
+        "near_dup_threshold": near_dup_threshold,
+        "db_cap": db_cap,
+        "seed": seed,
+        "unique_source_groups_selected": len(admitted_group_counts),
+        "groups_with_one_record": sum(count == 1 for count in admitted_group_counts.values()),
+        "groups_with_two_records": sum(count == 2 for count in admitted_group_counts.values()),
+        "retained_previous_count": len(admitted) - len(replacements),
+        "removed_previous_ids": sorted(rejected_previous),
+        "removed_previous_reasons": rejected_previous,
+        "replacement_ids": sorted(record["item_id"] for record in replacements),
+        "count_optimization_swaps": count_optimization_swaps,
+        "multi_record_groups": multi_record_groups,
+    }
+    if len(admitted) < target_total:
+        report["deficit"] = target_total - len(admitted)
+    return (admitted if len(admitted) >= minimum_acceptable else None), report
+
+
 # --------------------------------------------------------------------------- #
 # Step 4 -- deterministic, chart-stratified train/validation split
 # --------------------------------------------------------------------------- #
@@ -709,6 +1241,11 @@ def _has_time_grain(rec: Dict[str, Any]) -> bool:
     return bool((prov.get("constraints") or {}).get("time_grain"))
 
 
+def _has_limit(rec: Dict[str, Any]) -> bool:
+    prov = (rec.get("record") or {}).get("brief", {}).get("extra", {}).get("provenance", {})
+    return (prov.get("constraints") or {}).get("limit") is not None
+
+
 def select_spotcheck_sample(
     selected: List[Dict[str, Any]], *, seed: int = 42, size: int = 30,
 ) -> List[Dict[str, Any]]:
@@ -724,14 +1261,21 @@ def select_spotcheck_sample(
             chosen.append(rec)
             chosen_ids.add(rec["item_id"])
 
+    # Every available chart type receives a coverage slot first. Scatter then
+    # receives at most four of thirty rows, preventing a diagnostic sample from
+    # being artificially dominated by the chart under repair.
+    for chart in NORMALIZED_CHART_TYPES:
+        match = next((r for r in ordered_all if _chart_of(r) == chart), None)
+        if match:
+            add(match)
+
     scatter = [r for r in ordered_all if _chart_of(r) == "scatter"]
-    if len(scatter) <= 10:
-        for r in scatter:
-            add(r)
-    else:
-        by_score = sorted(scatter, key=lambda r: (r.get("quality_score", 0), r["item_id"]))
-        step = max(1, len(by_score) // 10)
-        for r in by_score[::step][:10]:
+    scatter_cap = min(4, max(1, size // 6))
+    by_score_scatter = sorted(scatter, key=lambda r: (r.get("quality_score", 0), r["item_id"]))
+    if by_score_scatter:
+        step = max(1, len(by_score_scatter) // scatter_cap)
+        already_scatter = sum(_chart_of(record) == "scatter" for record in chosen)
+        for r in by_score_scatter[::step][:max(0, scatter_cap - already_scatter)]:
             add(r)
 
     # Coverage slots: one example each of filters / sort / grouping / time_grain,
@@ -740,10 +1284,20 @@ def select_spotcheck_sample(
     if by_score_all:
         add(by_score_all[0])
         add(by_score_all[-1])
-    for predicate in (_has_filters, _has_sort, _has_grouping, _has_time_grain):
+    for predicate in (_has_filters, _has_sort, _has_limit, _has_grouping, _has_time_grain):
         match = next((r for r in ordered_all if predicate(r)), None)
         if match:
             add(match)
+
+    group_counts = collections.Counter(_group_of(r) for r in selected)
+    one_record_group = next((group for group, count in sorted(group_counts.items()) if count == 1), None)
+    two_record_group = next((group for group, count in sorted(group_counts.items()) if count == 2), None)
+    if one_record_group:
+        add(next(r for r in ordered_all if _group_of(r) == one_record_group))
+    if two_record_group:
+        for rec in ordered_all:
+            if _group_of(rec) == two_record_group:
+                add(rec)
 
     # Round-robin across the remaining (non-scatter) chart types for broad
     # coverage, preferring databases not yet represented in the sample.

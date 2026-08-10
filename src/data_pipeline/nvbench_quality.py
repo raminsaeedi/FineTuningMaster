@@ -26,9 +26,15 @@ import statistics
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.data_pipeline.nvbench_extract import (
+    classify_group_by_terms,
     detect_query_intent,
     extract_base_field,
     extract_group_by_fields,
+    extract_limit,
+    extract_nl_aggregate_conditions,
+    extract_nl_required_dimensions,
+    extract_nl_time_grains,
+    extract_order_by,
     extract_select_aggregates,
     extract_time_grain_signals,
 )
@@ -38,7 +44,7 @@ from src.data_pipeline.nvbench_profile import DbProfiler
 from src.data_pipeline.nvbench_source import parse_aggregate
 from src.utils.io import read_yaml
 
-QUALITY_RULE_VERSION = "nvbench_quality_v4"
+QUALITY_RULE_VERSION = "nvbench_quality_v6"
 
 # Mandatory rules that always block Tier A (a hit forces at least Tier B),
 # regardless of the numeric score. Extends the implicit "any failed rule blocks
@@ -52,11 +58,25 @@ _MANDATORY_TIER_A_BLOCKERS = frozenset({
     "missing_required_filter",
     "missing_required_sort",
     "meaningless_identifier_aggregation",
+    "invalid_identifier_aggregation",
+    "wrong_kpi",
     "identifier_as_measure",
     "identifier_as_continuous_kpi",
     "aggregate_dtype_conflict",
     "field_table_ambiguous",
     "pie_non_additive_kpi",
+    "scatter_identifier_axis",
+    "invalid_scatter_axes",
+    "source_conflict",
+    "missing_required_dimension",
+    "missing_aggregate_condition",
+    "time_grain_source_conflict",
+    "missing_grouping",
+    "goal_mismatch",
+    "constraint_scope_error",
+    "invalid_group_by_expression",
+    "insufficient_scatter_observations",
+    "chart_inappropriate",
 })
 
 # semantic_checks names that specifically cover constraint preservation (Phase 6);
@@ -126,9 +146,297 @@ def _chart_shape_evidence_insufficient(profile: Optional[Dict[str, Any]]) -> boo
     return _evidence_insufficient(profile)
 
 
+_TOP_LEVEL_CLAUSES = (
+    ("group_by", r"\bGROUP\s+BY\b"),
+    ("having", r"\bHAVING\b"),
+    ("order_by", r"\bORDER\s+BY\b"),
+    ("limit", r"\bLIMIT\b"),
+)
+
+
+def _top_level_clause_positions(sql: str) -> Dict[str, int]:
+    """Locate SQL clauses outside parentheses and quoted strings.
+
+    The nvBench SQL is SQLite-oriented but may contain nested SELECTs. Regexes
+    over the whole string confuse an inner preselection with an outer aggregate
+    constraint, so scope-sensitive validation uses this small deterministic
+    scanner instead.
+    """
+    text = str(sql or "")
+    positions: Dict[str, int] = {}
+    depth = 0
+    quote: Optional[str] = None
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if quote is not None:
+            if char == quote:
+                if quote != "]" and index + 1 < len(text) and text[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+        if text.startswith("--", index):
+            newline = text.find("\n", index + 2)
+            index = len(text) if newline < 0 else newline + 1
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            index = len(text) if end < 0 else end + 2
+            continue
+        if char in ("'", '"', "`"):
+            quote = char
+            index += 1
+            continue
+        if char == "[":
+            quote = "]"
+            index += 1
+            continue
+        if char == "(":
+            depth += 1
+            index += 1
+            continue
+        if char == ")":
+            depth = max(0, depth - 1)
+            index += 1
+            continue
+        if depth == 0:
+            for name, pattern in _TOP_LEVEL_CLAUSES:
+                if name not in positions and re.match(pattern, text[index:], re.IGNORECASE):
+                    positions[name] = index
+        index += 1
+    return positions
+
+
+def _parenthesized_select_scopes(sql: str) -> List[str]:
+    """Return complete parenthesized SELECT bodies, including CTE bodies."""
+    text = str(sql or "")
+    stack: List[int] = []
+    scopes: List[str] = []
+    quote: Optional[str] = None
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if quote is not None:
+            if char == quote:
+                if quote != "]" and index + 1 < len(text) and text[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+        if text.startswith("--", index):
+            newline = text.find("\n", index + 2)
+            index = len(text) if newline < 0 else newline + 1
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index + 2)
+            index = len(text) if end < 0 else end + 2
+            continue
+        if char in ("'", '"', "`"):
+            quote = char
+        elif char == "[":
+            quote = "]"
+        elif char == "(":
+            stack.append(index)
+        elif char == ")" and stack:
+            start = stack.pop()
+            body = text[start + 1:index].strip()
+            if re.match(r"^SELECT\b", body, re.IGNORECASE):
+                scopes.append(body)
+        index += 1
+    return scopes
+
+
+def _normalized_sort_key(expression: str) -> str:
+    base = extract_base_field(expression) if parse_aggregate(expression) else expression
+    return re.sub(r"[`\"\[\]]", "", str(base or "")).split(".")[-1].strip().lower()
+
+
+def _verified_preaggregation_scope(sql: str, sort_expression: str, limit: int) -> Dict[str, Any]:
+    """Verify that ORDER BY/LIMIT occur together inside a feeding SELECT.
+
+    A CTE/subquery marker alone is not evidence of population preselection.
+    The exact parsed sort key and limit must coexist in one nested SELECT, and
+    neither may also be an outer query constraint.
+    """
+    outer_clauses = _top_level_clause_positions(sql)
+    evidence: Dict[str, Any] = {
+        "verified": False,
+        "sort_key": _normalized_sort_key(sort_expression),
+        "limit": int(limit),
+        "outer_order_by": "order_by" in outer_clauses,
+        "outer_limit": "limit" in outer_clauses,
+        "nested_select_count": 0,
+        "matching_scope_count": 0,
+    }
+    if evidence["outer_order_by"] or evidence["outer_limit"]:
+        evidence["reason"] = "sort_or_limit_applies_after_outer_aggregation"
+        return evidence
+
+    scopes = _parenthesized_select_scopes(sql)
+    evidence["nested_select_count"] = len(scopes)
+    matches = 0
+    for scope in scopes:
+        inner_sort = extract_order_by(scope)
+        inner_limit = extract_limit(scope)
+        if (
+            inner_sort.get("status") == "ok"
+            and inner_limit.get("status") == "ok"
+            and _normalized_sort_key(str(inner_sort.get("field") or "")) == evidence["sort_key"]
+            and int(inner_limit.get("value")) == evidence["limit"]
+        ):
+            matches += 1
+    evidence["matching_scope_count"] = matches
+    evidence["verified"] = matches == 1
+    evidence["reason"] = (
+        "one_nested_select_contains_matching_sort_and_limit"
+        if matches == 1
+        else "no_unique_nested_select_contains_matching_sort_and_limit"
+    )
+    return evidence
+
+
+def _sqlite_vql_bin_expression(field: str, grain: Optional[str]) -> Optional[str]:
+    """Translate one validated VQL BIN field/grain to SQLite grouping syntax."""
+    raw = str(field or "").strip()
+    if not re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?", raw):
+        return None
+    qfield = ".".join(f'"{part}"' for part in raw.split("."))
+    normalized_grain = str(grain or "").upper()
+    expressions = {
+        "YEAR": f"strftime('%Y', {qfield})",
+        "MONTH": f"strftime('%Y-%m', {qfield})",
+        "DAY": f"date({qfield})",
+        "WEEK": f"strftime('%Y-%W', {qfield})",
+        "WEEKDAY": f"strftime('%w', {qfield})",
+        "QUARTER": (
+            f"printf('%04d-Q%d', CAST(strftime('%Y', {qfield}) AS INTEGER), "
+            f"((CAST(strftime('%m', {qfield}) AS INTEGER) - 1) / 3) + 1)"
+        ),
+        "HOUR": f"strftime('%Y-%m-%d %H', {qfield})",
+    }
+    return expressions.get(normalized_grain, qfield)
+
+
+def _materialize_vql_grouping_sql(sql: str, constraints: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a validation-only SQL result for a source-authorized VQL BIN.
+
+    This does not mutate the record or claim the generated SQL is source SQL;
+    it only materializes the already-recorded VQL grouping so chart-shape tests
+    can inspect the result that the visual grouping describes.
+    """
+    visual = (constraints or {}).get("visual_grouping") or {}
+    if visual.get("origin") != "vql_bin":
+        return {"status": "not_vql_bin", "sql": None}
+    clean_sql = str(sql or "").strip().rstrip(";").strip()
+    clauses = _top_level_clause_positions(clean_sql)
+    if "group_by" in clauses:
+        return {"status": "sql_grouping_already_present", "sql": None}
+    time_grain = (constraints or {}).get("time_grain") or {}
+    fields = list(visual.get("fields") or [])
+    field = str(time_grain.get("field") or (fields[0] if fields else ""))
+    expression = _sqlite_vql_bin_expression(field, time_grain.get("grain"))
+    if not clean_sql or not expression:
+        return {"status": "unmaterializable", "sql": None, "field": field}
+    insertion_points = [
+        clauses[name] for name in ("having", "order_by", "limit") if name in clauses
+    ]
+    insertion = min(insertion_points) if insertion_points else len(clean_sql)
+    materialized = (
+        clean_sql[:insertion].rstrip()
+        + f" GROUP BY {expression} "
+        + clean_sql[insertion:].lstrip()
+    ).strip()
+    return {
+        "status": "materialized_for_validation",
+        "sql": materialized,
+        "field": field,
+        "grain": time_grain.get("grain"),
+        "group_expression": expression,
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Phase 4 -- KPI suitability
 # --------------------------------------------------------------------------- #
+_DIRECT_COUNT_PATTERNS = (
+    r"\bhow\s+many\b",
+    r"\btotal\s+number\b",
+    r"\bcount(?:s|ed|ing)?(?:\s+of)?\b",
+    r"\bfrequenc(?:y|ies)\b",
+)
+
+_NUMBER_OF_PATTERNS = (
+    r"\bnumber\s+of\b",
+    r"\bnumber\s+[a-z][\w-]*s\b",
+)
+
+
+def _matches_any_nl_pattern(nl_queries: List[str], patterns: Tuple[str, ...]) -> bool:
+    return any(
+        re.search(pattern, str(query or ""), re.IGNORECASE)
+        for query in nl_queries
+        for pattern in patterns
+    )
+
+
+def _explicit_count_intent(
+    nl_queries: List[str],
+    *,
+    base_profile: Optional[Dict[str, Any]] = None,
+    identifier: Optional[Dict[str, Any]] = None,
+    count_star: bool = False,
+) -> Dict[str, Any]:
+    """Return conservative evidence for an explicitly requested entity count.
+
+    Part-to-whole words such as ``percentage``, ``share``, ``ratio`` and
+    ``proportion`` do not, by themselves, request COUNT.  Bare ``number of`` is
+    also ambiguous for numeric measure attributes (for example a stored
+    ``number_of_platforms``); it is accepted only for COUNT(*), an
+    identifier-like field, or a non-numeric entity/category field.  This keeps
+    the documented COUNT(id) exception while failing closed on COUNT(measure).
+    """
+    direct = _matches_any_nl_pattern(nl_queries, _DIRECT_COUNT_PATTERNS)
+    number_of = _matches_any_nl_pattern(nl_queries, _NUMBER_OF_PATTERNS)
+    identifier_like = bool((identifier or {}).get("is_identifier"))
+    normalized_dtype = (base_profile or {}).get("normalized_dtype")
+    number_of_entity_supported = bool(
+        count_star
+        or identifier_like
+        or (base_profile is not None and normalized_dtype not in (None, "number"))
+    )
+    explicit = direct or (number_of and number_of_entity_supported)
+    return {
+        "explicit": explicit,
+        "direct_count_wording": direct,
+        "number_of_wording": number_of,
+        "number_of_entity_supported": number_of_entity_supported,
+        "count_star": count_star,
+        "base_normalized_dtype": normalized_dtype,
+        "identifier_like_base": identifier_like,
+    }
+
+
+def _unambiguous_count_intent(nl_queries: List[str]) -> bool:
+    """Count wording safe for cross-aggregate conflict detection.
+
+    Bare ``number of`` can denote a numeric source attribute (for example
+    ``number_of_platforms``), so it is acceptable for an encoded COUNT but is
+    not strong enough by itself to reject a source SUM/AVG/MIN/MAX.
+    """
+    return _matches_any_nl_pattern(nl_queries, _DIRECT_COUNT_PATTERNS)
+
+
+def _aggregate_intent_for_quality(nl_queries: List[str]) -> Optional[str]:
+    """Narrow aggregate intent used for mandatory cross-function checks."""
+    intent = detect_query_intent(nl_queries, allow_count_number_of=False)
+    if intent is None and _unambiguous_count_intent(nl_queries):
+        return "COUNT"
+    return intent
+
+
 def kpi_suitability(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]) -> Dict[str, Any]:
     prov = _prov(record)
     m = _mapping0(record)
@@ -144,10 +452,29 @@ def kpi_suitability(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str,
 
     outer = parse_aggregate(primary_kpi)
     if outer == "COUNT":
-        evidence["policy"] = "count-always-allowed"
-        return {"suitable": True, "failed_rules": [], "warnings": [], "evidence": evidence}
+        base = extract_base_field(primary_kpi)
+        evidence["policy"] = "count-requires-explicit-entity-count-intent"
+        profile: Optional[Dict[str, Any]] = None
+        id_flag: Optional[Dict[str, Any]] = None
+        if base:
+            profile = profiler.profile_field(db_id, base, sql_context=sql)
+            id_flag = detect_identifier(profile, base, cfg)
+            evidence["base_field_profile"] = profile
+            evidence["identifier"] = id_flag
+            if profile.get("resolution") == "ambiguous_table":
+                failed.append("field_table_ambiguous")
+        count_intent = _explicit_count_intent(
+            nl_queries,
+            base_profile=profile,
+            identifier=id_flag,
+            count_star=base is None,
+        )
+        evidence["count_intent"] = count_intent
+        evidence["explicit_count_intent"] = count_intent["explicit"]
+        if not count_intent["explicit"]:
+            failed.extend(["wrong_kpi", "goal_mismatch"])
 
-    if outer in ("SUM", "AVG", "MIN", "MAX"):
+    elif outer in ("SUM", "AVG", "MIN", "MAX"):
         base = extract_base_field(primary_kpi)
         if base:
             profile = profiler.profile_field(db_id, base, sql_context=sql)
@@ -157,12 +484,17 @@ def kpi_suitability(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str,
             if profile.get("resolution") == "ambiguous_table":
                 failed.append("field_table_ambiguous")
             elif id_flag["is_identifier"] and id_flag["confidence"] == "strong":
-                failed.append("meaningless_identifier_aggregation")
+                failed.extend([
+                    "meaningless_identifier_aggregation",
+                    "identifier_as_measure",
+                    "invalid_identifier_aggregation",
+                    "wrong_kpi",
+                ])
             elif id_flag["is_identifier"] and id_flag["confidence"] == "ambiguous":
                 failed.append("possible_identifier_aggregation")
             if profile.get("stats_available") and profile.get("normalized_dtype") not in (None, "number"):
                 failed.append("aggregate_dtype_conflict")
-        intent = detect_query_intent(nl_queries, allow_count_number_of=True)
+        intent = _aggregate_intent_for_quality(nl_queries)
         if intent and intent != outer:
             # Broader than the builder's narrow, corpus-verified rules; kept as a
             # Tier-B signal only -- never silently escalated to a rejection here.
@@ -185,6 +517,8 @@ def kpi_suitability(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str,
     warnings.extend(agg["warnings"])
     evidence["aggregation_agreement"] = agg["evidence"]
 
+    failed = list(dict.fromkeys(failed))
+    warnings = list(dict.fromkeys(warnings))
     return {"suitable": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
 
 
@@ -263,7 +597,7 @@ def check_kpi_sql_aggregation(record: Dict[str, Any]) -> Dict[str, Any]:
     # (c) query intent vs primary KPI aggregate
     kpi_func = _norm_agg_of(primary_kpi)
     if kpi_func:
-        intent = detect_query_intent(nl_queries, allow_count_number_of=True)
+        intent = _aggregate_intent_for_quality(nl_queries)
         if intent and intent != kpi_func:
             failed.append("query_aggregation_conflict")
             evidence["query_intent"] = {"query": intent, "kpi": kpi_func}
@@ -353,7 +687,22 @@ def check_required_constraints(
                     "source": "grouped_datetime_dimension" if db_dt else "grouped_temporal_name",
                 })
 
-    # Grouping: every SQL GROUP BY column must be represented somewhere.
+    # Classify GROUP BY terms before checking preservation. Aggregate calls are
+    # invalid keys in the supported SQLite source dialect and cannot supply an
+    # analytical observation unit.
+    group_terms = classify_group_by_terms(sql)
+    invalid_group_terms = [
+        term for term in group_terms if term["kind"] == "invalid_aggregate_expression"
+    ]
+    valid_sql_group_fields = [
+        str(term["field"]) for term in group_terms if term["kind"] == "field" and term.get("field")
+    ]
+    evidence["group_by_terms"] = group_terms
+    if invalid_group_terms:
+        failed.append("invalid_group_by_expression")
+        evidence["invalid_group_by_expressions"] = [term["expression"] for term in invalid_group_terms]
+
+    # Grouping: every valid SQL GROUP BY column must be represented somewhere.
     represented = set()
     for axis in ("x", "y"):
         t = axis_typing.get(axis) or {}
@@ -367,13 +716,311 @@ def check_required_constraints(
     if gf:
         represented.add(str(gf).split(".")[-1].strip().lower())
     represented |= recorded_tg
-    missing_group = [g for g in extract_group_by_fields(sql)
+    recorded_visual_grouping = (prov.get("constraints") or {}).get("visual_grouping") or {}
+    for field in recorded_visual_grouping.get("fields") or []:
+        represented.add(str(field).split(".")[-1].strip().lower())
+    missing_group = [g for g in valid_sql_group_fields
                      if g.split(".")[-1].strip().lower() not in represented]
     if missing_group:
         failed.append("missing_required_grouping")
         evidence["missing_grouping"] = missing_group
 
-    return {"failed_rules": failed, "evidence": evidence}
+    # Aggregate tasks that explicitly request a per-dimension result need a
+    # valid SQL field group or a matching VQL BIN. A selected raw axis alone is
+    # not grouping evidence, and an unrelated BIN cannot rescue the task.
+    #
+    # When SQL already has a valid GROUP BY field, free-text-to-field conflicts
+    # are adjudicated by check_source_consistency(), which first requires the
+    # requested phrase to map to the query's real schema. This separation is
+    # intentional: nvBench wording frequently appends non-dimensions after
+    # ``each`` (for example "each received" or "each Visualize by bar chart").
+    # Treating those noisy phrases as authoritative here would reject valid
+    # source groupings. Missing SQL grouping and visual-only grouping remain
+    # fail-closed because their structural evidence is unambiguous.
+    has_aggregate = bool(extract_select_aggregates(sql)) or any(
+        (axis_typing.get(axis) or {}).get("aggregate") for axis in ("x", "y")
+    )
+    visual_grouping = (prov.get("constraints") or {}).get("visual_grouping") or {}
+    vql_group_fields = (
+        [str(field) for field in (visual_grouping.get("fields") or [])]
+        if visual_grouping.get("origin") == "vql_bin"
+        else []
+    )
+    valid_group_fields = valid_sql_group_fields + vql_group_fields
+    recorded_time_grain = (prov.get("constraints") or {}).get("time_grain") or {}
+    if recorded_time_grain.get("grain"):
+        valid_group_fields.append(str(recorded_time_grain["grain"]))
+    requested_dimensions = extract_nl_required_dimensions(prov.get("nl_query", "") or "")
+    evidence["requested_grouping_dimensions"] = requested_dimensions
+    evidence["valid_grouping_fields"] = valid_group_fields
+
+    def grouping_matches(dimension: str, field: str) -> bool:
+        requested = _normalized_field_tokens(dimension)
+        supplied = _normalized_field_tokens(field)
+        aliases = {"gender": "sex", "sex": "gender", "appellation": "appelation",
+                   "appelation": "appellation", "apt": "apartment",
+                   "apartment": "apt",
+                   "fac": "faculty", "act": "activity"}
+        requested |= {aliases[token] for token in requested if token in aliases}
+        supplied |= {aliases[token] for token in supplied if token in aliases}
+        requested_core = requested - {
+            "id", "key", "code", "member", "entity", "record", "item", "row"
+        }
+        supplied_core = supplied - {"id", "key", "code"}
+        if requested_core and supplied_core and (
+            requested_core <= supplied_core or supplied_core <= requested_core
+        ):
+            return True
+
+        def token_matches(left: str, right: str) -> bool:
+            return left == right or (
+                len(left) >= 5 and len(right) >= 5 and left[:5] == right[:5]
+            )
+
+        if requested_core and supplied_core and (
+            all(any(token_matches(left, right) or left in right for right in supplied_core)
+                for left in requested_core)
+            or all(any(token_matches(left, right) or right in left for left in requested_core)
+                   for right in supplied_core)
+        ):
+            return True
+
+        profile = profiler.profile_field(db_id, field, sql_context=sql)
+        table_tokens = _normalized_field_tokens(profile.get("table") or "")
+        table_tokens |= {aliases[token] for token in table_tokens if token in aliases}
+        identifier = detect_identifier(profile, field, cfg)
+        representative = (
+            identifier.get("is_identifier") and identifier.get("confidence") == "strong"
+        ) or (
+            profile.get("stats_available")
+            and profile.get("unique_ratio") is not None
+            and profile.get("distinct_count") is not None
+            and profile["unique_ratio"] >= 0.9
+            and profile["distinct_count"] >= 2
+        )
+        return bool(requested_core & table_tokens) and representative
+
+    missing_requested_grouping = [
+        item for item in requested_dimensions
+        if not any(grouping_matches(item["dimension"], field) for field in valid_group_fields)
+    ]
+    structurally_unverified_grouping = not valid_sql_group_fields
+    if has_aggregate and structurally_unverified_grouping and missing_requested_grouping:
+        failed.extend(["missing_grouping", "goal_mismatch"])
+        evidence["missing_requested_grouping"] = missing_requested_grouping
+
+    # ORDER BY/LIMIT after aggregation can rank groups only by a grouping key or
+    # aggregate result. A row-level field outside that scope cannot implement a
+    # top-N population request (e.g. top players before weekday aggregation).
+    constraints = prov.get("constraints") or {}
+    sort = constraints.get("sort") or {}
+    limit = constraints.get("limit")
+    if has_aggregate and limit is not None and sort.get("status") == "ok" and sort.get("field"):
+        sort_expression = str(sort["field"])
+        sort_key = _normalized_sort_key(sort_expression)
+        aggregate_items = extract_select_aggregates(sql)
+        aggregate_bases = {
+            str(item.get("base_field") or "").split(".")[-1].strip().lower()
+            for item in aggregate_items
+            if item.get("base_field")
+        }
+        aggregate_aliases = {
+            str(item.get("alias") or "").split(".")[-1].strip().lower()
+            for item in aggregate_items
+            if item.get("alias")
+        }
+        grouping_keys = {
+            str(field).split(".")[-1].strip().lower() for field in valid_group_fields
+        }
+        sort_is_aggregate = bool(parse_aggregate(sort_expression))
+        preaggregation_scope = _verified_preaggregation_scope(
+            sql, sort_expression, int(limit)
+        )
+        sort_scope_valid = (
+            sort_is_aggregate
+            or sort_key in grouping_keys
+            or sort_key in aggregate_aliases
+            or preaggregation_scope["verified"]
+        )
+        if not sort_scope_valid:
+            failed.extend(["constraint_scope_error", "goal_mismatch"])
+            evidence["constraint_scope_error"] = {
+                "sort": sort,
+                "limit": limit,
+                "valid_grouping_fields": valid_group_fields,
+                "aggregate_base_fields": sorted(aggregate_bases),
+                "aggregate_aliases": sorted(aggregate_aliases),
+                "preaggregation_scope": preaggregation_scope,
+            }
+
+    return {"failed_rules": list(dict.fromkeys(failed)), "evidence": evidence}
+
+
+# --------------------------------------------------------------------------- #
+# v5: query / SQL / VQL source-consistency checks
+# --------------------------------------------------------------------------- #
+def _normalized_field_tokens(value: str) -> set:
+    camel_split = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(value or ""))
+    normalized = re.sub(r"[^a-z0-9]+", "_", camel_split.lower()).strip("_")
+    tokens = set()
+    for token in normalized.split("_"):
+        if not token or token in {"in", "of", "the", "a", "an"}:
+            continue
+        if token.endswith("ies") and token != "series":
+            token = token[:-3] + "y"
+        elif token.endswith("s") and not token.endswith(("ss", "series")):
+            token = token[:-1]
+        tokens.add(token)
+    return tokens
+
+
+def _dimension_tokens_match(requested: set, source: set) -> bool:
+    """Conservative token/stem match for schema-backed dimension phrases."""
+    aliases = {"gender": "sex", "sex": "gender", "appellation": "appelation",
+               "appelation": "appellation"}
+    expanded_requested = requested | {aliases[t] for t in requested if t in aliases}
+    expanded_source = source | {aliases[t] for t in source if t in aliases}
+    if expanded_requested & expanded_source:
+        return True
+    return any(
+        len(left) >= 5 and len(right) >= 5 and left[:5] == right[:5]
+        for left in expanded_requested for right in expanded_source
+    )
+
+
+def check_source_consistency(
+    record: Dict[str, Any], profiler: Optional[DbProfiler] = None,
+) -> Dict[str, Any]:
+    """Detect deterministic query/SQL/VQL conflicts without inventing clauses.
+
+    Natural-language evidence is deliberately narrow: explicit ``for each`` or
+    entity-series dimensions, exact count thresholds, and explicit bin/interval
+    grains. A failure records the conflict; it never rewrites SQL or VQL.
+    """
+    prov = _prov(record)
+    mapping = _mapping0(record)
+    encoding = mapping.get("encoding") or {}
+    axis_typing = prov.get("axis_typing") or {}
+    grouping = prov.get("grouping") or {}
+    constraints = prov.get("constraints") or {}
+    sql = _sql_of(prov)
+    nl_query = prov.get("nl_query", "") or ""
+    db_id = prov.get("db_id", "") or ""
+
+    failed: List[str] = []
+    evidence: Dict[str, Any] = {}
+
+    if not str(nl_query).strip():
+        failed.extend(["missing_nl_goal", "goal_mismatch"])
+        evidence["goal_text_status"] = "missing"
+    else:
+        evidence["goal_text_status"] = "present"
+
+    source_dimensions: List[str] = []
+    for axis in ("x", "y"):
+        typed = axis_typing.get(axis) or {}
+        if not typed.get("aggregate") and typed.get("name"):
+            source_dimensions.append(str(typed["name"]))
+    for value in (
+        encoding.get("group_field"),
+        *((grouping.get("normalized_fields") or [])),
+        *((grouping.get("sql_group_by_fields") or [])),
+    ):
+        if value:
+            source_dimensions.append(str(value))
+    time_grain = constraints.get("time_grain") or {}
+    if time_grain.get("field"):
+        source_dimensions.append(str(time_grain["field"]))
+    if time_grain.get("grain"):
+        source_dimensions.append(str(time_grain["grain"]))
+
+    query_dimensions = extract_nl_required_dimensions(nl_query)
+    evidence["query_required_dimensions"] = query_dimensions
+    evidence["source_dimensions"] = source_dimensions
+    source_token_sets = [_normalized_field_tokens(value) for value in source_dimensions]
+    schema_fields = set(
+        profiler.query_schema_fields(db_id, sql_context=sql)
+    ) if profiler is not None else set()
+    schema_tables = set(
+        profiler.query_schema_tables(db_id, sql_context=sql)
+    ) if profiler is not None else set()
+    schema_table_token_sets = [_normalized_field_tokens(table) for table in schema_tables]
+    missing_dimensions: List[Dict[str, str]] = []
+    for requested in query_dimensions:
+        dimension = requested["dimension"]
+        requested_tokens = _normalized_field_tokens(dimension)
+        if dimension.endswith("_series"):
+            entity = dimension[: -len("_series")]
+            available = any({entity, "series"} <= tokens for tokens in source_token_sets)
+        else:
+            # Only enforce a free-text entity/dimension term when it maps to a
+            # real schema field. Otherwise synonyms such as gender->Sex,
+            # city->Official_Name, or apartment->apt_number are not safe enough
+            # to support a deterministic rejection.
+            schema_supported = profiler is None or any(
+                _dimension_tokens_match(requested_tokens, _normalized_field_tokens(field))
+                for field in schema_fields
+            )
+            if not schema_supported:
+                continue
+            available = any(
+                requested_tokens <= tokens
+                or _dimension_tokens_match(requested_tokens, tokens)
+                for tokens in source_token_sets
+            )
+            # A generic selected ``Name`` column can represent an entity named
+            # by its source table (e.g. technician name). This does not rescue a
+            # requested series, which requires an actual series field above.
+            generic_descriptors = {
+                "name", "first", "last", "official", "number", "title", "label", "description"
+            }
+            if not available and any(tokens & generic_descriptors for tokens in source_token_sets):
+                available = any(
+                    _dimension_tokens_match(requested_tokens, table_tokens)
+                    for table_tokens in schema_table_token_sets
+                )
+        if not available:
+            missing_dimensions.append(requested)
+    if missing_dimensions:
+        failed.extend(["missing_required_dimension", "source_conflict"])
+        evidence["missing_required_dimensions"] = missing_dimensions
+
+    query_conditions = extract_nl_aggregate_conditions(nl_query)
+    source_conditions = constraints.get("having") or []
+    source_filters = constraints.get("filters") or []
+    evidence["query_aggregate_conditions"] = query_conditions
+    evidence["source_having_conditions"] = source_conditions
+    missing_conditions = []
+    for requested in query_conditions:
+        represented = any(
+            str(condition.get("aggregate", "")).upper() == requested["aggregate"]
+            and str(condition.get("operator")) == requested["operator"]
+            and str(condition.get("value")) == requested["value"]
+            for condition in source_conditions
+        )
+        if not represented:
+            represented = any(
+                requested["subject"] in str(source_filter.get("field") or "").lower()
+                and str(source_filter.get("operator")) == requested["operator"]
+                and str(source_filter.get("value")) == requested["value"]
+                for source_filter in source_filters
+            )
+        if not represented:
+            missing_conditions.append(requested)
+    if missing_conditions:
+        failed.extend(["missing_aggregate_condition", "source_conflict"])
+        evidence["missing_aggregate_conditions"] = missing_conditions
+
+    query_grains = extract_nl_time_grains(nl_query)
+    source_grain = str(time_grain.get("grain") or "").upper() or None
+    evidence["query_time_grains"] = query_grains
+    evidence["source_time_grain"] = source_grain
+    if query_grains and source_grain and source_grain not in query_grains:
+        failed.extend(["time_grain_source_conflict", "source_conflict"])
+    elif query_grains and not source_grain:
+        failed.extend(["missing_required_time_grain", "source_conflict"])
+
+    return {"failed_rules": list(dict.fromkeys(failed)), "evidence": evidence}
 
 
 # --------------------------------------------------------------------------- #
@@ -391,14 +1038,21 @@ def _base_chart_evidence(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict
     return prov, axis_typing, db_id, sql, (x_field, x_profile, x_id), (y_field, y_profile, y_id)
 
 
+def _is_count_axis(axis_typed: Dict[str, Any]) -> bool:
+    """True when the plotted value is a count, not the identifier base itself."""
+    return str(axis_typed.get("aggregate") or "").upper() == "COUNT"
+
+
 def chart_bar(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]) -> Dict[str, Any]:
     prov, axis_typing, db_id, sql, (xf, xp, xid), (yf, yp, yid) = _base_chart_evidence(record, profiler, cfg)
     failed: List[str] = []
     warnings: List[str] = []
     yt = axis_typing.get("y") or {}
-    if yt.get("role") == "measure" and yid["is_identifier"] and yid["confidence"] == "strong":
+    if (yt.get("role") == "measure" and not _is_count_axis(yt)
+            and yid["is_identifier"] and yid["confidence"] == "strong"):
         failed.append("identifier_as_measure")
-    elif yt.get("role") == "measure" and yid["is_identifier"] and yid["confidence"] == "ambiguous":
+    elif (yt.get("role") == "measure" and not _is_count_axis(yt)
+          and yid["is_identifier"] and yid["confidence"] == "ambiguous"):
         warnings.append("possible_identifier_as_measure")
     if _evidence_insufficient(yp):
         failed.append("insufficient_measure_evidence")
@@ -419,7 +1073,8 @@ def chart_line(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any]
         failed.append("unordered_line_dimension")
     if yt.get("role") != "measure" or yt.get("dtype") != "number":
         failed.append("non_numeric_line_measure")
-    if yt.get("role") == "measure" and yid["is_identifier"] and yid["confidence"] == "strong":
+    if (yt.get("role") == "measure" and not _is_count_axis(yt)
+            and yid["is_identifier"] and yid["confidence"] == "strong"):
         failed.append("identifier_as_measure")
     evidence = {"x_profile": xp, "y_profile": yp, "is_ordered": is_ordered}
     return {"passed": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
@@ -462,6 +1117,14 @@ def chart_pie(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, Any])
     y_agg = (axis_typing.get("y") or {}).get("aggregate")
     if y_agg and y_agg.upper() not in additive_aggs:
         failed.append(reason_code)
+    # Percentages over independent dates are separate observations, not slices
+    # of one additive whole. Preserve the Pie source label but demote it.
+    x_typed = axis_typing.get("x") or {}
+    y_name = str((axis_typing.get("y") or {}).get("name") or "")
+    temporal_x = x_typed.get("dtype") == "datetime" or _name_is_temporal(str(x_typed.get("name") or ""), cfg)
+    percentage_measure = bool(re.search(r"(^|_)(percent|percentage|rate|share)($|_)", y_name, re.IGNORECASE))
+    if not y_agg and temporal_x and percentage_measure:
+        failed.append("pie_not_part_to_whole")
     evidence = {"x_profile": xp, "y_profile": yp, "x_identifier": xid, "max_categories": max_categories,
                 "y_aggregate": y_agg, "additive_aggregates": sorted(additive_aggs)}
     return {"passed": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
@@ -472,18 +1135,93 @@ def chart_scatter(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[str, A
     failed: List[str] = []
     warnings: List[str] = []
     min_distinct = int(cfg["chart"]["scatter"]["min_distinct_values"])
+    scatter_cfg = cfg.get("chart", {}).get("scatter", {}) or {}
+    identifier_reason = scatter_cfg.get("identifier_axis_reason_code", "scatter_identifier_axis")
+    invalid_reason = scatter_cfg.get("invalid_axes_reason_code", "invalid_scatter_axes")
+    invalid = False
+    identifier_axis = False
     for axis_name, t, profile, idf in (("x", axis_typing.get("x") or {}, xp, xid),
                                         ("y", axis_typing.get("y") or {}, yp, yid)):
-        if t.get("dtype") == "categorical":
-            failed.append(f"categorical_scatter_axis:{axis_name}")
-        if idf["is_identifier"]:
-            failed.append(f"identifier_scatter_axis:{axis_name}")
-        if _chart_shape_evidence_insufficient(profile):
-            failed.append(f"insufficient_axis_evidence:{axis_name}")
-        elif profile.get("distinct_count") is not None and profile["distinct_count"] < min_distinct:
-            failed.append(f"low_variation_axis:{axis_name}")
+        if t.get("dtype") != "number" or t.get("role") != "measure":
+            invalid = True
+        if idf["is_identifier"] and not _is_count_axis(t):
+            identifier_axis = True
+            invalid = True
+            if t.get("role") == "measure":
+                failed.append("identifier_as_measure")
+        # Aggregate output variation must be measured from the actual result
+        # below. Its base column (or COUNT(*)) is not the plotted distribution.
+        if not t.get("aggregate"):
+            if _chart_shape_evidence_insufficient(profile):
+                invalid = True
+                failed.append(f"insufficient_axis_evidence:{axis_name}")
+            elif profile.get("distinct_count") is not None and profile["distinct_count"] < min_distinct:
+                invalid = True
+                failed.append(f"low_variation_axis:{axis_name}")
+    if identifier_axis:
+        failed.append(identifier_reason)
+
+    # A Scatter needs an observation unit. Aggregate axes without a valid raw
+    # SQL grouping field or VQL BIN collapse to one point (or invalid SQL), so
+    # base-table column variation cannot certify the chart.
+    group_terms = classify_group_by_terms(sql)
+    valid_observation_fields = [
+        str(term["field"]) for term in group_terms if term["kind"] == "field" and term.get("field")
+    ]
+    visual_grouping = (prov.get("constraints") or {}).get("visual_grouping") or {}
+    if visual_grouping.get("origin") == "vql_bin":
+        valid_observation_fields.extend(str(field) for field in (visual_grouping.get("fields") or []))
+    aggregate_axes = [
+        axis for axis in ("x", "y") if (axis_typing.get(axis) or {}).get("aggregate")
+    ]
+    observation_profiles = [
+        profiler.profile_field(db_id, field, sql_context=sql) for field in valid_observation_fields
+    ]
+    result_max_rows = int(scatter_cfg.get("result_profile_max_rows", 1000))
+    source_result_profile = profiler.profile_query_result(db_id, sql, max_rows=result_max_rows)
+    result_profile = source_result_profile
+    result_profile_origin = "source_sql"
+    vql_materialization: Dict[str, Any] = {"status": "not_attempted", "sql": None}
+    if aggregate_axes and visual_grouping.get("origin") == "vql_bin":
+        vql_materialization = _materialize_vql_grouping_sql(
+            sql, prov.get("constraints") or {}
+        )
+        if vql_materialization.get("sql"):
+            materialized_profile = profiler.profile_query_result(
+                db_id, str(vql_materialization["sql"]), max_rows=result_max_rows
+            )
+            vql_materialization["result_profile"] = materialized_profile
+            result_profile = materialized_profile
+            result_profile_origin = "vql_bin_validation_materialization"
+    result_columns = result_profile.get("columns") or []
+    result_axes_valid = (
+        result_profile.get("execution_status") == "ok"
+        and len(result_columns) >= 2
+        and result_profile.get("paired_numeric_row_count", 0) >= 2
+        and result_profile.get("paired_numeric_distinct_x_count", 0) >= 2
+        and result_profile.get("paired_numeric_distinct_y_count", 0) >= 2
+        and result_profile.get("paired_numeric_distinct_pair_count", 0) >= 2
+    )
+    if not result_axes_valid:
+        failed.extend([
+            "insufficient_scatter_observations",
+            invalid_reason,
+            "chart_inappropriate",
+        ])
+        invalid = True
+    if invalid:
+        failed.append(invalid_reason)
     evidence = {"x_profile": xp, "y_profile": yp, "x_identifier": xid, "y_identifier": yid,
-                "min_distinct_values": min_distinct}
+                "min_distinct_values": min_distinct,
+                "group_by_terms": group_terms,
+                "valid_observation_fields": valid_observation_fields,
+                "observation_profiles": observation_profiles,
+                "aggregate_axes": aggregate_axes,
+                "query_result_profile_origin": result_profile_origin,
+                "source_query_result_profile": source_result_profile,
+                "vql_bin_validation_materialization": vql_materialization,
+                "query_result_profile": result_profile}
+    failed = list(dict.fromkeys(failed))
     return {"passed": not failed, "failed_rules": failed, "warnings": warnings, "evidence": evidence}
 
 
@@ -508,7 +1246,8 @@ def chart_stacked_bar(record: Dict[str, Any], profiler: DbProfiler, cfg: Dict[st
         if group_id["is_identifier"]:
             failed.append("identifier_group_field")
     yt = axis_typing.get("y") or {}
-    if yt.get("role") == "measure" and yid["is_identifier"] and yid["confidence"] == "strong":
+    if (yt.get("role") == "measure" and not _is_count_axis(yt)
+            and yid["is_identifier"] and yid["confidence"] == "strong"):
         failed.append("identifier_as_measure")
     evidence = {"group_field": group_field, "group_profile": group_profile, "group_identifier": group_id,
                 "y_profile": yp, "max_group_cardinality": max_group}
@@ -548,13 +1287,16 @@ def score_and_tier(
     fidelity_failed: List[str],
     cfg: Dict[str, Any],
     constraint_result: Optional[Dict[str, Any]] = None,
+    consistency_result: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     weights = cfg["scoring"]["weights"]
     tier_a_min_score = int(cfg["scoring"]["tier_a_min_score"])
     constraint_result = constraint_result or {"failed_rules": [], "evidence": {}}
+    consistency_result = consistency_result or {"failed_rules": [], "evidence": {}}
 
     semantic_constraint_failed = [c for c in fidelity_failed if c in _CONSTRAINT_CHECK_NAMES]
     general_fidelity_failed = [c for c in fidelity_failed if c not in _CONSTRAINT_CHECK_NAMES]
+    general_fidelity_failed.extend(consistency_result.get("failed_rules", []))
     constraint_failed = list(semantic_constraint_failed) + list(constraint_result["failed_rules"])
 
     fidelity_score = 0 if general_fidelity_failed else weights["source_fidelity"]
@@ -600,6 +1342,14 @@ def score_and_tier(
     # unsupported profile (fraction 0 with fields present) is a mandatory failure.
     if states and db_fraction == 0.0:
         failed_rules.append("insufficient_db_profile_support")
+
+    # One scientific defect may be detected independently by multiple
+    # components (for example identifier_as_measure in both KPI and chart
+    # checks). Preserve the evidence within each component, but expose each
+    # record-level reason code once so summaries count affected records rather
+    # than double-counting detector paths.
+    failed_rules = list(dict.fromkeys(failed_rules))
+    warnings = list(dict.fromkeys(warnings))
 
     mandatory_failure = bool(failed_rules)
     # Tier C is reserved for a newly discovered *severe* contradiction: a
@@ -677,18 +1427,23 @@ def build_quality_pool(
         chart_type = m.get("chart_type", "")
         db_id = prov.get("db_id", "?")
 
+        # Rule precedence: constraint extraction and source consistency are
+        # evaluated before KPI/identifier/chart suitability.
+        constraint_result = check_required_constraints(rec, profiler, cfg)
+        consistency_result = check_source_consistency(rec, profiler)
         kpi_result = kpi_suitability(rec, profiler, cfg)
         checker = CHART_CHECKERS.get(chart_type)
         chart_result = checker(rec, profiler, cfg) if checker else {
             "passed": False, "failed_rules": [f"unknown_chart_type:{chart_type}"], "warnings": [], "evidence": {},
         }
-        constraint_result = check_required_constraints(rec, profiler, cfg)
         fidelity_failed = fidelity_failed_map.get(iid, [])
         quality = score_and_tier(rec, kpi_result, chart_result, fidelity_failed, cfg,
-                                 constraint_result=constraint_result)
+                                 constraint_result=constraint_result,
+                                 consistency_result=consistency_result)
         quality["kpi_suitability"] = kpi_result
         quality["chart_suitability"] = chart_result
         quality["constraint_suitability"] = constraint_result
+        quality["source_consistency"] = consistency_result
         quality["fidelity_failed"] = fidelity_failed
         quality_by_id[iid] = quality
 

@@ -14,6 +14,7 @@ Key guarantees:
 
 from __future__ import annotations
 
+import math
 import re
 import sqlite3
 from pathlib import Path
@@ -31,10 +32,14 @@ from src.core.schemas import (
 from src.data_pipeline.nvbench_extract import (
     check_aggregate_intent_conflict,
     check_chart_query_conflict,
+    classify_group_by_terms,
     extract_base_field,
     extract_group_by_fields,
+    extract_having_conditions,
+    extract_limit,
     extract_nested,
     extract_order_by,
+    extract_select_projection_fields,
     extract_time_grain,
     extract_where_filters,
     resolve_nested,
@@ -154,6 +159,21 @@ def normalize_sqlite_type(sqlite_type: str) -> str:
     return "categorical"
 
 
+def is_finite_number(value: Any) -> int:
+    """SQLite UDF: return 1 only for complete, finite numeric scalars."""
+    if value is None or isinstance(value, bool):
+        return 0
+    if isinstance(value, (int, float)):
+        return int(math.isfinite(float(value)))
+    text = str(value).strip()
+    if not text or not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", text):
+        return 0
+    try:
+        return int(math.isfinite(float(text)))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 class DbMetadataResolver:
     """Look up real column data types from the cached SQLite databases.
 
@@ -191,6 +211,7 @@ class DbMetadataResolver:
         result: Dict[str, str] = {}
         try:
             con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            con.create_function("nvbench_is_finite_number", 1, is_finite_number)
         except (sqlite3.Error, ValueError, OSError):
             return result
         try:
@@ -203,7 +224,17 @@ class DbMetadataResolver:
             for t in tables:
                 for row in con.execute(f'PRAGMA table_info("{t}")').fetchall():
                     col_name = str(row[1]).lower()
-                    result.setdefault(col_name, normalize_sqlite_type(str(row[2])))
+                    dtype = normalize_sqlite_type(str(row[2]))
+                    if dtype == "categorical":
+                        qtable = '"' + str(t).replace('"', '""') + '"'
+                        qcol = '"' + str(row[1]).replace('"', '""') + '"'
+                        non_null, numeric = con.execute(
+                            f"SELECT COUNT({qcol}), "
+                            f"COALESCE(SUM(nvbench_is_finite_number({qcol})), 0) FROM {qtable}"
+                        ).fetchone()
+                        if non_null and numeric == non_null:
+                            dtype = "number"
+                    result.setdefault(col_name, dtype)
         except sqlite3.Error:
             return {}
         finally:
@@ -312,12 +343,24 @@ def select_kpi(x_typed: Dict[str, Any], y_typed: Dict[str, Any]) -> Dict[str, An
 
     - Exactly one aggregate axis -> that aggregate is the KPI.
     - Both axes aggregate -> y is primary, both preserved.
-    - No aggregate but numeric measures -> the numeric measure axis (y preferred).
-    - Neither -> y expression as documented fallback.
+    - No aggregate but numeric, non-identifier-like measures -> the numeric
+      measure axis (y preferred).
+    - Identifier-shaped and categorical axes are never added to ``brief.kpis``.
+      When no valid KPI remains, the source y expression stays in the mapping
+      solely for source fidelity and quality rules demote the record.
     """
     axes = {"x": x_typed, "y": y_typed}
     agg_axes = [a for a in ("x", "y") if axes[a]["aggregate"]]
-    measure_axes = [a for a in ("x", "y") if axes[a]["role"] == "measure"]
+    obvious_identifier = re.compile(
+        r"(?:^|_)(?:id|identifier|key|code)$|^(?:id|identifier|key|code)(?:_|$)",
+        re.IGNORECASE,
+    )
+    measure_axes = [
+        a for a in ("x", "y")
+        if axes[a]["role"] == "measure"
+        and axes[a].get("dtype") == "number"
+        and not obvious_identifier.search(_strip_alias(str(axes[a].get("name") or "")))
+    ]
 
     if len(agg_axes) == 1:
         primary, policy = agg_axes[0], "single-aggregate"
@@ -330,11 +373,13 @@ def select_kpi(x_typed: Dict[str, Any], y_typed: Dict[str, Any]) -> Dict[str, An
         policy = "numeric-measure-y-primary"
         evidence = "no aggregate; primary numeric measure axis chosen (y preferred)"
     else:
-        primary, policy = "y", "fallback-y"
-        evidence = "no aggregate or numeric measure; y expression used as documented fallback KPI"
+        primary, policy = "y", "no-valid-kpi"
+        evidence = "no aggregate or eligible numeric measure; source y is retained only in the encoding"
 
-    ordered = [axes[primary]["name"]] + [axes[a]["name"] for a in ("x", "y")
-                                         if a != primary and axes[a]["role"] == "measure"]
+    eligible_axes = agg_axes if agg_axes else measure_axes
+    ordered = ([axes[primary]["name"]] if primary in eligible_axes else []) + [
+        axes[a]["name"] for a in ("x", "y") if a != primary and a in eligible_axes
+    ]
     seen: set = set()
     kpis: List[str] = []
     for k in ordered:
@@ -486,6 +531,10 @@ def build_gold_item(
                 raw_cols.add(base, "measure")
         else:
             raw_cols.add(typed["name"], typed["role"])
+    # Preserve every physical top-level projection, including source fields
+    # that are not chosen as the chart's x/y axes. Never infer NL-only fields.
+    for projected_field in extract_select_projection_fields(sql):
+        raw_cols.add(projected_field, "source_projection")
 
     # 7) Grouping series-field recovery — mandatory (reject) for every grouped
     #    chart, including Stacked Bar, which always carries classify values.
@@ -524,12 +573,47 @@ def build_gold_item(
         sort_base = extract_base_field(sort_expr) if parse_aggregate(sort_expr) else sort_expr
         raw_cols.add(sort_base, "sort")
 
-    # 10) Time grain / binning.
-    time_grain = extract_time_grain(binning)
+    # 10) Row limits and aggregate conditions are independent constraints.
+    limit_info = extract_limit(sql or vql)
+    if limit_info["status"] == "unrepresentable":
+        raise RejectedRecord("unpreserved_limit", limit_info["detail"], evidence=ev())
+    having_info = extract_having_conditions(sql or vql)
+    if having_info["status"] == "unrepresentable":
+        raise RejectedRecord("unpreserved_having", having_info["detail"], evidence=ev())
+    for condition in having_info["conditions"]:
+        raw_cols.add(condition.get("field"), "aggregate_filter")
+
+    # 11) VQL time grain / visual binning. Some nvBench variants preserve BIN
+    # only in VQL, so inspect VQL when data_part.binning is empty.
+    time_grain = extract_time_grain(binning or vql)
     if binning.strip() and time_grain is None:
         raise RejectedRecord("unpreserved_time_grain", f"unparseable BIN clause: {binning!r}", evidence=ev())
     if time_grain:
         raw_cols.add(time_grain["field"], "time_bin")
+
+    sql_group_fields = extract_group_by_fields(sql)
+    # Every valid physical SQL grouping field is part of the analytical
+    # observation unit and must be represented in raw columns, even when it is
+    # not projected as x/y or used as a multi-series group_field. Invalid
+    # aggregate/computed grouping expressions remain source evidence only.
+    for term in classify_group_by_terms(sql):
+        if term["kind"] == "field" and term.get("field"):
+            raw_cols.add(term["field"], "group")
+    normalized_group_fields: List[str] = []
+    if time_grain:
+        normalized_group_fields.append(time_grain["field"])
+    for field in sql_group_fields:
+        if field.lower() not in {name.lower() for name in normalized_group_fields}:
+            normalized_group_fields.append(field)
+    grouping.update({
+        "sql_group_by_fields": sql_group_fields,
+        "normalized_fields": normalized_group_fields,
+        "grouping_origin": "vql_bin" if time_grain else ("sql_group_by" if sql_group_fields else "none"),
+        "series_grouping_origin": "sql_group_by" if group_field else None,
+        "grouping_status": "implicit_visual_grouping" if time_grain else (
+            "explicit_sql_grouping" if sql_group_fields else "none"
+        ),
+    })
 
     if not raw_cols.as_list():
         raise RejectedRecord("missing_source_field", "no raw source field could be recovered", evidence=ev())
@@ -548,7 +632,14 @@ def build_gold_item(
         "group_field": group_field,
         "filters": filters_info["filters"],
         "sort": sort_info if sort_info["status"] == "ok" else None,
+        "limit": limit_info["value"] if limit_info["status"] == "ok" else None,
+        "having": having_info["conditions"],
         "time_grain": time_grain,
+        "visual_grouping": {
+            "fields": normalized_group_fields,
+            "origin": grouping["grouping_origin"],
+            "status": grouping["grouping_status"],
+        },
         "source_x": x_name,
         "source_y": y_name,
     }
@@ -582,7 +673,15 @@ def build_gold_item(
         "constraints": {
             "filters": filters_info["filters"],
             "sort": sort_info if sort_info["status"] == "ok" else None,
+            "limit": limit_info["value"] if limit_info["status"] == "ok" else None,
+            "limit_origin": limit_info["syntax"] if limit_info["status"] == "ok" else None,
+            "having": having_info["conditions"],
             "time_grain": time_grain,
+            "visual_grouping": {
+                "fields": normalized_group_fields,
+                "origin": grouping["grouping_origin"],
+                "status": grouping["grouping_status"],
+            },
             "source_order": sort_info if sort_info["status"] == "ok" else None,
         },
         "build_warnings": [],

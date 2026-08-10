@@ -14,6 +14,7 @@ from src.data_pipeline.nvbench_large_v1 import (
     NON_SCATTER_CHARTS,
     NORMALIZED_CHART_TYPES,
     compute_availability,
+    repair_selected_v1,
     select_human_eval_sample,
     select_large_v1,
     select_spotcheck_sample,
@@ -40,7 +41,7 @@ def _goal(chart, item_id):
 
 
 def _rec(item_id, chart, group_id, db_id, *, score=100, failed=None, filters=None,
-        sort=None, grouping=False, time_grain=None, y_agg=None, goal=None, x_field=None, y_field=None, kpi=None,
+        sort=None, limit=None, grouping=False, time_grain=None, y_agg=None, goal=None, x_field=None, y_field=None, kpi=None,
         group_field=None):
     goal = goal if goal is not None else _goal(chart, item_id)
     kpi = kpi if kpi is not None else f"k_{item_id}"
@@ -48,7 +49,8 @@ def _rec(item_id, chart, group_id, db_id, *, score=100, failed=None, filters=Non
         "source_group_id": group_id, "db_id": db_id, "nl_query": goal,
         "original_chart_label": chart.capitalize().replace("_", " "),
         "vis_query": {"data_part": {"sql_part": "SELECT 1"}, "VQL": "SELECT 1"},
-        "constraints": {"filters": filters or [], "sort": sort, "time_grain": time_grain},
+        "constraints": {"filters": filters or [], "sort": sort, "limit": limit,
+                        "having": [], "time_grain": time_grain},
         "grouping": {"is_grouped": grouping},
         "axis_typing": {"x": {"name": x_field}, "y": {"name": y_field, "aggregate": y_agg}},
         "kpi_selection": {"primary_kpi": kpi},
@@ -255,13 +257,12 @@ def test_split_train_val_deterministic():
 # --------------------------------------------------------------------------- #
 # select_spotcheck_sample
 # --------------------------------------------------------------------------- #
-def test_spotcheck_sample_size_and_all_scatter_included():
+def test_spotcheck_sample_size_and_not_scatter_dominated():
     items = _pool({"scatter": 8, "bar": 50, "line": 50, "pie": 50, "stacked_bar": 50})
     sample = select_spotcheck_sample(items, seed=42, size=30)
     assert len(sample) == 30
-    scatter_ids = {r["item_id"] for r in items if r["chart_type"] == "scatter"}
-    sample_ids = {r["item_id"] for r in sample}
-    assert scatter_ids <= sample_ids  # all 8 scatter (<=10) must be included
+    assert 1 <= sum(r["chart_type"] == "scatter" for r in sample) <= 4
+    assert {r["chart_type"] for r in sample} == set(NORMALIZED_CHART_TYPES)
 
 
 def test_spotcheck_sample_covers_multiple_chart_types():
@@ -275,12 +276,14 @@ def test_spotcheck_sample_covers_constraint_presence():
     items = _pool({"bar": 20, "line": 20, "pie": 20, "stacked_bar": 20})
     items.append(_rec("bar:filtered", "bar", "grp:bar:filtered", "dbf", filters=[{"field": "x", "operator": "=", "value": "1"}]))
     items.append(_rec("line:sorted", "line", "grp:line:sorted", "dbs", sort={"field": "y", "direction": "asc"}))
+    items.append(_rec("bar:limited", "bar", "grp:bar:limited", "dbl", limit=5))
     items.append(_rec("pie:grouped", "pie", "grp:pie:grouped", "dbg", grouping=True))
     items.append(_rec("stacked_bar:timegrain", "stacked_bar", "grp:sb:tg", "dbt", time_grain={"field": "d", "grain": "YEAR"}))
     sample = select_spotcheck_sample(items, seed=42, size=30)
     sample_ids = {r["item_id"] for r in sample}
     assert "bar:filtered" in sample_ids
     assert "line:sorted" in sample_ids
+    assert "bar:limited" in sample_ids
     assert "pie:grouped" in sample_ids
     assert "stacked_bar:timegrain" in sample_ids
 
@@ -290,6 +293,18 @@ def test_spotcheck_sample_deterministic():
     s1 = select_spotcheck_sample(items, seed=42, size=30)
     s2 = select_spotcheck_sample(items, seed=42, size=30)
     assert [r["item_id"] for r in s1] == [r["item_id"] for r in s2]
+
+
+def test_spotcheck_sample_covers_one_and_two_record_groups():
+    items = _pool({"bar": 30, "line": 30, "pie": 30, "scatter": 5, "stacked_bar": 30})
+    pair = [
+        _rec("pair:a", "bar", "paired-group", "pair-db", kpi="ka", goal=_goal("bar", "pair-a")),
+        _rec("pair:b", "bar", "paired-group", "pair-db", kpi="kb", goal=_goal("bar", "pair-b")),
+    ]
+    sample = select_spotcheck_sample(items + pair, seed=42, size=30)
+    counts = collections.Counter(r["source_group_id"] for r in sample)
+    assert any(count == 1 for count in counts.values())
+    assert counts["paired-group"] == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -397,6 +412,102 @@ def test_select_large_v1_max_per_group_2_no_tier_b_fallback():
     selected, report = select_large_v1(items, _no_eval(), seed=42, total=10, db_cap=100, max_per_group=2)
     assert selected is not None
     assert all(r["quality_tier"] == "A" for r in selected)
+
+
+def test_repair_selected_replaces_demoted_rows_with_tier_a_only():
+    retained = [
+        _rec("old:bar", "bar", "g:bar", "db:bar"),
+        _rec("old:pie", "pie", "g:pie", "db:pie"),
+    ]
+    replacement_line = _rec("new:line", "line", "g:new:line", "db:new:line")
+    replacement_bar = _rec("new:bar", "bar", "g:new:bar", "db:new:bar")
+    contaminated = _rec("bad:tierb", "line", "g:bad", "db:bad")
+    contaminated["quality_tier"] = "B"
+    selected, report = repair_selected_v1(
+        retained + [replacement_line, replacement_bar, contaminated],
+        _no_eval(),
+        ["old:bar", "old:pie", "old:demoted"],
+        previous_chart_distribution={"bar": 1, "pie": 1, "line": 1},
+        preferred_target=3,
+        minimum_acceptable=3,
+        seed=42,
+    )
+    assert selected is not None
+    assert {record["item_id"] for record in selected} == {"old:bar", "old:pie", "new:line"}
+    assert all(record["quality_tier"] == "A" for record in selected)
+    assert report["removed_previous_ids"] == ["old:demoted"]
+    assert report["replacement_ids"] == ["new:line"]
+
+
+def test_repair_selected_is_deterministic_and_group_capped():
+    items = _pool({"bar": 20, "line": 20, "pie": 20, "scatter": 5, "stacked_bar": 20})
+    previous = [record["item_id"] for record in items[:10]] + ["missing:tierb"]
+    kwargs = dict(
+        previous_chart_distribution={"bar": 10, "line": 1},
+        preferred_target=11,
+        minimum_acceptable=11,
+        max_per_group=2,
+        seed=7,
+    )
+    first, first_report = repair_selected_v1(items, _no_eval(), previous, **kwargs)
+    second, second_report = repair_selected_v1(items, _no_eval(), previous, **kwargs)
+    assert [record["item_id"] for record in first] == [record["item_id"] for record in second]
+    assert first_report["replacement_ids"] == second_report["replacement_ids"]
+    counts = collections.Counter(record["source_group_id"] for record in first)
+    assert max(counts.values()) <= 2
+
+
+def test_repair_selected_uses_safe_one_for_two_augmentation():
+    import hashlib
+
+    core = " ".join(hashlib.md5(f"core:{i}".encode()).hexdigest() for i in range(120))
+    suffix_a = " ".join(hashlib.md5(f"alpha:{i}".encode()).hexdigest() for i in range(40))
+    suffix_b = " ".join(hashlib.md5(f"bravo:{i}".encode()).hexdigest() for i in range(40))
+    blocker = _rec("old:blocker", "bar", "g:swap", "db:swap",
+                   goal=f"{core} {suffix_a} {suffix_b}", kpi="old_kpi")
+    first = _rec("new:first", "bar", "g:swap", "db:swap",
+                 goal=f"{core} {suffix_a}", kpi="first_kpi",
+                 sort={"field": "x", "direction": "asc"})
+    second = _rec("new:second", "bar", "g:swap", "db:swap",
+                  goal=f"{core} {suffix_b}", kpi="second_kpi",
+                  sort={"field": "x", "direction": "desc"})
+
+    selected, report = repair_selected_v1(
+        [blocker, first, second], _no_eval(), [blocker["item_id"], "old:demoted"],
+        previous_chart_distribution={"bar": 2}, preferred_target=2,
+        minimum_acceptable=2, max_per_group=2, seed=42,
+    )
+
+    assert selected is not None
+    assert {record["item_id"] for record in selected} == {"new:first", "new:second"}
+    assert report["count_optimization_swaps"][0]["removed_item_id"] == "old:blocker"
+    assert max(collections.Counter(record["source_group_id"] for record in selected).values()) == 2
+
+
+def test_repair_selected_uses_safe_cross_group_augmentation():
+    import hashlib
+
+    core = " ".join(hashlib.md5(f"cross-core:{i}".encode()).hexdigest() for i in range(120))
+    suffix_a = " ".join(hashlib.md5(f"cross-alpha:{i}".encode()).hexdigest() for i in range(40))
+    suffix_b = " ".join(hashlib.md5(f"cross-bravo:{i}".encode()).hexdigest() for i in range(40))
+    blocker = _rec("old:cross", "bar", "g:blocker", "db:blocker",
+                   goal=f"{core} {suffix_a} {suffix_b}", kpi="old_cross_kpi")
+    first = _rec("new:cross:first", "line", "g:first", "db:first",
+                 goal=f"{core} {suffix_a}", kpi="first_cross_kpi")
+    second = _rec("new:cross:second", "pie", "g:second", "db:second",
+                  goal=f"{core} {suffix_b}", kpi="second_cross_kpi")
+
+    selected, report = repair_selected_v1(
+        [blocker, first, second], _no_eval(), [blocker["item_id"], "old:demoted"],
+        previous_chart_distribution={"bar": 1, "line": 1}, preferred_target=2,
+        minimum_acceptable=2, max_per_group=2, seed=42,
+    )
+
+    assert selected is not None
+    assert {record["item_id"] for record in selected} == {
+        "new:cross:first", "new:cross:second"
+    }
+    assert report["count_optimization_swaps"][0]["reason"].startswith("cross-group")
 
 
 def test_select_large_v1_max_per_group_2_reaches_more_than_one_per_group():

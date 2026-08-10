@@ -33,23 +33,47 @@ _CHART_KEYWORDS = {
 }
 
 _WHERE_RE = re.compile(
-    r"\bWHERE\b(.*?)(?:\bGROUP\s+BY\b|\bORDER\s+BY\b|\bBIN\b|$)", re.IGNORECASE | re.DOTALL
+    r"\bWHERE\b(.*?)(?:\bGROUP\s+BY\b|\bHAVING\b|\bORDER\s+BY\b|\bLIMIT\b|\bBIN\b|$)",
+    re.IGNORECASE | re.DOTALL,
 )
 _GROUP_BY_RE = re.compile(
     r"\bGROUP\s+BY\b(.*?)(?:\bORDER\s+BY\b|\bBIN\b|\bLIMIT\b|\bHAVING\b|$)",
     re.IGNORECASE | re.DOTALL,
 )
 _ORDER_BY_RE = re.compile(
-    r"\bORDER\s+BY\b(.*?)(?:\bBIN\b|$)", re.IGNORECASE | re.DOTALL
+    r"\bORDER\s+BY\b(.*?)(?:\bLIMIT\b|\bOFFSET\b|\bFETCH\b|\bBIN\b|$)",
+    re.IGNORECASE | re.DOTALL,
 )
 _BIN_RE = re.compile(r"\bBIN\s+([\w.]+)\s+BY\s+(\w+)", re.IGNORECASE)
+_LIMIT_RE = re.compile(r"\bLIMIT\s+(\d+)\b", re.IGNORECASE)
+_TOP_RE = re.compile(
+    r"\bSELECT\s+(?:DISTINCT\s+)?TOP\s*(?:\(\s*)?(\d+)(?:\s*\))?(?=\s|[A-Za-z_`\"\[])",
+    re.IGNORECASE,
+)
+_HAVING_RE = re.compile(
+    r"\bHAVING\b(.*?)(?:\bORDER\s+BY\b|\bLIMIT\b|\bOFFSET\b|\bFETCH\b|\bBIN\b|$)",
+    re.IGNORECASE | re.DOTALL,
+)
 _COND_RE = re.compile(
     r"^\s*([\w.]+)\s*(=|!=|<>|>=|<=|>|<|LIKE|IN|NOT\s+IN)\s*(.+?)\s*$", re.IGNORECASE
 )
+_AGG_COND_RE = re.compile(
+    r"^\s*((?:COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(?:\*|[\w.]+)\s*\))\s*"
+    r"(=|!=|<>|>=|<=|>|<)\s*(.+?)\s*$",
+    re.IGNORECASE,
+)
+
+_SUPPORTED_TIME_GRAINS = ("YEAR", "QUARTER", "MONTH", "WEEK", "WEEKDAY", "DAY", "HOUR", "DATE")
 
 
 def _strip_alias(name: str) -> str:
-    return name.split(".")[-1].strip() if name else name
+    """Strip a table qualifier from a simple identifier, never from an expression."""
+    if not name:
+        return name
+    stripped = name.strip()
+    if re.fullmatch(r"[\w.`\"\[\]]+", stripped):
+        return stripped.split(".")[-1].strip().strip('`"[]')
+    return stripped
 
 
 # --------------------------------------------------------------------------- #
@@ -66,7 +90,7 @@ def extract_base_field(expr: str) -> Optional[str]:
     m = _AGG_CALL_RE.match(expr)
     if not m or m.group(1).upper() not in _AGG_FUNCS:
         return None
-    arg = m.group(2).strip()
+    arg = re.sub(r"^DISTINCT\s+", "", m.group(2).strip(), flags=re.IGNORECASE)
     if arg == "*" or not arg:
         return None
     return _strip_alias(arg)
@@ -239,6 +263,41 @@ def extract_group_by_fields(sql: str) -> List[str]:
     return out
 
 
+def classify_group_by_terms(sql: str) -> List[Dict[str, Any]]:
+    """Classify each ``GROUP BY`` term without treating expressions as fields.
+
+    Aggregate calls are invalid grouping keys for the supported SQLite source
+    dialect. Other computed expressions remain explicit ``expression`` terms;
+    callers may preserve them as source evidence but must not claim that they
+    are physical grouping columns.
+    """
+    terms: List[Dict[str, Any]] = []
+    for expression in extract_group_by_fields(sql):
+        aggregate_match = _AGG_CALL_RE.match(expression)
+        if aggregate_match and aggregate_match.group(1).upper() in _AGG_FUNCS:
+            terms.append({
+                "expression": expression,
+                "kind": "invalid_aggregate_expression",
+                "aggregate": aggregate_match.group(1).upper(),
+                "field": extract_base_field(expression),
+            })
+        elif re.fullmatch(r"[\w.`\"\[\]]+", expression):
+            terms.append({
+                "expression": expression,
+                "kind": "field",
+                "aggregate": None,
+                "field": _strip_alias(expression),
+            })
+        else:
+            terms.append({
+                "expression": expression,
+                "kind": "expression",
+                "aggregate": None,
+                "field": None,
+            })
+    return terms
+
+
 def extract_order_by(sql_or_vql: str) -> Dict[str, Any]:
     """Extract a single sort key + direction from ``ORDER BY``.
 
@@ -269,12 +328,200 @@ def extract_order_by(sql_or_vql: str) -> Dict[str, Any]:
     return {"field": _strip_alias(field), "expression": field, "direction": direction, "status": "ok"}
 
 
+def extract_limit(sql_or_vql: str) -> Dict[str, Any]:
+    """Extract a row limit from either ``LIMIT N`` or ``SELECT TOP N``.
+
+    The two syntaxes are normalized into one integer ``value`` and retain their
+    source syntax for provenance. If both appear with different values, the
+    constraint is internally inconsistent and therefore unrepresentable.
+    """
+    text = sql_or_vql or ""
+    limit_match = _LIMIT_RE.search(text)
+    top_match = _TOP_RE.search(text)
+    values = []
+    if limit_match:
+        values.append((int(limit_match.group(1)), "limit"))
+    if top_match:
+        values.append((int(top_match.group(1)), "top"))
+    if not values:
+        return {"value": None, "syntax": None, "status": "none"}
+    unique_values = {value for value, _syntax in values}
+    if len(unique_values) != 1:
+        return {
+            "value": None,
+            "syntax": None,
+            "status": "unrepresentable",
+            "detail": f"conflicting row limits: {values}",
+        }
+    value = values[0][0]
+    if value <= 0:
+        return {
+            "value": None,
+            "syntax": values[0][1],
+            "status": "unrepresentable",
+            "detail": "row limit must be positive",
+        }
+    return {"value": value, "syntax": values[0][1], "status": "ok"}
+
+
+def extract_having_conditions(sql_or_vql: str) -> Dict[str, Any]:
+    """Normalize simple AND-joined aggregate predicates from ``HAVING``.
+
+    Conditions that cannot be represented without changing Boolean semantics
+    fail closed. No condition is inferred from natural language here.
+    """
+    match = _HAVING_RE.search(sql_or_vql or "")
+    if not match:
+        return {"conditions": [], "status": "none"}
+    segment = match.group(1).strip()
+    if not segment:
+        return {"conditions": [], "status": "unrepresentable", "detail": "empty HAVING clause"}
+    if re.search(r"\bOR\b", segment, re.IGNORECASE):
+        return {"conditions": [], "status": "unrepresentable", "detail": "OR in HAVING clause"}
+
+    conditions: List[Dict[str, Any]] = []
+    for raw_condition in re.split(r"\bAND\b", segment, flags=re.IGNORECASE):
+        condition = raw_condition.strip()
+        parsed = _AGG_COND_RE.match(condition)
+        if not parsed:
+            return {
+                "conditions": [],
+                "status": "unrepresentable",
+                "detail": f"unparseable aggregate condition: {condition!r}",
+            }
+        expression, operator, value = parsed.group(1), parsed.group(2), parsed.group(3).strip().strip("'\"")
+        aggregate = _AGG_CALL_RE.match(expression)
+        assert aggregate is not None
+        conditions.append({
+            "expression": re.sub(r"\s+", "", expression).upper(),
+            "aggregate": aggregate.group(1).upper(),
+            "field": None if aggregate.group(2).strip() == "*" else _strip_alias(aggregate.group(2)),
+            "operator": operator,
+            "value": value,
+        })
+    return {"conditions": conditions, "status": "ok"}
+
+
 def extract_time_grain(binning: str) -> Optional[Dict[str, str]]:
     """Parse ``BIN <field> BY <GRAIN>``; returns ``{field, grain}`` or ``None``."""
     m = _BIN_RE.search(binning or "")
     if not m:
         return None
     return {"field": _strip_alias(m.group(1)), "grain": m.group(2).upper()}
+
+
+def extract_nl_time_grains(nl_query: str) -> List[str]:
+    """Return only explicit natural-language binning/grain instructions.
+
+    The patterns intentionally require words such as ``bin`` or ``interval``;
+    incidental mentions of dates or years are not treated as constraints.
+    """
+    text = " ".join((nl_query or "").split())
+    grain_alt = "|".join(g.lower() for g in _SUPPORTED_TIME_GRAINS)
+    patterns = (
+        rf"\bbin(?:ning)?\b.*?\bby\s+({grain_alt})\b",
+        rf"\bbin(?:ning)?\b.*?\binto\s+(?:the\s+)?({grain_alt})\s+interval\b",
+        rf"\binto\s+(?:the\s+)?({grain_alt})\s+interval\b",
+    )
+    found: List[str] = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            grain = match.group(1).upper()
+            if grain not in found:
+                found.append(grain)
+    return found
+
+
+def extract_nl_aggregate_conditions(nl_query: str) -> List[Dict[str, str]]:
+    """Extract exact count thresholds stated in natural language.
+
+    This is diagnostic evidence only. It does not create SQL or VQL clauses.
+    The narrow comparative patterns avoid confusing ``top N`` requests with
+    aggregate filters.
+    """
+    text = " ".join((nl_query or "").lower().split())
+    operators = {
+        "more than": ">",
+        "greater than": ">",
+        "fewer than": "<",
+        "less than": "<",
+        "at least": ">=",
+        "at most": "<=",
+        "exactly": "=",
+    }
+    alt = "|".join(re.escape(phrase) for phrase in operators)
+    pattern = re.compile(rf"\b({alt})\s+(\d+)\s+([a-z][a-z0-9_-]*)\b", re.IGNORECASE)
+    out: List[Dict[str, str]] = []
+    for match in pattern.finditer(text):
+        subject = match.group(3).rstrip("s")
+        condition = {
+            "aggregate": "COUNT",
+            "operator": operators[match.group(1).lower()],
+            "value": match.group(2),
+            "subject": subject,
+            "origin": "natural_language",
+        }
+        if condition not in out:
+            out.append(condition)
+    return out
+
+
+def extract_nl_required_dimensions(nl_query: str) -> List[Dict[str, str]]:
+    """Extract narrow, explicit analytical-dimension requests from NL text.
+
+    Returned phrases must still be checked against selected/grouped/binned
+    source fields; this function never guesses a missing database column.
+    """
+    text = " ".join((nl_query or "").lower().split())
+    out: List[Dict[str, str]] = []
+
+    def add(name: str, origin: str) -> None:
+        normalized = re.sub(r"[^a-z0-9_]+", "_", name).strip("_")
+        if normalized.endswith("ies") and not normalized.endswith("_series") and normalized != "series":
+            normalized = normalized[:-3] + "y"
+        elif normalized.endswith("s") and not normalized.endswith(("ss", "series")):
+            normalized = normalized[:-1]
+        if normalized in {"bin", "axis", "value", "record", "item", "one"}:
+            return
+        item = {"dimension": normalized, "origin": origin}
+        if normalized and not any(existing["dimension"] == normalized for existing in out):
+            out.append(item)
+
+    # Keep short noun phrases rather than only their first word: ``each ship
+    # type`` requests ``ship_type``, not ``ship``.  Boundaries are explicit
+    # discourse/function words so this remains a high-precision extractor.
+    phrase_stop = {
+        "and", "or", "that", "who", "whose", "which", "where", "with",
+        "without", "using", "show", "return", "plot", "listed", "list",
+        "sort", "order", "into", "as", "on", "from", "of", "to",
+        "in", "the", "this", "these", "those", "named", "please", "what",
+        "is", "are", "was", "were", "has", "have",
+    }
+    for match in re.finditer(
+        r"\b(for\s+each|each)\s+"
+        r"([a-z][a-z0-9_-]*(?:'s)?(?:\s+[a-z][a-z0-9_-]*(?:'s)?){0,4})",
+        text,
+    ):
+        raw_tokens = match.group(2).split()
+        possessive = bool(raw_tokens and raw_tokens[0].endswith("'s"))
+        tokens: List[str] = []
+        for token in raw_tokens:
+            clean = token[:-2] if token.endswith("'s") else token
+            # ``move in date`` is a field phrase after a possessive; elsewhere
+            # ``in`` and ``of`` delimit the requested dimension.
+            if clean in phrase_stop and not (possessive and clean in {"in", "of"}):
+                break
+            tokens.append(clean)
+        if tokens:
+            add("_".join(tokens), "for_each" if match.group(1).startswith("for") else "each")
+    for match in re.finditer(r"\b(?:a|the)\s+series\s+of\s+([a-z][a-z0-9_-]*)", text):
+        noun = match.group(1)
+        if noun.endswith("s"):
+            noun = noun[:-1]
+        add(f"{noun}_series", "series_of")
+    for match in re.finditer(r"\b([a-z][a-z0-9_-]*)\s+series\b(?!\s+table\b)", text):
+        add(f"{match.group(1)}_series", "entity_series")
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -317,19 +564,53 @@ def extract_select_aggregates(sql: str) -> List[Dict[str, Any]]:
         return []
     out: List[Dict[str, Any]] = []
     for position, term in enumerate(_split_top_level(m.group(1))):
+        alias_match = re.search(
+            r"\s+AS\s+([\w.`\"\[\]]+)\s*$", term.strip(), flags=re.IGNORECASE
+        )
         # Drop a trailing ``AS alias`` so ``SUM(x) AS total`` still parses.
         clean = re.sub(r"\s+AS\s+[\w.`\"\[\]]+\s*$", "", term.strip(), flags=re.IGNORECASE)
         cm = _AGG_CALL_RE.match(clean)
         if not cm or cm.group(1).upper() not in _AGG_FUNCS:
             continue
         func = cm.group(1).upper()
-        arg = cm.group(2).strip()
+        arg = re.sub(r"^DISTINCT\s+", "", cm.group(2).strip(), flags=re.IGNORECASE)
         if arg == "*" or not arg:
             base = None
         else:
             base = _strip_alias(arg).strip().strip('`"[]')
-        out.append({"func": func, "base_field": base, "position": position})
+        item = {"func": func, "base_field": base, "position": position}
+        if alias_match:
+            item["alias"] = _strip_alias(alias_match.group(1)).strip().strip('`"[]')
+        out.append(item)
     return out
+
+
+def extract_select_projection_fields(sql: str) -> List[str]:
+    """Physical fields referenced directly by the top-level ``SELECT`` list.
+
+    Simple projections and aggregate arguments are returned in source order,
+    deduplicated case-insensitively. ``COUNT(*)`` and unsupported computed
+    expressions do not invent physical columns.
+    """
+    match = _SELECT_RE.search(sql or "")
+    if not match:
+        return []
+    fields: List[str] = []
+    seen: set = set()
+    for term in _split_top_level(match.group(1)):
+        clean = re.sub(r"\s+AS\s+[\w.`\"\[\]]+\s*$", "", term.strip(), flags=re.IGNORECASE)
+        aggregate = _AGG_CALL_RE.match(clean)
+        if aggregate and aggregate.group(1).upper() in _AGG_FUNCS:
+            field = extract_base_field(clean)
+        elif re.fullmatch(r"[\w.`\"\[\]]+", clean):
+            field = _strip_alias(clean)
+        else:
+            field = None
+        key = str(field or "").lower()
+        if field and key not in seen:
+            seen.add(key)
+            fields.append(field)
+    return fields
 
 
 # --------------------------------------------------------------------------- #
@@ -380,4 +661,8 @@ def extract_time_grain_signals(sql: str, vql: str = "") -> List[Dict[str, str]]:
             add(m.group(2), grain, "extract")
     for m in _NAMED_GRAIN_RE.finditer(text):
         add(m.group(2), m.group(1).upper(), "named_function")
+    for m in _BIN_RE.finditer(vql or ""):
+        grain = m.group(2).upper()
+        if grain in _SUPPORTED_TIME_GRAINS:
+            add(m.group(1), grain, "vql_bin")
     return out

@@ -19,7 +19,8 @@ _CFG = {
 
 def _profile(**overrides):
     base = {
-        "stats_available": True, "is_primary_key": False, "is_unique_index": False,
+        "stats_available": True, "is_primary_key": False, "is_foreign_key": False,
+        "is_unique_index": False,
         "distinct_count": 4, "unique_ratio": 1.0, "resolution": "unique_table_match",
     }
     base.update(overrides)
@@ -87,6 +88,43 @@ def test_unique_index_is_identifier_strong():
     r = detect_identifier(p, "code", _CFG)
     assert r["is_identifier"] is True
     assert r["confidence"] == "strong"
+
+
+def test_foreign_key_is_identifier_strong_even_when_values_repeat():
+    p = _profile(is_foreign_key=True, normalized_dtype="number", distinct_count=4, unique_ratio=0.1)
+    r = detect_identifier(p, "department_ref", _CFG)
+    assert r["is_identifier"] is True
+    assert r["confidence"] == "strong"
+    assert "foreign_key" in r["evidence"]
+
+
+def test_numeric_entity_id_name_is_strong_but_numeric_count_is_not():
+    repeated_id = _profile(normalized_dtype="number", distinct_count=12, unique_ratio=0.11)
+    assert detect_identifier(repeated_id, "DEPARTMENT_ID", _CFG)["confidence"] == "strong"
+
+    count_measure = _profile(normalized_dtype="number", distinct_count=12, unique_ratio=0.11)
+    result = detect_identifier(count_measure, "number_of_employees", _CFG)
+    assert result["is_identifier"] is False
+
+
+def test_identity_qualified_card_number_is_strong_with_small_near_unique_profile():
+    profile = _profile(
+        normalized_dtype="number", distinct_count=15, unique_ratio=1.0,
+        is_primary_key=False, is_foreign_key=False, is_unique_index=False,
+    )
+    result = detect_identifier(profile, "card_number", _CFG)
+    assert result["is_identifier"] is True
+    assert result["confidence"] == "strong"
+    assert "entity_number_name" in result["evidence"]
+
+
+def test_quantity_number_of_rooms_is_not_entity_number():
+    profile = _profile(
+        normalized_dtype="number", distinct_count=15, unique_ratio=0.95,
+        is_primary_key=False, is_foreign_key=False, is_unique_index=False,
+    )
+    result = detect_identifier(profile, "number_of_rooms", _CFG)
+    assert result["is_identifier"] is False
 
 
 def test_ambiguous_table_resolution_carried_as_evidence():

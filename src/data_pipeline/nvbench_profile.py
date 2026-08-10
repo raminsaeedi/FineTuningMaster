@@ -26,9 +26,13 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.data_pipeline.nvbench_source import DbMetadataResolver, normalize_sqlite_type
+from src.data_pipeline.nvbench_source import (
+    DbMetadataResolver,
+    is_finite_number,
+    normalize_sqlite_type,
+)
 
-PROFILE_RULE_VERSION = "nvbench_profile_v1"
+PROFILE_RULE_VERSION = "nvbench_profile_v3"
 
 _FROM_JOIN_RE = re.compile(
     r"\b(?:FROM|JOIN)\s+[`\"\[]?(\w+)[`\"\]]?(?:\s+(?:AS\s+)?[`\"\[]?(\w+)[`\"\]]?)?",
@@ -100,6 +104,7 @@ class DbProfiler:
         self._schema_cache: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]] = {}
         self._unique_index_cache: Dict[str, Dict[Tuple[str, str], bool]] = {}
         self._stats_cache: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+        self._query_result_cache: Dict[Tuple[str, str, int], Dict[str, Any]] = {}
         self._loaded_from_disk = False
         if self.cache_path and self.cache_path.exists():
             self._load_disk_cache()
@@ -132,7 +137,7 @@ class DbProfiler:
 
     # -- schema (cheap: PRAGMA table_info / index_list, no full-table scans) -- #
     def _schema(self, db_id: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        """``{table: {col_lower: {"declared_type":.., "is_pk":bool}}}``."""
+        """Return live schema evidence, including key roles, for each column."""
         if db_id in self._schema_cache:
             return self._schema_cache[db_id]
         schema: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -153,12 +158,20 @@ class DbProfiler:
                     for row in con.execute(f'PRAGMA table_info("{table}")').fetchall():
                         col_name, decl_type, pk_flag = str(row[1]), str(row[2]), int(row[5] or 0)
                         cols[col_name.lower()] = {
-                            "name": col_name, "declared_type": decl_type, "is_pk": pk_flag > 0,
+                            "name": col_name,
+                            "declared_type": decl_type,
+                            "is_pk": pk_flag > 0,
+                            "is_fk": False,
                         }
                     if not cols:
                         continue
                     any_table = True
                     schema[table] = cols
+                    for fk_row in con.execute(f'PRAGMA foreign_key_list("{table}")').fetchall():
+                        # SQLite foreign_key_list: source column is index 3.
+                        source_column = str(fk_row[3]).lower()
+                        if source_column in cols:
+                            cols[source_column]["is_fk"] = True
                     for idx_row in con.execute(f'PRAGMA index_list("{table}")').fetchall():
                         idx_name, idx_unique = str(idx_row[1]), int(idx_row[2])
                         if not idx_unique:
@@ -179,7 +192,9 @@ class DbProfiler:
     @staticmethod
     def _connect(path: Path) -> Optional[sqlite3.Connection]:
         try:
-            return sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            connection.create_function("nvbench_is_finite_number", 1, is_finite_number)
+            return connection
         except (sqlite3.Error, ValueError, OSError):
             return None
 
@@ -197,18 +212,27 @@ class DbProfiler:
         qtable, qcol = f'"{table}"', f'"{col_name}"'
         try:
             row_count = con.execute(f"SELECT COUNT(*) FROM {qtable}").fetchone()[0]
-            non_null_count = con.execute(f"SELECT COUNT({qcol}) FROM {qtable}").fetchone()[0]
+            non_null_count, numeric_value_count = con.execute(
+                f"SELECT COUNT({qcol}), COALESCE(SUM(nvbench_is_finite_number({qcol})), 0) "
+                f"FROM {qtable}"
+            ).fetchone()
             distinct_count = con.execute(f"SELECT COUNT(DISTINCT {qcol}) FROM {qtable}").fetchone()[0]
             null_ratio = (1 - non_null_count / row_count) if row_count else None
             unique_ratio = (distinct_count / row_count) if row_count else None
+            numeric_value_ratio = numeric_value_count / non_null_count if non_null_count else None
+            effective_normalized = (
+                "number" if normalized == "number" or numeric_value_ratio == 1.0 else normalized
+            )
             min_value = max_value = None
             n_positive = n_zero = n_negative = None
-            if normalized == "number":
-                min_value, max_value = con.execute(f"SELECT MIN({qcol}), MAX({qcol}) FROM {qtable}").fetchone()
+            if effective_normalized == "number":
+                min_value, max_value = con.execute(
+                    f"SELECT MIN(CAST({qcol} AS REAL)), MAX(CAST({qcol} AS REAL)) FROM {qtable}"
+                ).fetchone()
                 n_positive, n_zero, n_negative = con.execute(
-                    f"SELECT SUM(CASE WHEN {qcol} > 0 THEN 1 ELSE 0 END), "
-                    f"SUM(CASE WHEN {qcol} = 0 THEN 1 ELSE 0 END), "
-                    f"SUM(CASE WHEN {qcol} < 0 THEN 1 ELSE 0 END) FROM {qtable}"
+                    f"SELECT SUM(CASE WHEN CAST({qcol} AS REAL) > 0 THEN 1 ELSE 0 END), "
+                    f"SUM(CASE WHEN CAST({qcol} AS REAL) = 0 THEN 1 ELSE 0 END), "
+                    f"SUM(CASE WHEN CAST({qcol} AS REAL) < 0 THEN 1 ELSE 0 END) FROM {qtable}"
                 ).fetchone()
             example_values: List[Any] = []
             try:
@@ -226,6 +250,9 @@ class DbProfiler:
                 "null_ratio": null_ratio,
                 "distinct_count": distinct_count,
                 "unique_ratio": unique_ratio,
+                "numeric_value_count": numeric_value_count,
+                "numeric_value_ratio": numeric_value_ratio,
+                "normalized_dtype": effective_normalized,
                 "min_value": min_value,
                 "max_value": max_value,
                 "n_positive": n_positive,
@@ -240,6 +267,37 @@ class DbProfiler:
             con.close()
 
     # -- public API -- #
+    def query_schema_tables(self, db_id: str, *, sql_context: str = "") -> List[str]:
+        """Return canonical schema table names referenced by the source SQL."""
+        schema = self._schema(db_id)
+        table_names = {table.lower(): table for table in schema}
+        return sorted({
+            table_names[table.lower()]
+            for table in _joined_tables(sql_context)
+            if table.lower() in table_names
+        }, key=str.lower)
+
+    def query_schema_fields(self, db_id: str, *, sql_context: str = "") -> List[str]:
+        """Return fields from tables referenced by ``sql_context``.
+
+        This is intentionally stricter than ``resolver.columns(db_id)``, which
+        merges columns from every table in a database.  Source-consistency
+        checks must not treat a same-named field in an unrelated table as
+        evidence that the query requested a missing dimension.
+        """
+        schema = self._schema(db_id)
+        if not schema:
+            return []
+
+        referenced = set(self.query_schema_tables(db_id, sql_context=sql_context))
+        if not referenced:
+            return []
+        return sorted({
+            column["name"]
+            for table in referenced
+            for column in schema[table].values()
+        }, key=str.lower)
+
     def profile_field(self, db_id: str, field_name: str, *, sql_context: str = "") -> Dict[str, Any]:
         """Return a ``FieldProfile`` dict for one raw field (see module docstring)."""
         raw_field = (field_name or "").strip()
@@ -267,7 +325,7 @@ class DbProfiler:
             return {
                 "db_id": db_id, "table": None, "field_name": raw_field,
                 "declared_dtype": None, "normalized_dtype": None,
-                "is_primary_key": False, "is_unique_index": False,
+                "is_primary_key": False, "is_foreign_key": False, "is_unique_index": False,
                 "stats_available": False, "resolution": resolution,
                 "rule_version": PROFILE_RULE_VERSION, "notes": notes,
             }
@@ -289,6 +347,7 @@ class DbProfiler:
             "declared_dtype": col_meta["declared_type"],
             "normalized_dtype": normalize_sqlite_type(col_meta["declared_type"]),
             "is_primary_key": bool(col_meta["is_pk"]),
+            "is_foreign_key": bool(col_meta.get("is_fk")),
             "is_unique_index": bool(is_unique_index),
             "resolution": resolution,
             "rule_version": PROFILE_RULE_VERSION,
@@ -297,3 +356,120 @@ class DbProfiler:
         profile.update({k: v for k, v in stats.items() if k != "notes"})
         profile.setdefault("stats_available", False)
         return profile
+
+    def profile_query_result(
+        self, db_id: str, sql: str, *, max_rows: int = 1000
+    ) -> Dict[str, Any]:
+        """Profile the actual read-only SQL result, capped deterministically.
+
+        Scatter validity depends on rows surviving the query's joins, filters,
+        grouping, HAVING, ordering, and LIMIT—not on global base-table
+        cardinality. This method executes the supplied source query as a
+        read-only subquery, fetches at most ``max_rows`` rows, and records only
+        aggregate result statistics. Raw values are never persisted.
+        """
+        clean_sql = str(sql or "").strip().rstrip(";").strip()
+        cap = max(2, int(max_rows))
+        cache_key = (db_id, clean_sql, cap)
+        if cache_key in self._query_result_cache:
+            return dict(self._query_result_cache[cache_key])
+
+        result: Dict[str, Any]
+        path = self._db_path(db_id)
+        con = self._connect(path) if path else None
+        if con is None or not clean_sql:
+            result = {
+                "execution_status": "unavailable",
+                "execution_error": "database or SQL unavailable",
+                "observed_row_count": 0,
+                "row_count_capped": False,
+                "at_least_two_rows": False,
+                "paired_numeric_row_count": 0,
+                "paired_numeric_distinct_x_count": 0,
+                "paired_numeric_distinct_y_count": 0,
+                "paired_numeric_distinct_pair_count": 0,
+                "columns": [],
+            }
+            if con is not None:
+                con.close()
+        else:
+            progress_calls = 0
+
+            def progress_guard() -> int:
+                nonlocal progress_calls
+                progress_calls += 1
+                # About 50 million SQLite virtual-machine instructions. This
+                # prevents pathological source queries from blocking a rebuild.
+                return 1 if progress_calls > 5000 else 0
+
+            try:
+                con.execute("PRAGMA query_only = ON")
+                con.set_progress_handler(progress_guard, 10_000)
+                wrapped = f'SELECT * FROM ({clean_sql}) AS "_nvbench_result" LIMIT {cap}'
+                cursor = con.execute(wrapped)
+                rows = cursor.fetchall()
+                column_count = len(cursor.description or [])
+                columns: List[Dict[str, Any]] = []
+                for index in range(column_count):
+                    values = [row[index] for row in rows if row[index] is not None]
+                    numeric_values = [value for value in values if is_finite_number(value)]
+                    distinct_values = {
+                        (type(value).__name__, repr(value)) for value in values
+                    }
+                    columns.append({
+                        "index": index,
+                        "non_null_count": len(values),
+                        "numeric_value_count": len(numeric_values),
+                        "numeric_value_ratio": (
+                            len(numeric_values) / len(values) if values else None
+                        ),
+                        "distinct_count": len(distinct_values),
+                    })
+                paired_numeric_rows = [
+                    (row[0], row[1])
+                    for row in rows
+                    if len(row) >= 2
+                    and is_finite_number(row[0])
+                    and is_finite_number(row[1])
+                ]
+                paired_x = {
+                    (type(x).__name__, repr(x)) for x, _y in paired_numeric_rows
+                }
+                paired_y = {
+                    (type(y).__name__, repr(y)) for _x, y in paired_numeric_rows
+                }
+                paired_xy = {
+                    ((type(x).__name__, repr(x)), (type(y).__name__, repr(y)))
+                    for x, y in paired_numeric_rows
+                }
+                result = {
+                    "execution_status": "ok",
+                    "execution_error": None,
+                    "observed_row_count": len(rows),
+                    "row_count_capped": len(rows) == cap,
+                    "at_least_two_rows": len(rows) >= 2,
+                    "paired_numeric_row_count": len(paired_numeric_rows),
+                    "paired_numeric_distinct_x_count": len(paired_x),
+                    "paired_numeric_distinct_y_count": len(paired_y),
+                    "paired_numeric_distinct_pair_count": len(paired_xy),
+                    "columns": columns,
+                }
+            except sqlite3.Error as exc:
+                result = {
+                    "execution_status": "error",
+                    "execution_error": str(exc),
+                    "observed_row_count": 0,
+                    "row_count_capped": False,
+                    "at_least_two_rows": False,
+                    "paired_numeric_row_count": 0,
+                    "paired_numeric_distinct_x_count": 0,
+                    "paired_numeric_distinct_y_count": 0,
+                    "paired_numeric_distinct_pair_count": 0,
+                    "columns": [],
+                }
+            finally:
+                con.set_progress_handler(None, 0)
+                con.close()
+
+        self._query_result_cache[cache_key] = dict(result)
+        return dict(result)
