@@ -34,7 +34,7 @@ class TfidfRetriever(BaseRetriever):
         if not chunks_path.exists():
             raise FileNotFoundError(
                 f"Knowledge-base chunks not found: {chunks_path}. "
-                "Run `python scripts/build_kb.py` first."
+                "Run `python experiments/scripts/build_kb.py` first."
             )
         self.chunks = read_jsonl(chunks_path)
         if not self.chunks:

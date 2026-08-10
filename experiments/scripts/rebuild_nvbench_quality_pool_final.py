@@ -45,8 +45,7 @@ DEFAULT_MAPPING = "src/config/data/nvbench_mapping.yaml"
 DEFAULT_QUALITY_CONFIG = "src/config/data/nvbench_quality_rules.yaml"
 DEFAULT_PROFILE_CACHE = "data/cache_external/nvbench/field_profiles.json"
 
-_SCATTER_AXIS_RULES = ("identifier_scatter_axis:x", "identifier_scatter_axis:y",
-                       "categorical_scatter_axis:x", "categorical_scatter_axis:y")
+_SCATTER_AXIS_RULES = ("scatter_identifier_axis", "invalid_scatter_axes")
 _KPI_SQL_CONFLICT_RULES = ("kpi_sql_aggregation_conflict", "mixed_aggregate_ambiguous_kpi")
 _IDENTIFIER_MEASURE_RULES = ("identifier_as_measure", "identifier_as_continuous_kpi",
                             "meaningless_identifier_aggregation")
@@ -93,6 +92,7 @@ def _enriched_record(record: dict, quality: dict) -> dict:
             "kpi_suitability": quality.get("kpi_suitability"),
             "chart_suitability": quality.get("chart_suitability"),
             "constraint_suitability": quality.get("constraint_suitability"),
+            "source_consistency": quality.get("source_consistency"),
             "source_fidelity_failed_checks": quality.get("fidelity_failed"),
         },
         "record": record,
@@ -130,7 +130,11 @@ def _validate(tier_a_items, quality_by_id: dict) -> list:
             bad_scatter.append(iid)
         if failed & set(_KPI_SQL_CONFLICT_RULES):
             kpi_conflict.append(iid)
-        if "missing_required_time_grain" in failed or "missing_required_grouping" in failed:
+        if failed & {
+            "missing_required_time_grain", "missing_required_grouping",
+            "missing_required_dimension", "missing_aggregate_condition",
+            "time_grain_source_conflict", "source_conflict",
+        }:
             missing_constraint.append(iid)
 
     checks = [
