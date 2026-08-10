@@ -16,7 +16,8 @@ build/
 # Processed splits are regeneratable via `python scripts/build_data.py`.
 data/processed/
 data/index/
-# RAG chunks are regeneratable via `python scripts/build_kb.py` (guidelines/ stays tracked).
+# RAG chunks are regeneratable via `python experiments/scripts/build_kb.py`
+# (guidelines/ and kb_manifest.json stay tracked, so a rebuild can be verified).
 data/knowledge_base/chunks.jsonl
 data/knowledge_base/index/
 
@@ -69,3 +70,5 @@ desktop.ini
 skills-lock.json
 codex.md
 .codesight/
+graphify-out/
+.env.example
