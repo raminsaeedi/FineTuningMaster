@@ -108,6 +108,18 @@ python experiments/scripts/train.py --experiment E03_qwen0_5b_ft
 
 Add `--debug` first for a 1-minute sanity run (10 samples, 1 epoch).
 
+If training is interrupted, resume the same run explicitly. `--resume` selects
+the newest valid numeric checkpoint under that run's `checkpoints/` directory;
+`--resume-from` selects a particular checkpoint. New checkpoints carry model,
+seed, dataset, and training-configuration metadata. Legacy checkpoints without
+sufficient metadata are rejected for automatic discovery; an explicit path
+inside the expected run is required.
+
+```bash
+python experiments/scripts/train.py --experiment E03_qwen0_5b_ft \
+    --resume --override model=qwen2_5_0_5b seed=42
+```
+
 **4. Send back the whole run folder** that the script prints, e.g.:
 
 ```
@@ -169,6 +181,26 @@ python experiments/scripts/eval_stats.py --experiments E01_qwen0_5b_prompt E03_q
 
 This writes Friedman / Wilcoxon+Holm / Cliff's δ / bootstrap-CI (completeness)
 and Cochran's Q / McNemar+Holm (top-1) to `experiments/results/stats/`.
+
+For independently executed runs, pass the exact output root, model, and seed.
+The command rejects mismatched test item IDs, dataset hashes, models, seeds, or
+evaluation protocols before computing paired statistics:
+
+```bash
+python experiments/scripts/eval_stats.py \
+    --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag \
+    --override output_root=experiments/outputs/final seed=42 model=qwen2_5_0_5b
+```
+
+Aggregate all completed runs under a selected root. The multi-seed summary
+keeps raw seed columns and reports descriptive mean/std; prediction rows are
+never pooled across seeds:
+
+```bash
+python experiments/scripts/aggregate_results.py \
+    --outputs-root experiments/outputs/final \
+    --out-dir experiments/results
+```
 
 ---
 

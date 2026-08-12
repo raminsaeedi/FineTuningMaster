@@ -241,6 +241,23 @@ def finalize_manifest(exp_dir: Path, status: str = "completed") -> Optional[dict
     return manifest
 
 
+def update_manifest(exp_dir: Path, updates: dict) -> dict:
+    """Merge additive provenance fields into an existing run manifest."""
+    manifest_path = Path(exp_dir) / "manifest.json"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Run manifest not found: {manifest_path}")
+    try:
+        with manifest_path.open("r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as exc:
+        raise RuntimeError(f"Run manifest is not valid JSON: {manifest_path}") from exc
+
+    manifest.update(dict(updates))
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, default=str)
+    return manifest
+
+
 def write_run_metadata(exp_dir: Path, cfg: Any) -> None:
     """Write config snapshot, config hash, git hash, environment and manifest."""
     exp_dir.mkdir(parents=True, exist_ok=True)

@@ -17,6 +17,7 @@ nothing previously collected them into a table or pooled the seeds.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -26,7 +27,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.evaluation.aggregator import aggregate  # noqa: E402
+from src.evaluation.aggregator import (  # noqa: E402
+    aggregate,
+    build_multi_seed_summary,
+)
 
 # (substring in flattened column name, short label) for the report table.
 _REPORT_COLS = [
@@ -57,9 +61,13 @@ def parse_args() -> argparse.Namespace:
 
 
 def _fmt(v) -> str:
+    if v is None or v is pd.NA:
+        return "NA"
+    if isinstance(v, float) and math.isnan(v):
+        return "NA"
     if isinstance(v, float):
         return f"{v:.3f}".rstrip("0").rstrip(".")
-    return "" if v is None else str(v)
+    return str(v)
 
 
 def _md_table(rows: list[dict], columns: list[str]) -> str:
@@ -105,20 +113,38 @@ def main() -> None:
     ]
     run_header = [run_label.get(c, c) for c in run_cols]
 
+    comparison_table = "# Per-run comparison table\n\n" + _md_table(run_rows, run_header) + "\n"
+    (out_dir / "comparison_table.md").write_text(comparison_table, encoding="utf-8")
+
     # ── Per-(model, method) mean/std across seeds ───────────────────────────
-    group_keys = [c for c in ("model", "method") if c in df.columns]
+    group_keys = [
+        c for c in ("model", "method", "dataset_version", "test_file_sha256")
+        if c in df.columns
+    ]
     seeds_md = "_No (model, method) grouping available._"
     if group_keys and selected:
         num_cols = [actual for actual, _ in selected]
         for c in num_cols:
             df[c] = pd.to_numeric(df[c], errors="coerce")
-        agg = df.groupby(group_keys)[num_cols].agg(["mean", "std", "count"])
+        agg = df.groupby(group_keys, dropna=False)[num_cols].agg(["mean", "std", "count"])
         agg.columns = [f"{run_label[c]}_{stat}" for c, stat in agg.columns]
         agg = agg.reset_index()
         agg.to_csv(out_dir / "comparison_seeds.csv", index=False)
         seeds_cols = group_keys + [c for c in agg.columns if c not in group_keys]
         seeds_rows = agg.to_dict(orient="records")
         seeds_md = _md_table(seeds_rows, seeds_cols)
+
+    multi_seed = build_multi_seed_summary(df)
+    multi_seed.to_csv(out_dir / "multi_seed_summary.csv", index=False)
+    multi_seed_columns = list(multi_seed.columns)
+    multi_seed_rows = multi_seed.to_dict(orient="records")
+    multi_seed_md = (
+        "# Multi-seed descriptive summary\n\n"
+        "Raw seed values remain visible. Seeds are repeated runs, not pooled items.\n\n"
+        + (_md_table(multi_seed_rows, multi_seed_columns) if multi_seed_rows else "_No complete runs found._")
+        + "\n"
+    )
+    (out_dir / "multi_seed_summary.md").write_text(multi_seed_md, encoding="utf-8")
 
     report = (
         "# Experiment comparison report\n\n"
@@ -127,6 +153,9 @@ def main() -> None:
         f"{_md_table(run_rows, run_header)}\n\n"
         "## Across seeds (mean / std per model+method)\n\n"
         f"{seeds_md}\n\n"
+        "## Multi-seed metric summary\n\n"
+        f"See `multi_seed_summary.csv` and `multi_seed_summary.md`; raw seed values are retained and "
+        "prediction rows are never pooled across seeds.\n\n"
         "> `top1%` is over ALL items with a reference (parse failures count as "
         "wrong; see `n_fail`). `top3_ok=False` means fewer than 80% of items "
         "carried 3 distinct ordered recommendations (`top3_support`), so `top3%` "
@@ -141,8 +170,10 @@ def main() -> None:
         "(covered items only, coverage reported) — do not substitute the circular `top1%` for it.\n"
         "- **Usefulness / actionability / real-dashboard quality:** NOT supported here (require "
         "human evaluation; no ratings collected yet).\n"
-        "- **Single seed (42) only**; confidence intervals deferred. No multi-seed variance is "
-        "available, so significance claims are not supported from this table alone.\n"
+        "- Per-run tables preserve each seed independently. The multi-seed summary "
+        "reports descriptive seed variability only; with three seeds, confidence "
+        "intervals are intentionally omitted and significance claims are not supported "
+        "from across-seed summaries alone.\n"
     )
     (out_dir / "final_report.md").write_text(report, encoding="utf-8")
 
@@ -151,8 +182,11 @@ def main() -> None:
     print("=" * 56)
     print(f"  Runs aggregated : {len(df)}")
     print(f"  comparison_table.csv : {out_dir / 'comparison_table.csv'}")
+    print(f"  comparison_table.md  : {out_dir / 'comparison_table.md'}")
     if group_keys and selected:
         print(f"  comparison_seeds.csv : {out_dir / 'comparison_seeds.csv'}")
+    print(f"  multi_seed_summary.csv: {out_dir / 'multi_seed_summary.csv'}")
+    print(f"  multi_seed_summary.md : {out_dir / 'multi_seed_summary.md'}")
     print(f"  final_report.md      : {out_dir / 'final_report.md'}")
     print("=" * 56)
 

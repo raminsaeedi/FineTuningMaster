@@ -13,6 +13,7 @@ module stays import-safe.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -21,6 +22,7 @@ from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
+from src.utils.config_hash import hash_config
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,7 @@ class QLoRASFTTrainer(BaseTrainer):
         self.seed = int(_get(cfg, "seed", 42))
         self.model = None
         self.tokenizer = None
+        self.final_global_step = 0
 
     # ------------------------------------------------------------------
     def _setup(self) -> None:
@@ -151,7 +154,13 @@ class QLoRASFTTrainer(BaseTrainer):
         logger.info("LoRA applied: %s trainable / %s total (%.2f%%)", f"{trainable:,}", f"{total:,}", pct)
 
     # ------------------------------------------------------------------
-    def train(self, train_dataset, eval_dataset, output_dir: str) -> str:
+    def train(
+        self,
+        train_dataset,
+        eval_dataset,
+        output_dir: str,
+        resume_from_checkpoint: Optional[str] = None,
+    ) -> str:
         """Run SFT and save the adapter to ``output_dir``; return that path."""
         from trl import SFTConfig, SFTTrainer
 
@@ -194,8 +203,13 @@ class QLoRASFTTrainer(BaseTrainer):
         )
 
         logger.info("Training started…")
-        result = trainer.train()
-        self.metrics = result.metrics
+        train_kwargs = {}
+        if resume_from_checkpoint:
+            train_kwargs["resume_from_checkpoint"] = resume_from_checkpoint
+        result = trainer.train(**train_kwargs)
+        self.metrics = result.metrics or {}
+        state_step = getattr(getattr(trainer, "state", None), "global_step", None)
+        self.final_global_step = int(state_step or self.metrics.get("global_step", 0) or 0)
         logger.info("Training complete. Loss: %s", self.metrics.get("train_loss", "N/A"))
 
         self._save(adapter_dir)
@@ -212,6 +226,18 @@ class QLoRASFTTrainer(BaseTrainer):
         lora_cfg = _get(self.train_cfg, "lora", {})
         sft = _get(self.train_cfg, "sft", {})
         data_cfg = _get(self.cfg, "data", {})
+        train_file = _get(data_cfg, "train_file")
+        train_file_sha256 = None
+        if train_file:
+            train_path = Path(str(train_file))
+            if not train_path.is_absolute():
+                train_path = Path.cwd() / train_path
+            if train_path.is_file():
+                digest = hashlib.sha256()
+                with train_path.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1 << 16), b""):
+                        digest.update(chunk)
+                train_file_sha256 = digest.hexdigest()
         # dataset_version / experiment_id are what src.utils.adapter checks before
         # method D reuses this adapter, so they must be recorded at save time.
         metadata = {
@@ -224,7 +250,9 @@ class QLoRASFTTrainer(BaseTrainer):
             "learning_rate": _get(sft, "learning_rate"),
             "seed": self.seed,
             "dataset_version": _get(data_cfg, "dataset_version"),
-            "train_file": _get(data_cfg, "train_file"),
+            "train_file": train_file,
+            "train_file_sha256": train_file_sha256,
+            "training_config_hash": hash_config(self.train_cfg),
             "experiment_id": _get(self.cfg, "experiment_id"),
             "experiment_name": _get(self.cfg, "experiment_name"),
             "train_metrics": getattr(self, "metrics", {}),

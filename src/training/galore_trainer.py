@@ -16,7 +16,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
@@ -37,8 +37,15 @@ class GaLoreSFTTrainer(BaseTrainer):
         self.seed = int(_get(cfg, "seed", 42))
         self.model = None
         self.tokenizer = None
+        self.final_global_step = 0
 
-    def train(self, train_dataset, eval_dataset, output_dir: str) -> str:
+    def train(
+        self,
+        train_dataset,
+        eval_dataset,
+        output_dir: str,
+        resume_from_checkpoint: Optional[str] = None,
+    ) -> str:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from trl import SFTConfig, SFTTrainer
@@ -98,8 +105,13 @@ class GaLoreSFTTrainer(BaseTrainer):
             args=training_args,
         )
         logger.info("GaLore training started (optim_args=%s)…", optim_args)
-        result = trainer.train()
-        self.metrics = result.metrics
+        train_kwargs = {}
+        if resume_from_checkpoint:
+            train_kwargs["resume_from_checkpoint"] = resume_from_checkpoint
+        result = trainer.train(**train_kwargs)
+        self.metrics = result.metrics or {}
+        state_step = getattr(getattr(trainer, "state", None), "global_step", None)
+        self.final_global_step = int(state_step or self.metrics.get("global_step", 0) or 0)
 
         # GaLore has no adapter — save the full model.
         out = Path(output_dir)

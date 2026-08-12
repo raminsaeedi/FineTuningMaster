@@ -10,7 +10,7 @@ import their dependencies lazily.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 from src.core.schemas import DashboardBrief, GenerationResult
 
@@ -55,7 +55,13 @@ class BaseTrainer(ABC):
     """Contract for fine-tuning algorithms (training side only)."""
 
     @abstractmethod
-    def train(self, train_dataset, eval_dataset, output_dir: str) -> str:
+    def train(
+        self,
+        train_dataset,
+        eval_dataset,
+        output_dir: str,
+        resume_from_checkpoint: Optional[str] = None,
+    ) -> str:
         """Run training and return the path of the saved adapter/model folder."""
 
 
