@@ -68,7 +68,13 @@ def resolve_adapter_path(cfg: Any, project_root: Optional[Path] = None) -> Path:
     3. The running experiment's own folder — correct for method C itself, which
        both trains and consumes its adapter.
     """
-    output_root = str(_get(cfg, "output_root", "experiments/outputs/experiments"))
+    output_root = str(
+        _get(
+            cfg,
+            "output_model_path",
+            _get(cfg, "output_root", "experiments/outputs/experiments"),
+        )
+    )
     seed = int(_get(cfg, "seed", 42))
 
     explicit = _nested_get(cfg, "method.adapter_path")
@@ -105,6 +111,48 @@ def resolve_adapter_path(cfg: Any, project_root: Optional[Path] = None) -> Path:
         experiment_id = str(
             _get(cfg, "experiment_id", _get(cfg, "experiment_name", "default"))
         )
+    return root / experiment_id / "adapter"
+
+
+def resolve_adapter_output_path(cfg: Any, project_root: Optional[Path] = None) -> Path:
+    """Return the adapter destination for a training run.
+
+    ``method.adapter_path`` is intentionally ignored here: that setting is an
+    inference input override and must never make a training run overwrite the
+    adapter it consumes. ``output_model_path`` is a root; the same dataset,
+    model, method and seed layout used by the matrix runner is appended below
+    it. With no separate root, this preserves the legacy ``output_root`` path.
+    """
+    output_root = str(
+        _get(
+            cfg,
+            "output_model_path",
+            _get(cfg, "output_root", "experiments/outputs/experiments"),
+        )
+    )
+    root = Path(output_root)
+    if not root.is_absolute():
+        root = _abs(root, project_root)
+
+    seed = int(_get(cfg, "seed", 42))
+    layout = str(_get(cfg, "run_layout", _get(cfg, "profile", "legacy")) or "legacy")
+    if layout in {"final", "smoke"}:
+        dataset = str(_nested_get(cfg, "data.dataset_version", "dashboard_v3"))
+        model_key = str(
+            _get(cfg, "model_key")
+            or _nested_get(cfg, "model.key")
+            or _nested_get(cfg, "model.name", "model")
+        )
+        method_key = str(
+            _get(cfg, "method_key")
+            or _nested_get(cfg, "method.key")
+            or _nested_get(cfg, "method.name", "method")
+        )
+        return root / dataset / model_key / method_key / f"seed_{seed}" / "adapter"
+
+    experiment_id = str(
+        _get(cfg, "experiment_id", _get(cfg, "experiment_name", "default"))
+    )
     return root / experiment_id / "adapter"
 
 

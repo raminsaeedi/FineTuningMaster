@@ -239,6 +239,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # Legacy spellings retained for the old matrix file and handbook.
     p.add_argument("--only", nargs="+", default=None, metavar="KEY")
     p.add_argument("--output-root", default=None)
+    p.add_argument("--output-model-path", default=None,
+                   help="Separate root for adapters/checkpoints (defaults to output root)")
+    p.add_argument("--results-dir", default=None,
+                   help="Directory for aggregated results")
+    p.add_argument("--input-model-weights", default=None,
+                   help="Existing adapter directory for C/D inference")
+    p.add_argument("--kb-chunks-path", default=None,
+                   help="Knowledge-base chunks file for methods B/D")
+    p.add_argument("--smoke-source", default=None,
+                   help="Validation JSONL used to build the smoke slice")
     p.add_argument("--force", action="store_true")
     p.add_argument("--skip-training", action="store_true")
     p.add_argument("--dry-run", action="store_true")
@@ -297,8 +307,8 @@ def _selected_seeds(args: argparse.Namespace, matrix: dict) -> list[int]:
     return [int(seed) for seed in matrix.get("seeds", [42, 43, 44])]
 
 
-def _smoke_slice(n_items: int, out_path: Path) -> int:
-    source = _PROJECT_ROOT / "data" / "frozen" / "dashboard_v3" / "val.jsonl"
+def _smoke_slice(n_items: int, out_path: Path, source: Path | None = None) -> int:
+    source = source or (_PROJECT_ROOT / "data" / "frozen" / "dashboard_v3" / "val.jsonl")
     if not source.exists():
         raise SystemExit(f"Validation split not found: {source}")
     records = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -334,6 +344,10 @@ def _print_runtime_profile(models: list[str]) -> None:
 def _base_overrides(
     *, profile: str, output_root_arg: str, model: str, method: str, seed: int,
     extra: list[str], smoke_eval_file: str | None = None, smoke_items: int = 3,
+    output_model_path_arg: str | None = None,
+    input_model_weights: str | None = None,
+    kb_chunks_path: str | None = None,
+    include_input_model_weights: bool = True,
 ) -> list[str]:
     run_id = f"{model}_{method}_seed_{seed}"
     values = [
@@ -347,6 +361,12 @@ def _base_overrides(
         f"experiment_id={run_id}",
         f"seed={seed}",
     ]
+    if output_model_path_arg:
+        values.append(f"output_model_path={_hydra_path(output_model_path_arg)}")
+    if input_model_weights and include_input_model_weights and method in {"C", "D"}:
+        values.append(f"method.adapter_path={_hydra_path(input_model_weights)}")
+    if kb_chunks_path and method in {"B", "D"}:
+        values.append(f"method.retriever.chunks_path={_hydra_path(kb_chunks_path)}")
     if smoke_eval_file:
         values.extend([
             f"data.test_file={_hydra_path(smoke_eval_file)}",
@@ -483,6 +503,15 @@ def main(argv: list[str] | None = None) -> None:
         else matrix.get("output_root", "experiments/outputs/final")
     )
     output_root = _resolved(output_root_arg)
+    output_model_root_arg = args.output_model_path or output_root_arg
+    output_model_root = _resolved(output_model_root_arg)
+    results_dir = _resolved(
+        args.results_dir
+        or (_PROJECT_ROOT / "experiments" / "results" / args.profile / "dashboard_v3")
+    )
+    explicit_input_adapter = (
+        _resolved(args.input_model_weights) if args.input_model_weights else None
+    )
 
     smoke_file = None
     smoke_items = args.n_eval_items
@@ -492,8 +521,9 @@ def main(argv: list[str] | None = None) -> None:
         if args.dry_run:
             n_eval = args.n_eval_items
         else:
-            n_eval = _smoke_slice(args.n_eval_items, smoke_path)
-        smoke_file = str(smoke_path.relative_to(_PROJECT_ROOT).as_posix())
+            smoke_source = _resolved(args.smoke_source) if args.smoke_source else None
+            n_eval = _smoke_slice(args.n_eval_items, smoke_path, smoke_source)
+        smoke_file = str(smoke_path)
         smoke_items = n_eval
 
     print("=" * 70)
@@ -502,7 +532,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  models       : {', '.join(models)}")
     print(f"  methods      : {', '.join(methods)}")
     print(f"  seeds        : {seeds}")
-    print(f"  output root  : {output_root}")
+    print(f"  output data  : {output_root}")
+    print(f"  output model : {output_model_root}")
+    print(f"  results dir  : {results_dir}")
     _print_runtime_profile(models)
     print("=" * 70)
 
@@ -515,9 +547,16 @@ def main(argv: list[str] | None = None) -> None:
 
     for model in models:
         for seed in seeds:
-            c_adapter = profile_adapter_dir(output_root, model, "C", seed)
-            c_run = profile_run_dir(output_root, model, "C", seed)
-            c_needed = "C" in effective_methods
+            c_adapter = profile_adapter_dir(output_model_root, model, "C", seed)
+            c_run = profile_run_dir(output_model_root, model, "C", seed)
+            input_adapter_ready = bool(
+                explicit_input_adapter and adapter_is_trained(explicit_input_adapter)
+            )
+            # In inference-only mode an explicitly supplied adapter is a valid
+            # C/D input and does not require a locally produced C run.
+            c_needed = "C" in effective_methods and not (
+                args.skip_training and input_adapter_ready
+            )
             smoke_train_items = args.n_train_items if args.profile == "smoke" else None
             train_extra = list(args.override)
             if smoke_train_items is not None:
@@ -541,11 +580,16 @@ def main(argv: list[str] | None = None) -> None:
                 extra=train_extra,
                 smoke_eval_file=smoke_file,
                 smoke_items=smoke_items,
+                output_model_path_arg=(
+                    str(output_model_root_arg) if args.output_model_path else None
+                ),
+                kb_chunks_path=args.kb_chunks_path,
+                include_input_model_weights=False,
             )
             planned_cfg = load_cfg(experiment=METHODS["C"]["experiment"], overrides=train_overrides)
             expected_training_hash = hash_config(planned_cfg.training)
             expected_model_hash = hash_config(planned_cfg.model)
-            c_ready = _compatible_adapter(
+            c_ready = input_adapter_ready if args.skip_training else _compatible_adapter(
                 c_adapter,
                 model=model,
                 seed=seed,
@@ -588,7 +632,7 @@ def main(argv: list[str] | None = None) -> None:
                 if method == "C" and "C" not in methods:
                     # C may have been injected solely as D's dependency.
                     continue
-                if method == "D" and not c_ready and not args.dry_run:
+                if method == "D" and not c_ready and not input_adapter_ready and not args.dry_run:
                     message = f"D requires compatible C adapter for {model} seed {seed}: {c_adapter}"
                     print(f"[FAIL] {message}")
                     summary.append({"model": model, "method": "D", "seed": seed, "stage": "run", "status": "FAILED(no-adapter)"})
@@ -626,6 +670,11 @@ def main(argv: list[str] | None = None) -> None:
                     extra=extra,
                     smoke_eval_file=smoke_file,
                     smoke_items=smoke_items,
+                    output_model_path_arg=(
+                        str(output_model_root_arg) if args.output_model_path else None
+                    ),
+                    input_model_weights=args.input_model_weights,
+                    kb_chunks_path=args.kb_chunks_path,
                 )
                 stage_dir = profile_run_dir(output_root, model, method, seed)
                 expected_cache_identity_hash, expected_config_hash = _planned_hashes(
@@ -642,9 +691,10 @@ def main(argv: list[str] | None = None) -> None:
                     print(f"[SKIP] {method} already complete: {stage_dir}")
                     summary.append({"model": model, "method": method, "seed": seed, "stage": "run", "status": "skipped"})
                     continue
-                _quarantine_stale_cache(
-                    stage_dir, expected_cache_identity_hash, expected_config_hash
-                )
+                if not args.dry_run:
+                    _quarantine_stale_cache(
+                        stage_dir, expected_cache_identity_hash, expected_config_hash
+                    )
                 cmd = _profile_cmd("run_experiment.py", METHODS[method]["experiment"], overrides)
                 if args.dry_run:
                     print("[DRY-RUN] " + " ".join(cmd[1:]))
@@ -686,8 +736,6 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(1)
 
     if not args.dry_run:
-        results_profile = "final" if args.profile == "final" else "smoke"
-        results_dir = _PROJECT_ROOT / "experiments" / "results" / results_profile / "dashboard_v3"
         if _aggregate_final(output_root, results_dir) != 0:
             raise SystemExit(1)
         print(f"{args.profile.title()} results: {results_dir}")

@@ -6,16 +6,18 @@ into the project training schema (`src/core/schemas.py` `GoldItem`). Builders li
 package is `src/data_pipeline/`, there is no `src/data/`).
 
 ## Scientific framing (four questions)
+
 - **What does this produce?** Training/augmentation data in the `GoldItem` schema, tagged by source
   and usage tier. It is **not** a metric.
 - **With which data?** Synthetic generator (full dashboards, functional now) + ChartGPT/nvBench/Quda
   (partial signals; **stubs**, not ingested yet).
-- **Separation rule (verbatim):** *"No dataset artifact, label set, or label-generation lineage is
-  used both for training/augmentation and final independent evaluation gold."*
+- **Separation rule (verbatim):** _"No dataset artifact, label set, or label-generation lineage is
+  used both for training/augmentation and final independent evaluation gold."_
 - **How to interpret?** Builders do raw→schema mapping only; dedup/leakage and split policy are
   explicit and auditable, so a reviewer can confirm no eval item leaks into training.
 
 ## Builder architecture (minimal)
+
 - **Selection is a plain dict**, not a registry: `BUILDERS = {"synthetic": ..., "chartgpt": ...}` with
   `get_builder(name)` in `builders/__init__.py`. (A registry was deliberately **avoided** — explicit
   selection is enough.)
@@ -28,12 +30,13 @@ package is `src/data_pipeline/`, there is no `src/data/`).
 - **No existing files were modified**; no Hydra config or build script added yet (deferred to ingestion).
 
 ## Per-source mapping
-| Source | Status | Brief fields | DesignOutput | task_type | chart_type | Confidence |
-| --- | --- | --- | --- | --- | --- | --- |
-| Synthetic generator | **functional** | all | full (already in schema) | from generator | from `TASK_CHART` | n/a (canonical full dashboards) |
-| nvBench / 2.0 | stub | kpis, columns (DB schema), goals | `kpi_chart_mapping[0]` (chart, encoding); 2.0 → `alternatives` (set-valued) + `rationales` (reasoning); minimal layout/styling | inferred (low) | source label → `ChartType` | med–high (chart/encoding) |
-| ChartGPT | stub | kpis, columns (data table), goals | `kpi_chart_mapping[0]` (chart, encoding); minimal layout/styling | inferred (low) | source label → `ChartType` | medium |
-| Quda | stub | kpis/goals (NL query) | `kpi_chart_mapping[0].task_type` (real label) | **Quda label (high)** via `task_crosswalk.yaml` | **derived** via `TASK_CHART` (training-only) | high task_type, derived chart |
+
+| Source              | Status         | Brief fields                      | DesignOutput                                                                                                                   | task_type                                       | chart_type                                   | Confidence                      |
+| ------------------- | -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- | -------------------------------------------- | ------------------------------- |
+| Synthetic generator | **functional** | all                               | full (already in schema)                                                                                                       | from generator                                  | from `TASK_CHART`                            | n/a (canonical full dashboards) |
+| nvBench / 2.0       | stub           | kpis, columns (DB schema), goals  | `kpi_chart_mapping[0]` (chart, encoding); 2.0 → `alternatives` (set-valued) + `rationales` (reasoning); minimal layout/styling | inferred (low)                                  | source label → `ChartType`                   | med–high (chart/encoding)       |
+| ChartGPT            | stub           | kpis, columns (data table), goals | `kpi_chart_mapping[0]` (chart, encoding); minimal layout/styling                                                               | inferred (low)                                  | source label → `ChartType`                   | medium                          |
+| Quda                | stub           | kpis/goals (NL query)             | `kpi_chart_mapping[0].task_type` (real label)                                                                                  | **Quda label (high)** via `task_crosswalk.yaml` | **derived** via `TASK_CHART` (training-only) | high task_type, derived chart   |
 
 Partial sources map to **single-KPI mini-dashboards** (a 1-KPI brief → a 1-chart valid recommendation,
 with minimal-but-valid `layout`/`styling`, empty `interactions`). Chart labels outside `ChartType` (17)
@@ -41,6 +44,7 @@ are **dropped and logged**. `task_type` reuse [`data/eval/task_crosswalk.yaml`](
 — consistent with Task 3 (Quda is tagged train/aug there).
 
 ## Usage tiers & "never final gold unless justified"
+
 - All four sources are `usage_tier = "train_aug"` (stamped in `brief.extra.source` / `.usage_tier`).
 - External sources are **train/val only, never test, never eval gold** (`trainval_split`).
 - The synthetic **test** split is **internal and circular** (its task→chart labels come from the
@@ -52,7 +56,9 @@ are **dropped and logged**. `task_type` reuse [`data/eval/task_crosswalk.yaml`](
   non-circular format/legality checks, explicitly labeled, with the circularity caveat — default is **no**.
 
 ## Leakage prevention (simple first version)
+
 `leakage.py` provides two checks, then drops + reports collisions (no silent truncation):
+
 1. **exact `item_id`** collision, and
 2. **normalized text fingerprint** collision (lowercased; whitespace- and order-normalized
    `users` + `goals` + `kpis` + column names).
@@ -62,12 +68,14 @@ augmentation pool against each evaluation set (synthetic test split, L1 gold, re
 training. No fuzzy/shingled near-duplicate matching yet (deferred).
 
 ## Deterministic splits
+
 - **Synthetic:** unchanged `assign_split` (MD5 of content-based `item_id`, 80/10/10). The synthetic
   builder computes `item_id` from the **untagged** brief, so ids match `build_data` exactly.
 - **External:** `trainval_split` = `assign_split` with the `test` bucket remapped to `train`
   (train/val only). Content-based ids mean adding sources never reshuffles existing items.
 
 ## Implemented now vs. deferred
+
 - **Now:** this doc; `builders/` package; functional `SyntheticBuilder`; documented stubs for
   ChartGPT / nvBench(+2.0) / Quda; `trainval_split`; simple `leakage` check.
 - **Deferred to a later ingestion task:** download/parse external data (ChartGPT + Quda are

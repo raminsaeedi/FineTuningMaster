@@ -45,6 +45,7 @@ from src.utils.config import load_cfg  # noqa: E402
 from src.utils.config_hash import hash_config  # noqa: E402
 from src.utils.logging import setup_logging  # noqa: E402
 from src.utils.seed import set_seeds  # noqa: E402
+from src.utils.adapter import resolve_adapter_output_path  # noqa: E402
 from src.models.hf_utils import (  # noqa: E402
     chat_template_kwargs,
     from_pretrained_kwargs,
@@ -429,15 +430,20 @@ def main() -> None:
         _apply_debug(cfg)
 
     exp_dir = setup_run_dir(cfg, _PROJECT_ROOT)
+    adapter_dir = resolve_adapter_output_path(cfg, _PROJECT_ROOT)
+    # Checkpoints follow the adapter root so OUTPUT_MODEL_PATH is a complete,
+    # relocatable training destination. With the default config this is the
+    # historical exp_dir/checkpoints location.
+    resume_root = adapter_dir.parent
     resume_checkpoint = resolve_resume_checkpoint(
-        exp_dir,
+        resume_root,
         cfg,
         resume=args.resume,
         resume_from=args.resume_from,
         project_root=_PROJECT_ROOT,
     )
     resume_metadata = build_resume_metadata(cfg, _PROJECT_ROOT)
-    _write_resume_metadata(exp_dir, resume_metadata)
+    _write_resume_metadata(resume_root, resume_metadata)
     logger = setup_logging(
         level=str(cfg.get("log_level", "INFO")),
         log_file=str(exp_dir / "logs" / "train.log"),
@@ -471,7 +477,6 @@ def main() -> None:
 
     trainer_cls = TRAINERS.get(str(cfg.training.type))
     trainer = trainer_cls(cfg)
-    adapter_dir = exp_dir / "adapter"
     if resume_checkpoint:
         trainer.train(
             train_dataset,

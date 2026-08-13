@@ -13,6 +13,9 @@ seed: 42
 log_level: INFO
 
 output_root: experiments/outputs/experiments
+# Optional separate root for trained adapters/checkpoints. When null, the
+# adapter lives below output_root as before.
+output_model_path: null
 experiment_name: default
 experiment_id: ${experiment_name}_${seed}
 profile: legacy
