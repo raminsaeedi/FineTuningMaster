@@ -1,0 +1,14 @@
+# Final model 1/4: Qwen3 1.7B.
+key: qwen3_1_7b
+name: Qwen/Qwen3-1.7B
+hf_id: Qwen/Qwen3-1.7B
+revision: null
+family: qwen3
+size_billions: 1.7
+max_seq_length: 4096
+dtype: bfloat16
+trust_remote_code: true
+requires_hf_token: false
+chat_template:
+  enable_thinking: false
+cache_dir: null

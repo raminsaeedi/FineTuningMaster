@@ -17,12 +17,18 @@ import hashlib
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
 from src.utils.config_hash import hash_config
+from src.models.hf_utils import (
+    from_pretrained_kwargs,
+    model_identifier,
+    safe_model_access_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +53,8 @@ def _as_list(value: Any) -> List[str]:
             return list(OmegaConf.to_container(value, resolve=True))  # type: ignore[arg-type]
     except Exception:
         pass
+    if isinstance(value, str):
+        return [value]
     return list(value)
 
 
@@ -58,12 +66,17 @@ def build_lora_kwargs(lora_cfg: Mapping[str, Any]) -> dict:
     flags, so the same trainer covers QLoRA / LoRA / DoRA / RSLoRA — selecting an
     algorithm is just a config change.
     """
+    target_modules = _get(lora_cfg, "target_modules")
+    if isinstance(target_modules, str) and target_modules == "all-linear":
+        normalized_targets: Any = target_modules
+    else:
+        normalized_targets = _as_list(target_modules)
     return dict(
         r=int(_get(lora_cfg, "r", 16)),
         lora_alpha=int(_get(lora_cfg, "lora_alpha", 32)),
         lora_dropout=float(_get(lora_cfg, "lora_dropout", 0.05)),
         bias=str(_get(lora_cfg, "bias", "none")),
-        target_modules=_as_list(_get(lora_cfg, "target_modules")),
+        target_modules=normalized_targets,
         use_dora=bool(_get(lora_cfg, "use_dora", False)),
         use_rslora=bool(_get(lora_cfg, "use_rslora", False)),
     )
@@ -81,6 +94,10 @@ class QLoRASFTTrainer(BaseTrainer):
         self.model = None
         self.tokenizer = None
         self.final_global_step = 0
+        self.trainable_parameters = 0
+        self.total_parameters = 0
+        self.training_started_at = None
+        self.training_duration_seconds = None
 
     # ------------------------------------------------------------------
     def _setup(self) -> None:
@@ -89,7 +106,7 @@ class QLoRASFTTrainer(BaseTrainer):
         from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-        name = _get(self.model_cfg, "hf_id") or _get(self.model_cfg, "name")
+        name = model_identifier(self.model_cfg)
         cache_dir = _get(self.model_cfg, "cache_dir")
         max_seq_length = int(_get(self.model_cfg, "max_seq_length", 2048))
 
@@ -98,12 +115,18 @@ class QLoRASFTTrainer(BaseTrainer):
 
         # ── Tokenizer ────────────────────────────────────────────────────
         logger.info("Loading tokenizer: %s", name)
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            name,
-            trust_remote_code=True,
-            padding_side="right",  # required for SFT causal LM
+        load_kwargs = from_pretrained_kwargs(
+            self.model_cfg,
             cache_dir=cache_dir,
         )
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                name,
+                padding_side="right",  # required for SFT causal LM
+                **load_kwargs,
+            )
+        except Exception as exc:
+            raise safe_model_access_error(name, exc) from exc
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.model_max_length = max_seq_length
@@ -124,14 +147,16 @@ class QLoRASFTTrainer(BaseTrainer):
 
         # ── Base model ───────────────────────────────────────────────────
         logger.info("Loading model: %s", name)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            name,
-            quantization_config=bnb_config,
-            device_map="auto",
-            trust_remote_code=True,
-            dtype=torch.float16 if not bnb_config else None,
-            cache_dir=cache_dir,
-        )
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                name,
+                quantization_config=bnb_config,
+                device_map="auto",
+                **load_kwargs,
+                dtype=torch.float16 if not bnb_config else None,
+            )
+        except Exception as exc:
+            raise safe_model_access_error(name, exc) from exc
         self.model.config.use_cache = False
         self.model.config.pretraining_tp = 1
         logger.info("Model loaded — %s parameters", f"{self.model.num_parameters():,}")
@@ -150,6 +175,8 @@ class QLoRASFTTrainer(BaseTrainer):
         self.model = get_peft_model(self.model, lora_config)
 
         trainable, total = self.model.get_nb_trainable_parameters()
+        self.trainable_parameters = int(trainable)
+        self.total_parameters = int(total)
         pct = 100.0 * trainable / total if total > 0 else 0.0
         logger.info("LoRA applied: %s trainable / %s total (%.2f%%)", f"{trainable:,}", f"{total:,}", pct)
 
@@ -177,6 +204,7 @@ class QLoRASFTTrainer(BaseTrainer):
             gradient_accumulation_steps=int(_get(sft, "gradient_accumulation_steps", 4)),
             learning_rate=float(_get(sft, "learning_rate", 2.0e-4)),
             lr_scheduler_type=str(_get(sft, "lr_scheduler_type", "cosine")),
+            optim=str(_get(sft, "optim", "adamw_torch")),
             warmup_ratio=float(_get(sft, "warmup_ratio", 0.1)),
             weight_decay=float(_get(sft, "weight_decay", 0.01)),
             fp16=bool(_get(sft, "fp16", False)),
@@ -186,6 +214,7 @@ class QLoRASFTTrainer(BaseTrainer):
             save_total_limit=int(_get(sft, "save_total_limit", 2)),
             eval_strategy=str(_get(sft, "eval_strategy", "no")),
             report_to=str(_get(sft, "report_to", "none")),
+            max_steps=int(_get(sft, "max_steps", -1)),
             seed=self.seed,
             gradient_checkpointing=bool(_get(sft, "gradient_checkpointing", True)),
             dataloader_pin_memory=bool(_get(sft, "dataloader_pin_memory", False)),
@@ -203,6 +232,7 @@ class QLoRASFTTrainer(BaseTrainer):
         )
 
         logger.info("Training started…")
+        self.training_started_at = time.perf_counter()
         train_kwargs = {}
         if resume_from_checkpoint:
             train_kwargs["resume_from_checkpoint"] = resume_from_checkpoint
@@ -210,6 +240,7 @@ class QLoRASFTTrainer(BaseTrainer):
         self.metrics = result.metrics or {}
         state_step = getattr(getattr(trainer, "state", None), "global_step", None)
         self.final_global_step = int(state_step or self.metrics.get("global_step", 0) or 0)
+        self.training_duration_seconds = round(time.perf_counter() - self.training_started_at, 3)
         logger.info("Training complete. Loss: %s", self.metrics.get("train_loss", "N/A"))
 
         self._save(adapter_dir)
@@ -242,6 +273,9 @@ class QLoRASFTTrainer(BaseTrainer):
         # method D reuses this adapter, so they must be recorded at save time.
         metadata = {
             "base_model": _get(self.model_cfg, "hf_id") or _get(self.model_cfg, "name"),
+            "model_key": _get(self.model_cfg, "key"),
+            "model_revision": _get(self.model_cfg, "revision"),
+            "model_config_hash": hash_config(self.model_cfg),
             "trainer": "qlora_sft",
             "quantization": "4bit_nf4",
             "lora_r": _get(lora_cfg, "r"),
@@ -253,6 +287,21 @@ class QLoRASFTTrainer(BaseTrainer):
             "train_file": train_file,
             "train_file_sha256": train_file_sha256,
             "training_config_hash": hash_config(self.train_cfg),
+            "max_steps": _get(sft, "max_steps", -1),
+            "per_device_train_batch_size": _get(sft, "per_device_train_batch_size"),
+            "gradient_accumulation_steps": _get(sft, "gradient_accumulation_steps"),
+            "optimizer": _get(sft, "optim", "adamw_torch"),
+            "scheduler": _get(sft, "lr_scheduler_type"),
+            "warmup_ratio": _get(sft, "warmup_ratio"),
+            "max_seq_length": _get(self.model_cfg, "max_seq_length"),
+            "precision": {
+                "dtype": _get(self.model_cfg, "dtype"),
+                "fp16": _get(sft, "fp16"),
+                "bf16": _get(sft, "bf16"),
+            },
+            "trainable_parameters": self.trainable_parameters,
+            "total_parameters": self.total_parameters,
+            "training_duration_seconds": self.training_duration_seconds,
             "experiment_id": _get(self.cfg, "experiment_id"),
             "experiment_name": _get(self.cfg, "experiment_name"),
             "train_metrics": getattr(self, "metrics", {}),

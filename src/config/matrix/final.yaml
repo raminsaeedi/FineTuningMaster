@@ -6,11 +6,11 @@
 #
 # Consumed by: python experiments/scripts/run_final_matrix.py
 #
-# Qwen2.5-0.5B-Instruct is the local smoke/dev model, NOT a committed final
-# thesis model. Point `model` at the intended final model config before the
-# final GPU run.
-
-model: qwen2_5_0_5b
+# Qwen2.5-0.5B-Instruct remains the local smoke model. The final matrix is
+# explicitly the four profiles below.
+model: qwen3_1_7b
+final_models: [qwen3_1_7b, qwen3_8b, qwen3_14b, llama3_1_8b]
+smoke_model: qwen2_5_0_5b
 
 seeds: [42, 43, 44]
 

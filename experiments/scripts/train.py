@@ -45,6 +45,12 @@ from src.utils.config import load_cfg  # noqa: E402
 from src.utils.config_hash import hash_config  # noqa: E402
 from src.utils.logging import setup_logging  # noqa: E402
 from src.utils.seed import set_seeds  # noqa: E402
+from src.models.hf_utils import (  # noqa: E402
+    chat_template_kwargs,
+    from_pretrained_kwargs,
+    model_identifier,
+    safe_model_access_error,
+)
 
 
 class ResumeError(RuntimeError):
@@ -103,6 +109,8 @@ def build_resume_metadata(cfg: Any, project_root: Optional[Path] = None) -> dict
         "experiment_id": str(cfg.get("experiment_id", "")),
         "model": str(model_name or ""),
         "model_hf_id": str(model_hf_id or ""),
+        "model_key": model_cfg.get("key") or cfg.get("model_key"),
+        "model_revision": model_cfg.get("revision"),
         "seed": int(cfg.get("seed", 42)),
         "dataset_version": data_cfg.get("dataset_version"),
         "dataset_hash": dataset_hash,
@@ -372,10 +380,15 @@ def load_and_format_train_dataset(cfg, debug: bool):
     from datasets import Dataset
     from transformers import AutoTokenizer
 
-    name = cfg.model.get("hf_id") or cfg.model.get("name")
-    tokenizer = AutoTokenizer.from_pretrained(
-        name, trust_remote_code=True, cache_dir=cfg.model.get("cache_dir")
+    name = model_identifier(cfg.model)
+    tokenizer_kwargs = from_pretrained_kwargs(
+        cfg.model,
+        cache_dir=cfg.model.get("cache_dir"),
     )
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(name, **tokenizer_kwargs)
+    except Exception as exc:
+        raise safe_model_access_error(name, exc) from exc
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -396,7 +409,14 @@ def load_and_format_train_dataset(cfg, debug: bool):
         items = items[: int(max_samples)]
 
     rows = [
-        {"text": format_training_example(it.brief, it.recommendation, tokenizer)}
+        {
+            "text": format_training_example(
+                it.brief,
+                it.recommendation,
+                tokenizer,
+                chat_template_kwargs(cfg.model),
+            )
+        }
         for it in items
     ]
     return Dataset.from_list(rows)

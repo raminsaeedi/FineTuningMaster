@@ -1,0 +1,14 @@
+# Final model 4/4: gated Meta Llama 3.1 8B Instruct.
+key: llama3_1_8b
+name: meta-llama/Llama-3.1-8B-Instruct
+hf_id: meta-llama/Llama-3.1-8B-Instruct
+revision: null
+family: llama3
+size_billions: 8.0
+max_seq_length: 4096
+dtype: bfloat16
+trust_remote_code: false
+requires_hf_token: true
+chat_template:
+  enable_thinking: false
+cache_dir: null

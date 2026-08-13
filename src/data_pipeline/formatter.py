@@ -25,12 +25,13 @@ def _rec_to_dict(recommendation: RecLike) -> Dict[str, Any]:
     return dict(recommendation)
 
 
-def build_prompt(brief: BriefLike, tokenizer=None) -> str:
+def build_prompt(brief: BriefLike, tokenizer=None, chat_template_kwargs=None) -> str:
     """Render the prompt up to (and including) the assistant-turn opener."""
     messages = build_messages(brief)
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        kwargs = dict(chat_template_kwargs or {})
         return tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+            messages, tokenize=False, add_generation_prompt=True, **kwargs
         )
     # Fallback for tokenizers without a chat template.
     return (
@@ -44,9 +45,10 @@ def format_training_example(
     brief: BriefLike,
     recommendation: RecLike,
     tokenizer=None,
+    chat_template_kwargs=None,
 ) -> str:
     """Full SFT text = prompt + reference JSON + EOS."""
-    prompt = build_prompt(brief, tokenizer)
+    prompt = build_prompt(brief, tokenizer, chat_template_kwargs)
     response_json = json.dumps(_rec_to_dict(recommendation), ensure_ascii=False, indent=2)
 
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):

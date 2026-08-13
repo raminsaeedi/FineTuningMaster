@@ -37,10 +37,9 @@ def collect_rows(outputs_root: str | Path) -> List[Dict[str, Any]]:
     if not root.exists():
         return rows
 
-    for exp_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-        metrics_path = exp_dir / "metrics_auto.json"
-        if not metrics_path.exists():
-            continue
+    metric_files = sorted(root.rglob("metrics_auto.json"))
+    for metrics_path in metric_files:
+        exp_dir = metrics_path.parent
         manifest = {}
         manifest_path = exp_dir / "manifest.json"
         if manifest_path.exists():
@@ -81,8 +80,14 @@ def collect_rows(outputs_root: str | Path) -> List[Dict[str, Any]]:
                 method_cfg.get("name") if isinstance(method_cfg, dict) else None
             ) or row.get("method"),
             "model": model_hf_id or row.get("model"),
+            "model_key": manifest.get("model_key") or (
+                model_cfg.get("key") if isinstance(model_cfg, dict) else None
+            ),
             "model_config": model_cfg.get("name") if isinstance(model_cfg, dict) else None,
             "seed": manifest.get("seed", row.get("seed")),
+            "method_key": manifest.get("method_key"),
+            "profile": manifest.get("profile"),
+            "run_id": manifest.get("run_id") or manifest.get("experiment_id"),
             "dataset_version": manifest.get("dataset_version") or (
                 data_cfg.get("dataset_version") if isinstance(data_cfg, dict) else None
             ),
@@ -92,6 +97,9 @@ def collect_rows(outputs_root: str | Path) -> List[Dict[str, Any]]:
             "config_hash": config_hash,
             "report_schema_version": manifest.get("report_schema_version"),
             "run_status": manifest.get("status"),
+            "source_c_run_id": manifest.get("source_c_run_id"),
+            "adapter_manifest_hash": manifest.get("adapter_manifest_hash"),
+            "cache_identity_hash": manifest.get("cache_identity_hash"),
             "run_path": str(exp_dir.resolve()),
         })
         rows.append(row)

@@ -23,6 +23,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from src.utils.config_hash import hash_config
+
 # Files a saved PEFT adapter folder must contain to be usable.
 _REQUIRED_ADAPTER_FILES = ("adapter_config.json",)
 _ADAPTER_WEIGHT_FILES = ("adapter_model.safetensors", "adapter_model.bin")
@@ -75,16 +77,34 @@ def resolve_adapter_path(cfg: Any, project_root: Optional[Path] = None) -> Path:
         return path if path.is_absolute() else _abs(path, project_root)
 
     source_experiment = _nested_get(cfg, "method.adapter_source_experiment")
+    root = Path(output_root)
+    if not root.is_absolute():
+        root = _abs(root, project_root)
+
+    layout = str(_get(cfg, "run_layout", _get(cfg, "profile", "legacy")) or "legacy")
+    if layout in {"final", "smoke"}:
+        dataset = str(_nested_get(cfg, "data.dataset_version", "dashboard_v3"))
+        model_key = str(
+            _get(cfg, "model_key")
+            or _nested_get(cfg, "model.key")
+            or _nested_get(cfg, "model.name", "model")
+        )
+        source_method = _get(cfg, "source_method_key") or _nested_get(
+            cfg, "method.adapter_source_method_key"
+        )
+        if not source_method:
+            source_method = "C" if source_experiment else _get(
+                cfg, "method_key", _nested_get(cfg, "method.key", "C")
+            )
+        return root / dataset / model_key / str(source_method) / f"seed_{seed}" / "adapter"
+
+    source_experiment = _nested_get(cfg, "method.adapter_source_experiment")
     if source_experiment:
         experiment_id = f"{source_experiment}_{seed}"
     else:
         experiment_id = str(
             _get(cfg, "experiment_id", _get(cfg, "experiment_name", "default"))
         )
-
-    root = Path(output_root)
-    if not root.is_absolute():
-        root = _abs(root, project_root)
     return root / experiment_id / "adapter"
 
 
@@ -125,6 +145,29 @@ def check_adapter_compatibility(metadata: Mapping[str, Any], cfg: Any) -> list[s
             f"this run uses '{expected_model}'"
         )
 
+    expected_key = _get(cfg, "model_key") or _nested_get(cfg, "model.key")
+    actual_key = metadata.get("model_key")
+    if expected_key and actual_key and str(actual_key) != str(expected_key):
+        problems.append(
+            f"model key mismatch: adapter was trained for '{actual_key}', "
+            f"this run uses '{expected_key}'"
+        )
+
+    expected_revision = _nested_get(cfg, "model.revision")
+    actual_revision = metadata.get("model_revision")
+    if expected_revision and actual_revision and str(actual_revision) != str(expected_revision):
+        problems.append(
+            f"model revision mismatch: adapter was trained at '{actual_revision}', "
+            f"this run uses '{expected_revision}'"
+        )
+
+    actual_model_config_hash = metadata.get("model_config_hash")
+    expected_model_config = _nested_get(cfg, "model")
+    if actual_model_config_hash and expected_model_config is not None:
+        expected_model_config_hash = hash_config(expected_model_config)
+        if str(actual_model_config_hash) != str(expected_model_config_hash):
+            problems.append("model configuration hash mismatch between adapter and run")
+
     expected_seed = _get(cfg, "seed")
     actual_seed = metadata.get("seed")
     if expected_seed is not None and actual_seed is not None:
@@ -141,6 +184,13 @@ def check_adapter_compatibility(metadata: Mapping[str, Any], cfg: Any) -> list[s
             f"dataset version mismatch: adapter was trained on "
             f"'{actual_dataset}', this run uses '{expected_dataset}'"
         )
+
+    actual_training_hash = metadata.get("training_config_hash")
+    expected_training = _nested_get(cfg, "training")
+    if actual_training_hash and expected_training is not None:
+        expected_training_hash = hash_config(expected_training)
+        if str(actual_training_hash) != str(expected_training_hash):
+            problems.append("training configuration hash mismatch between adapter and run")
 
     return problems
 

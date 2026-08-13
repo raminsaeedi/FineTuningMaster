@@ -75,7 +75,7 @@ class HFMethod(BaseMethod):
         if self._decoder is not None:
             messages = [{"role": "system", "content": system},
                         {"role": "user", "content": user}]
-            prompt = self.model.tokenizer.apply_chat_template(
+            prompt = self.model.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )
             return self._decoder.generate(prompt)

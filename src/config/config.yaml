@@ -15,6 +15,10 @@ log_level: INFO
 output_root: experiments/outputs/experiments
 experiment_name: default
 experiment_id: ${experiment_name}_${seed}
+profile: legacy
+run_layout: legacy
+model_key: ${model.key}
+method_key: null
 
 # Experiment tracking is left present but disabled in v1.
 tracking:

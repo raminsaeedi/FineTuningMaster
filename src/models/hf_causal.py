@@ -18,6 +18,13 @@ import logging
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from src.models.hf_utils import (
+    chat_template_kwargs,
+    from_pretrained_kwargs,
+    model_identifier,
+    safe_model_access_error,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +43,7 @@ class HFCausalModel:
         self.cfg = model_cfg
         self.model = None
         self.tokenizer = None
+        self.chat_kwargs = chat_template_kwargs(model_cfg)
 
     # ------------------------------------------------------------------
     def load(self, adapter_path: Optional[str] = None) -> "HFCausalModel":
@@ -43,7 +51,7 @@ class HFCausalModel:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        name = _get(self.cfg, "hf_id") or _get(self.cfg, "name")
+        name = model_identifier(self.cfg)
         cache_dir = _get(self.cfg, "cache_dir")
         trust_remote_code = bool(_get(self.cfg, "trust_remote_code", True))
         max_seq_length = int(_get(self.cfg, "max_seq_length", 2048))
@@ -54,27 +62,39 @@ class HFCausalModel:
             dtype = torch.float32  # CPU generation needs float32
             device_map = None
         else:
-            dtype = torch.bfloat16 if dtype_str == "bfloat16" else torch.float16
+            dtype = {
+                "bfloat16": torch.bfloat16,
+                "float32": torch.float32,
+                "float16": torch.float16,
+            }.get(str(dtype_str), torch.float16)
             device_map = "auto"
 
         # Tokenizer comes from the adapter dir when present (it was saved there).
         tokenizer_src = adapter_path if adapter_path else name
         logger.info("Loading tokenizer: %s", tokenizer_src)
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_src, trust_remote_code=trust_remote_code, cache_dir=cache_dir
+        tokenizer_kwargs = from_pretrained_kwargs(
+            self.cfg, cache_dir=cache_dir, trust_remote_code=trust_remote_code
         )
+        if adapter_path:
+            tokenizer_kwargs.pop("revision", None)
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_src, **tokenizer_kwargs)
+        except Exception as exc:
+            raise safe_model_access_error(name, exc) from exc
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "right"
         self.max_seq_length = max_seq_length
 
         logger.info("Loading model: %s (adapter=%s)", name, adapter_path)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            name,
-            device_map=device_map,
-            trust_remote_code=trust_remote_code,
-            dtype=dtype,
-            cache_dir=cache_dir,
+        model_kwargs = from_pretrained_kwargs(
+            self.cfg, cache_dir=cache_dir, trust_remote_code=trust_remote_code
         )
+        model_kwargs.update(device_map=device_map, dtype=dtype)
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(name, **model_kwargs)
+        except Exception as exc:
+            raise safe_model_access_error(name, exc) from exc
 
         if adapter_path:
             # Lazy import keeps peft out of the base inference dependency set.
@@ -86,6 +106,12 @@ class HFCausalModel:
         self.model.eval()
         return self
 
+    def apply_chat_template(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        """Render messages with the profile's model-compatible chat template."""
+        template_kwargs = dict(self.chat_kwargs)
+        template_kwargs.update(kwargs)
+        return self.tokenizer.apply_chat_template(messages, **template_kwargs)
+
     # ------------------------------------------------------------------
     def chat(self, system: str, user: str, **gen_kwargs: Any) -> str:
         """Run one chat turn and return the decoded assistant text."""
@@ -95,7 +121,7 @@ class HFCausalModel:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        prompt = self.tokenizer.apply_chat_template(
+        prompt = self.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
 

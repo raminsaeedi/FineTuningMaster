@@ -21,7 +21,7 @@ from src.evaluation.metrics.robustness import compute_robustness
 from src.evaluation.reporting import write_per_run_reports
 from src.inference.postprocess import reparse
 from src.inference.runner import InferenceRunner
-from src.utils.artifacts import experiment_dir
+from src.utils.artifacts import cache_identity, experiment_dir
 from src.utils.io import read_jsonl, write_json
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,10 @@ class ExperimentRunner:
 
         method = self._make_method()
         out_path = self.exp_dir / "predictions.jsonl"
-        InferenceRunner(method, out_path).run(briefs, variant="original")
+        identity = cache_identity(self.cfg)
+        InferenceRunner(method, out_path, cache_identity=identity).run(
+            briefs, variant="original"
+        )
 
         # Optional perturbation variants — only if their files exist.
         for variant, cfg_key in VARIANTS.items():
@@ -78,7 +81,9 @@ class ExperimentRunner:
             v_briefs = [it.brief for it in v_items]
             v_method = self._make_method()
             v_out = self.exp_dir / f"predictions_{variant}.jsonl"
-            InferenceRunner(v_method, v_out).run(v_briefs, variant=variant)
+            InferenceRunner(v_method, v_out, cache_identity=identity).run(
+                v_briefs, variant=variant
+            )
 
     # ------------------------------------------------------------------
     def _load_predictions(self, name: str) -> Optional[List[GenerationResult]]:

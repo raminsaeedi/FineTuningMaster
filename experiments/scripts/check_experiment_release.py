@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -73,6 +74,8 @@ EXPERIMENTS = [
     "E03_qwen0_5b_ft",
     "E04_qwen0_5b_ft_rag",
 ]
+FINAL_MODELS = ["qwen3_1_7b", "qwen3_8b", "qwen3_14b", "llama3_1_8b"]
+SMOKE_MODEL = "qwen2_5_0_5b"
 
 # Paths a final experiment config must never depend on: staging is pre-freeze and
 # gitignored, processed/ is the superseded v1 pipeline.
@@ -180,7 +183,12 @@ def check_cuda(report: Report, require_cuda: bool) -> None:
         import torch
 
         if torch.cuda.is_available():
-            report.ok("cuda", torch.cuda.get_device_name(0))
+            props = torch.cuda.get_device_properties(0)
+            free, total = torch.cuda.mem_get_info(0)
+            report.ok(
+                "cuda",
+                f"{torch.cuda.get_device_name(0)}; VRAM {free // (1 << 20)}/{total // (1 << 20)} MiB free/total",
+            )
             return
         message = "no GPU visible (CPU inference works; training will be very slow)"
     except Exception as exc:
@@ -303,7 +311,21 @@ def check_knowledge_base(report: Report) -> None:
         )
 
 
-def check_configs(report: Report, model_override: Optional[str]) -> None:
+def _model_keys(profile: str, model_override: Optional[str], all_models: bool) -> list[str]:
+    if profile == "smoke":
+        return [model_override or SMOKE_MODEL]
+    if all_models:
+        return list(FINAL_MODELS)
+    return [model_override or FINAL_MODELS[0]]
+
+
+def check_configs(
+    report: Report,
+    model_override: Optional[str],
+    *,
+    profile: str = "smoke",
+    all_models: bool = False,
+) -> list[dict]:
     try:
         from src.utils.config import load_cfg
     except Exception as exc:
@@ -312,43 +334,108 @@ def check_configs(report: Report, model_override: Optional[str]) -> None:
 
     broken = []
     staging_hits = []
-    model_names = set()
-
-    for experiment in EXPERIMENTS:
-        overrides = [f"model={model_override}"] if model_override else []
-        try:
-            cfg = load_cfg(experiment=experiment, overrides=overrides)
-        except Exception as exc:
-            broken.append(f"{experiment}: {type(exc).__name__}")
-            continue
-
-        model_names.add(str(cfg.model.get("name", "")))
-
-        data_cfg = cfg.get("data", {})
-        for key in ("train_file", "val_file", "test_file"):
-            value = data_cfg.get(key)
-            if not value:
+    profiles: list[dict] = []
+    for model_key in _model_keys(profile, model_override, all_models):
+        model_broken = []
+        model_names = set()
+        for experiment in EXPERIMENTS:
+            try:
+                cfg = load_cfg(experiment=experiment, overrides=[f"model={model_key}"])
+            except Exception as exc:
+                model_broken.append(f"{experiment}: {type(exc).__name__}")
                 continue
-            normalized = str(value).replace("\\", "/")
-            if normalized.startswith(FORBIDDEN_DATA_PREFIXES):
-                staging_hits.append(f"{experiment}.{key} -> {value}")
+
+            model_names.add(str(cfg.model.get("name", "")))
+            if experiment == EXPERIMENTS[0]:
+                profiles.append({
+                    "key": model_key,
+                    "hf_id": str(cfg.model.get("hf_id") or cfg.model.get("name") or ""),
+                    "revision": cfg.model.get("revision"),
+                    "requires_hf_token": bool(cfg.model.get("requires_hf_token", False)),
+                })
+
+            data_cfg = cfg.get("data", {})
+            for key in ("train_file", "val_file", "test_file"):
+                value = data_cfg.get(key)
+                if not value:
+                    continue
+                normalized = str(value).replace("\\", "/")
+                if normalized.startswith(FORBIDDEN_DATA_PREFIXES):
+                    staging_hits.append(f"{model_key}/{experiment}.{key} -> {value}")
+
+        if model_broken:
+            broken.extend(f"{model_key}: {item}" for item in model_broken)
+        elif len(model_names) == 1:
+            report.ok(f"model config {model_key}", next(iter(model_names)))
+        else:
+            report.fail(f"model config {model_key}", "no model resolved")
 
     if broken:
         report.fail("experiment configs", "; ".join(broken))
     else:
-        report.ok("experiment configs", f"{len(EXPERIMENTS)} configs compose")
+        report.ok("experiment configs", f"{len(EXPERIMENTS)} configs compose for {len(profiles)} model(s)")
 
     if staging_hits:
         report.fail("no staging dependency", "; ".join(staging_hits))
     else:
-        report.ok("no staging dependency", "final configs use data/frozen only")
+        report.ok("no staging dependency", "selected profiles use data/frozen only")
+    return profiles
 
-    if not model_names:
-        report.fail("model config", "no model resolved")
-    elif len(model_names) > 1:
-        report.warn("model config", f"experiments disagree: {sorted(model_names)}")
+
+def check_hf_access(report: Report, profiles: list[dict], *, verify_remote: bool = True) -> None:
+    """Check gated credentials and repository metadata without downloading weights."""
+    token = os.environ.get("HF_TOKEN")
+    gated = [profile["key"] for profile in profiles if profile.get("requires_hf_token")]
+    if gated and not token:
+        report.fail("HF_TOKEN", f"missing for gated model profile(s): {', '.join(gated)}")
+    elif gated:
+        report.ok("HF_TOKEN", f"present for {len(gated)} gated model profile(s)")
     else:
-        report.ok("model config", model_names.pop())
+        report.ok("HF_TOKEN", "no selected model profile requires a gated token")
+
+    if not verify_remote:
+        report.warn("model repository access", "remote metadata check skipped")
+        return
+    try:
+        from huggingface_hub import HfApi
+    except Exception:
+        report.warn("model repository access", "huggingface_hub unavailable; weights were not downloaded")
+        return
+
+    api = HfApi()
+    for profile in profiles:
+        if profile.get("requires_hf_token") and not token:
+            continue
+        try:
+            kwargs = {"token": token} if token else {}
+            if profile.get("revision"):
+                kwargs["revision"] = profile["revision"]
+            api.model_info(profile["hf_id"], **kwargs)
+            report.ok(f"model repository {profile['key']}", "metadata reachable; weights not downloaded")
+        except Exception as exc:
+            report.warn(
+                f"model repository {profile['key']}",
+                f"metadata check unavailable ({type(exc).__name__}); weights were not downloaded",
+            )
+
+
+def check_transformers_model_support(report: Report, profiles: list[dict]) -> None:
+    """Verify Qwen3/Llama config classes exist without loading model weights."""
+    try:
+        from transformers.models.llama import LlamaConfig
+        from transformers.models.qwen3 import Qwen3Config
+    except Exception as exc:
+        report.fail("transformers model support", f"Qwen3/Llama classes unavailable: {type(exc).__name__}")
+        return
+    families = {str(profile["key"]).split("_", 1)[0] for profile in profiles}
+    details = []
+    if any(key.startswith("qwen3") for key in families) or any(
+        str(profile["key"]).startswith("qwen3") for profile in profiles
+    ):
+        details.append(Qwen3Config.model_type)
+    if any(str(profile["key"]).startswith("llama3") for profile in profiles):
+        details.append(LlamaConfig.model_type)
+    report.ok("transformers model support", ", ".join(details) or "Qwen3/Llama classes available")
 
 
 def check_output_dir(report: Report, output_root: str) -> None:
@@ -374,7 +461,11 @@ def parse_args() -> argparse.Namespace:
                    help="Fail (not warn) when the training extra is not installed")
     p.add_argument("--model", default=None,
                    help="Check against a specific model config name")
-    p.add_argument("--output-root", default="experiments/outputs/final",
+    p.add_argument("--profile", choices=("smoke", "final"), default="smoke",
+                   help="Preflight profile (smoke or final)")
+    p.add_argument("--all-models", action="store_true",
+                   help="Check all four final model profiles")
+    p.add_argument("--output-root", default=None,
                    help="Output root to test for writability")
     return p.parse_args()
 
@@ -388,14 +479,22 @@ def main() -> None:
     print("=" * 70)
 
     check_python(report)
-    check_packages(report, require_training=args.require_training)
-    check_cuda(report, require_cuda=args.require_cuda)
+    final_profile = args.profile == "final"
+    check_packages(report, require_training=args.require_training or final_profile)
+    check_cuda(report, require_cuda=args.require_cuda or final_profile)
     records = check_frozen_dataset(report)
     check_hashes(report, records)
     check_counts(report)
     check_knowledge_base(report)
-    check_configs(report, args.model)
-    check_output_dir(report, args.output_root)
+    profiles = check_configs(
+        report, args.model, profile=args.profile, all_models=args.all_models
+    )
+    check_transformers_model_support(report, profiles)
+    check_hf_access(report, profiles)
+    output_root = args.output_root or (
+        "experiments/outputs/final" if final_profile else "experiments/outputs/smoke"
+    )
+    check_output_dir(report, output_root)
 
     report.render()
     print("=" * 70)

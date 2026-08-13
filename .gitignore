@@ -49,6 +49,11 @@ outputs/
 models/
 !src/models/
 
+# Final/smoke experiment artifacts are generated locally and sent via the
+# professor package; configurations, scripts, and reports remain trackable.
+experiments/outputs/
+experiments/results/
+
 # ── Jupyter ──────────────────────────────────────────────────
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/

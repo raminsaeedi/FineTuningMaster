@@ -9,6 +9,7 @@ name: ft
 type: fine_tuned
 adapter_path: null
 adapter_source_experiment: null
+adapter_source_method_key: null
 generate:
   max_new_tokens: 1024
   temperature: 0.1

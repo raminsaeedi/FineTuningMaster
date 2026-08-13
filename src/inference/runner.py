@@ -16,7 +16,7 @@ import json
 import logging
 import traceback
 from pathlib import Path
-from typing import List, Set
+from typing import Any, List, Set
 
 from src.core.interfaces import BaseMethod
 from src.core.schemas import GenerationResult
@@ -28,9 +28,15 @@ logger = logging.getLogger(__name__)
 class InferenceRunner:
     """Run a method over a list of briefs, caching results to ``out_path``."""
 
-    def __init__(self, method: BaseMethod, out_path: str | Path) -> None:
+    def __init__(
+        self,
+        method: BaseMethod,
+        out_path: str | Path,
+        cache_identity: dict[str, Any] | None = None,
+    ) -> None:
         self.method = method
         self.out_path = Path(out_path)
+        self.cache_identity = cache_identity
 
     def _expected_config_hash(self) -> str:
         return str(getattr(self.method, "config_hash", "") or "")
@@ -60,6 +66,26 @@ class InferenceRunner:
         return [GenerationResult(**r) for r in read_jsonl(self.out_path)]
 
     @property
+    def cache_identity_path(self) -> Path:
+        return self.out_path.parent / "cache_identity.json"
+
+    def _check_cache_identity(self) -> None:
+        """Reject a cache from another dataset/model/method/seed identity."""
+        if self.cache_identity is None or not self.cache_identity_path.exists():
+            return
+        try:
+            stored = json.loads(self.cache_identity_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(
+                f"Invalid cache identity next to {self.out_path}: {self.cache_identity_path}"
+            ) from exc
+        if stored != self.cache_identity:
+            raise RuntimeError(
+                f"{self.out_path} holds predictions for a different cache identity. "
+                "Use a distinct run directory or remove only the incompatible cache."
+            )
+
+    @property
     def errors_path(self) -> Path:
         """Sibling of ``predictions*.jsonl`` recording items that raised."""
         return self.out_path.parent / self.out_path.name.replace("predictions", "errors")
@@ -78,6 +104,7 @@ class InferenceRunner:
             ef.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
+        self._check_cache_identity()
         stale = self._stale_config_hashes()
         if stale:
             raise RuntimeError(

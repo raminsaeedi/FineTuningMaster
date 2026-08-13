@@ -87,6 +87,68 @@ def _select(df):
     return chosen
 
 
+def _write_final_tree(df: pd.DataFrame, out_dir: Path) -> None:
+    """Write the model-separated result tree used by the professor handoff."""
+    per_model = out_dir / "per_model"
+    cross_model = out_dir / "cross_model"
+    statistics = out_dir / "statistics"
+    figures = out_dir / "figures"
+    per_model.mkdir(parents=True, exist_ok=True)
+    cross_model.mkdir(parents=True, exist_ok=True)
+    statistics.mkdir(parents=True, exist_ok=True)
+    figures.mkdir(parents=True, exist_ok=True)
+
+    model_column = "model_key" if "model_key" in df.columns else "model"
+    method_column = "method_key" if "method_key" in df.columns else "method"
+    for model, group in df.groupby(model_column, dropna=False, sort=True):
+        label = str(model if pd.notna(model) else "unknown_model")
+        model_dir = per_model / label
+        model_dir.mkdir(parents=True, exist_ok=True)
+        group.to_csv(model_dir / "comparison_table.csv", index=False)
+        group.to_json(model_dir / "run_index.json", orient="records", indent=2)
+
+    df.to_csv(cross_model / "comparison_by_run.csv", index=False)
+    if (out_dir / "comparison_seeds.csv").exists():
+        (cross_model / "comparison_by_seed.csv").write_bytes(
+            (out_dir / "comparison_seeds.csv").read_bytes()
+        )
+    numeric_columns = [
+        c for c in df.columns
+        if any(needle in c for needle in ("accuracy", "validity", "completeness", "f1", "latency"))
+    ]
+    if numeric_columns:
+        work = df.copy()
+        for column in numeric_columns:
+            work[column] = pd.to_numeric(work[column], errors="coerce")
+        summary = work.groupby([model_column, method_column], dropna=False)[numeric_columns].agg(
+            ["mean", "std", "count"]
+        )
+        summary.columns = [f"{column}_{stat}" for column, stat in summary.columns]
+        summary_df = summary.reset_index()
+        summary_df.to_csv(cross_model / "model_method_summary.csv", index=False)
+        summary_md = "# Model/method summary\n\n" + _md_table(
+            summary_df.to_dict(orient="records"), list(summary_df.columns)
+        ) + "\n"
+        (cross_model / "model_method_summary.md").write_text(summary_md, encoding="utf-8")
+    else:
+        empty = pd.DataFrame(columns=[model_column, method_column])
+        empty.to_csv(
+            cross_model / "model_method_summary.csv", index=False
+        )
+        (cross_model / "model_method_summary.md").write_text(
+            "# Model/method summary\n\n_No numeric metrics available._\n",
+            encoding="utf-8",
+        )
+
+    index_columns = [
+        column for column in (
+            "run_id", "experiment_id", "model_key", "method_key", "seed",
+            "dataset_version", "config_hash", "cache_identity_hash", "run_path",
+        ) if column in df.columns
+    ]
+    df[index_columns].to_json(out_dir / "final_run_index.json", orient="records", indent=2)
+
+
 def main() -> None:
     args = parse_args()
     outputs_root = (_PROJECT_ROOT / args.outputs_root) if not Path(args.outputs_root).is_absolute() else Path(args.outputs_root)
@@ -177,6 +239,8 @@ def main() -> None:
     )
     (out_dir / "final_report.md").write_text(report, encoding="utf-8")
 
+    _write_final_tree(df, out_dir)
+
     print("=" * 56)
     print("AGGREGATION COMPLETE")
     print("=" * 56)
@@ -188,6 +252,7 @@ def main() -> None:
     print(f"  multi_seed_summary.csv: {out_dir / 'multi_seed_summary.csv'}")
     print(f"  multi_seed_summary.md : {out_dir / 'multi_seed_summary.md'}")
     print(f"  final_report.md      : {out_dir / 'final_report.md'}")
+    print(f"  final result tree    : {out_dir / 'per_model'} + {out_dir / 'cross_model'}")
     print("=" * 56)
 
 

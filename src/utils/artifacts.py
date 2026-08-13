@@ -18,7 +18,9 @@ is:
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
+import platform
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -40,12 +42,31 @@ _DATA_FILE_KEYS = {
 
 
 def experiment_dir(cfg: Any, project_root: Path) -> Path:
-    """Resolve ``<output_root>/<experiment_id>`` as an absolute path."""
+    """Resolve a run directory, preserving the legacy layout by default.
+
+    Profile-aware runs use the collision-proof thesis layout:
+    ``<root>/<dataset>/<model>/<method>/seed_<n>``.
+    """
     output_root = str(cfg.get("output_root", "outputs/experiments"))
     experiment_id = str(cfg.get("experiment_id", cfg.get("experiment_name", "default")))
     root = Path(output_root)
     if not root.is_absolute():
         root = project_root / root
+    layout = str(cfg.get("run_layout", cfg.get("profile", "legacy")) or "legacy")
+    if layout in {"final", "smoke"}:
+        dataset = str(_nested_get(cfg, "data.dataset_version", "dashboard_v3"))
+        model_key = str(
+            cfg.get("model_key")
+            or _nested_get(cfg, "model.key")
+            or _nested_get(cfg, "model.name", "model")
+        )
+        method_key = str(
+            cfg.get("method_key")
+            or _nested_get(cfg, "method.key")
+            or _nested_get(cfg, "method.name", "method")
+        )
+        seed = int(cfg.get("seed", 42))
+        return root / dataset / model_key / method_key / f"seed_{seed}"
     return root / experiment_id
 
 
@@ -79,6 +100,40 @@ def _nested_get(cfg: Any, dotted: str, default: Any = None) -> Any:
         if cur is None:
             return default
     return cur
+
+
+def _plain(value: Any) -> Any:
+    """Convert OmegaConf containers to JSON-safe plain values."""
+    try:
+        from omegaconf import OmegaConf
+
+        if OmegaConf.is_config(value):
+            value = OmegaConf.to_container(value, resolve=True)
+    except Exception:
+        pass
+    if isinstance(value, dict):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _redact(value: Any, key: str = "") -> Any:
+    """Remove accidental secret-like config fields from shipped artifacts."""
+    lowered = key.lower()
+    secret_key = (
+        lowered in {"token", "hf_token", "secret", "password", "api_key"}
+        or "secret" in lowered
+        or "password" in lowered
+        or "api_key" in lowered
+    )
+    if secret_key:
+        return "<redacted>"
+    if isinstance(value, dict):
+        return {str(k): _redact(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact(v, key) for v in value]
+    return value
 
 
 def _sha256_file(path: Path) -> Optional[str]:
@@ -143,6 +198,17 @@ def _kb_provenance(cfg: Any) -> dict:
     }
 
 
+def _kb_manifest_hash(cfg: Any) -> Optional[str]:
+    chunks_raw = _nested_get(cfg, "method.retriever.chunks_path")
+    if not chunks_raw:
+        return None
+    chunks_path = Path(str(chunks_raw))
+    if not chunks_path.is_absolute():
+        chunks_path = Path.cwd() / chunks_path
+    manifest_path = chunks_path.parent / "kb_manifest.json"
+    return _sha256_file(manifest_path) if manifest_path.exists() else None
+
+
 def _adapter_provenance(cfg: Any) -> dict:
     """Record which adapter this run loads and what it was trained on.
 
@@ -166,6 +232,105 @@ def _adapter_provenance(cfg: Any) -> dict:
         return {"adapter_path": None, "adapter_training_metadata": None}
 
 
+def _source_run_provenance(adapter: dict) -> dict:
+    """Read the producing C manifest without changing the legacy adapter shape."""
+    raw_path = adapter.get("adapter_path")
+    if not raw_path:
+        return {"source_c_run_id": None, "adapter_manifest_hash": None}
+    adapter_dir = Path(str(raw_path))
+    manifest_path = adapter_dir.parent / "manifest.json"
+    if not manifest_path.exists():
+        return {"source_c_run_id": None, "adapter_manifest_hash": None}
+    source_id = None
+    try:
+        with manifest_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+            if isinstance(payload, dict):
+                source_id = payload.get("run_id") or payload.get("experiment_id")
+    except Exception:
+        source_id = None
+    return {
+        "source_c_run_id": source_id,
+        "adapter_manifest_hash": _sha256_file(manifest_path),
+    }
+
+
+def _model_key(cfg: Any) -> str:
+    return str(
+        cfg.get("model_key")
+        or _nested_get(cfg, "model.key")
+        or _nested_get(cfg, "model.name", "")
+    )
+
+
+def _method_key(cfg: Any) -> str:
+    return str(
+        cfg.get("method_key")
+        or _nested_get(cfg, "method.key")
+        or _nested_get(cfg, "method.name", "")
+    )
+
+
+def _hardware_provenance() -> dict:
+    result = {"platform": platform.platform(), "python": platform.python_version()}
+    try:
+        import torch
+
+        result["pytorch"] = getattr(torch, "__version__", None)
+        result["cuda_version"] = getattr(getattr(torch, "version", None), "cuda", None)
+        result["cuda_available"] = bool(torch.cuda.is_available())
+        if result["cuda_available"]:
+            device = torch.cuda.current_device()
+            props = torch.cuda.get_device_properties(device)
+            result["gpu_name"] = torch.cuda.get_device_name(device)
+            result["gpu_total_memory_bytes"] = int(getattr(props, "total_memory", 0))
+    except Exception:
+        result["pytorch"] = None
+        result["cuda_version"] = None
+        result["cuda_available"] = False
+    return result
+
+
+def _package_versions() -> dict:
+    names = ("transformers", "peft", "trl", "accelerate", "bitsandbytes", "datasets")
+    return {
+        name: (importlib.metadata.version(name) if _distribution_exists(name) else None)
+        for name in names
+    }
+
+
+def _distribution_exists(name: str) -> bool:
+    try:
+        importlib.metadata.version(name)
+        return True
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    except Exception:
+        return False
+
+
+def cache_identity(cfg: Any) -> dict:
+    """Identity used to decide whether cached inference is reusable."""
+    data_hashes = _data_file_hashes(cfg)
+    kb = _kb_provenance(cfg)
+    return {
+        "dataset_version": _nested_get(cfg, "data.dataset_version"),
+        "dataset_hashes": data_hashes,
+        "model_key": _model_key(cfg),
+        "model_hf_id": _nested_get(cfg, "model.hf_id") or _nested_get(cfg, "model.name"),
+        "model_revision": _nested_get(cfg, "model.revision"),
+        "method": _method_key(cfg),
+        "seed": int(cfg.get("seed", 42)),
+        "training_config_hash": hash_config(_plain(_nested_get(cfg, "training", {}))),
+        "inference_config_hash": hash_config({
+            "generate": _plain(_nested_get(cfg, "method.generate", {})),
+            "eval": _plain(_nested_get(cfg, "eval", {})),
+        }),
+        "kb_hash": kb.get("chunks_sha256"),
+        "kb_manifest_hash": _kb_manifest_hash(cfg),
+    }
+
+
 def write_manifest(exp_dir: Path, cfg: Any) -> dict:
     """Write a single machine-readable record identifying the run.
 
@@ -176,15 +341,33 @@ def write_manifest(exp_dir: Path, cfg: Any) -> dict:
     the release pass adds dataset version, KB and adapter provenance, and a
     dirty-tree flag so an uncommitted working copy is visible in the record.
     """
+    data_hashes = _data_file_hashes(cfg)
+    adapter = _adapter_provenance(cfg)
+    identity = cache_identity(cfg)
+    method_type = str(_nested_get(cfg, "method.type", ""))
+    source = (
+        _source_run_provenance(adapter)
+        if "fine_tuned_rag" in method_type
+        else {"source_c_run_id": None, "adapter_manifest_hash": None}
+    )
+    created = datetime.now(timezone.utc).isoformat(timespec="seconds")
     manifest = {
         "experiment_id": str(cfg.get("experiment_id", "")),
+        "run_id": str(cfg.get("run_id", cfg.get("experiment_id", ""))),
         "experiment_name": str(cfg.get("experiment_name", "")),
         "method": str(_nested_get(cfg, "method.name", "")),
+        "method_key": _method_key(cfg),
         "model": str(_nested_get(cfg, "model.name", "")),
+        "model_key": _model_key(cfg),
         "model_hf_id": _nested_get(cfg, "model.hf_id"),
+        "model_revision": _nested_get(cfg, "model.revision"),
+        "model_parameters_billions": _nested_get(cfg, "model.size_billions"),
+        "chat_template": _redact(_plain(_nested_get(cfg, "model.chat_template", {}))),
         "seed": int(cfg.get("seed", 42)),
         "dataset_version": _nested_get(cfg, "data.dataset_version"),
-        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "created_utc": created,
+        "start_utc": created,
+        "profile": str(cfg.get("profile", "legacy")),
         "config_hash": hash_config(cfg),
         "git_hash": get_git_hash(),
         "git_dirty": is_git_dirty(),
@@ -199,9 +382,24 @@ def write_manifest(exp_dir: Path, cfg: Any) -> dict:
             "L3": "pending-data",     # Tableau Census not acquired
             "L4": "pending-ratings",  # human ratings not collected
         },
-        "data_file_sha256": _data_file_hashes(cfg),
+        "data_file_sha256": data_hashes,
+        "dataset_hashes": data_hashes,
         "knowledge_base": _kb_provenance(cfg),
-        "adapter": _adapter_provenance(cfg),
+        "adapter": adapter,
+        "source_c_run_id": source["source_c_run_id"],
+        "adapter_path": adapter.get("adapter_path"),
+        "adapter_manifest_hash": source["adapter_manifest_hash"],
+        "training_config": _redact(_plain(_nested_get(cfg, "training", {}))),
+        "inference_config": _redact(_plain(_nested_get(cfg, "method.generate", {}))),
+        "rag_config": _redact(_plain(_nested_get(cfg, "method.retriever", {}))),
+        "kb_hashes": {
+            "chunks_sha256": _kb_provenance(cfg).get("chunks_sha256"),
+            "manifest_sha256": _kb_manifest_hash(cfg),
+        },
+        "cache_identity": identity,
+        "cache_identity_hash": hash_config(identity),
+        "hardware": _hardware_provenance(),
+        "package_versions": _package_versions(),
     }
     with (exp_dir / "manifest.json").open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, default=str)
@@ -227,6 +425,7 @@ def finalize_manifest(exp_dir: Path, status: str = "completed") -> Optional[dict
 
     finished = datetime.now(timezone.utc)
     manifest["finished_utc"] = finished.isoformat(timespec="seconds")
+    manifest["end_utc"] = manifest["finished_utc"]
     manifest["status"] = status
     started_raw = manifest.get("created_utc")
     if started_raw:
@@ -265,11 +464,24 @@ def write_run_metadata(exp_dir: Path, cfg: Any) -> None:
     try:
         from omegaconf import OmegaConf
 
-        snapshot = OmegaConf.to_yaml(cfg, resolve=True)
+        snapshot_value = _redact(_plain(cfg))
+        snapshot = OmegaConf.to_yaml(snapshot_value, resolve=True)
     except Exception:
-        snapshot = str(cfg)
+        snapshot = json.dumps(_redact(_plain(cfg)), indent=2, default=str)
     (exp_dir / "config_snapshot.yaml").write_text(snapshot, encoding="utf-8")
     (exp_dir / "config_hash.txt").write_text(hash_config(cfg) + "\n", encoding="utf-8")
     (exp_dir / "git_hash.txt").write_text(get_git_hash() + "\n", encoding="utf-8")
     (exp_dir / "env.txt").write_text(_pip_freeze(), encoding="utf-8")
-    write_manifest(exp_dir, cfg)
+    manifest = write_manifest(exp_dir, cfg)
+    (exp_dir / "cache_identity.json").write_text(
+        json.dumps(manifest["cache_identity"], indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (exp_dir / "dataset_hashes.json").write_text(
+        json.dumps(manifest["dataset_hashes"], indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (exp_dir / "kb_hashes.json").write_text(
+        json.dumps(manifest["kb_hashes"], indent=2, sort_keys=True),
+        encoding="utf-8",
+    )

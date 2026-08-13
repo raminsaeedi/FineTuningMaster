@@ -62,6 +62,10 @@ _RUN_FILE_NAMES = {
     "config_hash.txt",
     "git_hash.txt",
     "env.txt",
+    "cache_identity.json",
+    "dataset_hashes.json",
+    "kb_hashes.json",
+    "resume_metadata.json",
 }
 _RUN_FILE_GLOBS = ("predictions*.jsonl", "errors*.jsonl")
 
@@ -80,6 +84,7 @@ _EXCLUDED_DIR_NAMES = {
     "huggingface",
     "hub",
     "base_model",
+    "_stale_cache",
 }
 
 # Binary / weight artifacts, matched on the file name.
