@@ -5,7 +5,7 @@ defaults:
   - override /model: qwen2_5_0_5b
   - override /method: ft
   - override /training: qlora_default
-  - override /data: dashboard_v3
+  - override /data: dashboard_v4
   - override /eval: full
 
 experiment_name: E03_qwen0_5b_ft

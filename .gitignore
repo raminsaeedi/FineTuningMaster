@@ -1,5 +1,10 @@
 # ── Secrets ──────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
+*.token
+hf_token*
+.huggingface/
 
 # ── Python ───────────────────────────────────────────────────
 __pycache__/
@@ -76,4 +81,7 @@ skills-lock.json
 codex.md
 .codesight/
 graphify-out/
-.env.example
+
+# ── Generated result packages (produced on the GPU machine) ──
+professor_results*.zip
+professor_results*_manifest.json

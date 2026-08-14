@@ -36,10 +36,15 @@ MODEL_EXPECTATIONS = {
 }
 
 
-def _cfg(tmp_path: Path, *, model: str = "qwen3_8b", method: str = "D", seed: int = 42):
+DEFAULT_DATASET = "dashboard_v4"
+
+
+def _cfg(tmp_path: Path, *, model: str = "qwen3_8b", method: str = "D", seed: int = 42,
+         dataset: str = DEFAULT_DATASET):
     return load_cfg(
         experiment="E04_qwen0_5b_ft_rag" if method == "D" else "E03_qwen0_5b_ft",
         overrides=[
+            f"data={dataset}",
             f"model={model}",
             "profile=final",
             "run_layout=final",
@@ -117,8 +122,10 @@ def test_final_and_smoke_output_paths_are_separate(tmp_path):
     smoke_cfg["profile"] = "smoke"
     smoke_cfg["run_layout"] = "smoke"
     smoke_path = experiment_dir(smoke_cfg, tmp_path)
-    assert final_path == tmp_path / "outputs" / "dashboard_v3" / "qwen3_8b" / "A" / "seed_42"
-    assert smoke_path == tmp_path / "smoke_outputs" / "dashboard_v3" / "qwen3_8b" / "A" / "seed_42"
+    assert final_path == tmp_path / "outputs" / DEFAULT_DATASET / "qwen3_8b" / "A" / "seed_42"
+    assert smoke_path == (
+        tmp_path / "smoke_outputs" / DEFAULT_DATASET / "qwen3_8b" / "A" / "seed_42"
+    )
     assert smoke_path != final_path
 
 
@@ -135,8 +142,55 @@ def test_profile_runner_paths_are_unique_per_model_method_seed(tmp_path):
 def test_d_resolves_exact_same_model_and_seed_c_adapter(tmp_path):
     cfg = _cfg(tmp_path, model="qwen3_8b", method="D", seed=43)
     assert resolve_adapter_path(cfg, tmp_path) == (
-        tmp_path / "outputs" / "dashboard_v3" / "qwen3_8b" / "C" / "seed_43" / "adapter"
+        tmp_path / "outputs" / DEFAULT_DATASET / "qwen3_8b" / "C" / "seed_43" / "adapter"
     )
+
+
+# --- dataset selection (v3 and v4 both runnable, v4 is the default) ---------
+
+@pytest.mark.parametrize("dataset", ["dashboard_v3", "dashboard_v4"])
+def test_both_frozen_datasets_are_selectable(dataset):
+    cfg = load_cfg(experiment="E03_qwen0_5b_ft", overrides=[f"data={dataset}"])
+    assert cfg.data.dataset_version == dataset
+    assert str(cfg.data.train_file).replace("\\", "/") == f"data/frozen/{dataset}/train.jsonl"
+    assert str(cfg.data.test_file).replace("\\", "/") == f"data/frozen/{dataset}/test.jsonl"
+
+
+@pytest.mark.parametrize("experiment", [
+    "E01_qwen0_5b_prompt", "E02_qwen0_5b_rag", "E03_qwen0_5b_ft", "E04_qwen0_5b_ft_rag",
+])
+def test_default_dataset_is_v4(experiment):
+    assert load_cfg(experiment=experiment).data.dataset_version == DEFAULT_DATASET
+
+
+@pytest.mark.parametrize("dataset", ["dashboard_v3", "dashboard_v4"])
+def test_run_and_adapter_paths_are_keyed_on_the_dataset(tmp_path, dataset):
+    cfg = _cfg(tmp_path, model="qwen3_8b", method="D", seed=43, dataset=dataset)
+    assert experiment_dir(cfg, tmp_path) == (
+        tmp_path / "outputs" / dataset / "qwen3_8b" / "D" / "seed_43"
+    )
+    assert resolve_adapter_path(cfg, tmp_path) == (
+        tmp_path / "outputs" / dataset / "qwen3_8b" / "C" / "seed_43" / "adapter"
+    )
+    assert runner.profile_run_dir(tmp_path, "qwen3_8b", "D", 43, dataset) == (
+        tmp_path / dataset / "qwen3_8b" / "D" / "seed_43"
+    )
+
+
+def test_v3_and_v4_runs_never_share_a_directory(tmp_path):
+    v3 = runner.profile_run_dir(tmp_path, "qwen3_8b", "C", 42, "dashboard_v3")
+    v4 = runner.profile_run_dir(tmp_path, "qwen3_8b", "C", 42, "dashboard_v4")
+    assert v3 != v4
+
+
+def test_adapter_from_another_dataset_is_rejected():
+    problems = check_adapter_compatibility(
+        {"base_model": "Qwen/Qwen3-8B", "model_key": "qwen3_8b", "seed": 42,
+         "dataset_version": "dashboard_v3"},
+        {"model_key": "qwen3_8b", "model": {"hf_id": "Qwen/Qwen3-8B", "key": "qwen3_8b"},
+         "seed": 42, "data": {"dataset_version": "dashboard_v4"}},
+    )
+    assert any("dataset version mismatch" in problem for problem in problems)
 
 
 def test_adapter_compatibility_rejects_wrong_model_and_seed():

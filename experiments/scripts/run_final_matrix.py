@@ -9,9 +9,13 @@ Examples::
         --all-models --all-methods --seeds 42 43 44 \
         --with-dependencies --resume
 
-Final artifacts use ``dashboard_v3/<model>/<method>/seed_<n>``. The runner never
-mixes models or seeds, and method D refuses to start without its same-model,
-same-seed method C adapter.
+Final artifacts use ``<dataset>/<model>/<method>/seed_<n>`` below the output
+root, e.g. ``experiments/outputs/final/dashboard_v4/qwen3_8b/C/seed_42``. The
+dataset is selected with ``--dataset`` (default: ``dashboard_v4``) and reaches
+training, inference, cache identity, manifests, adapter compatibility,
+aggregation and packaging. The runner never mixes datasets, models or seeds, and
+method D refuses to start without its same-dataset, same-model, same-seed method
+C adapter.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ from src.utils.artifacts import cache_identity  # noqa: E402
 DEFAULT_MATRIX = _PROJECT_ROOT / "src" / "config" / "matrix" / "final.yaml"
 FINAL_MODELS = ("qwen3_1_7b", "qwen3_8b", "qwen3_14b", "llama3_1_8b")
 SMOKE_MODEL = "qwen2_5_0_5b"
+DEFAULT_DATASET = "dashboard_v4"
 METHOD_KEYS = ("A", "B", "C", "D")
 METHODS = {
     "A": {"experiment": "E01_qwen0_5b_prompt", "description": "prompt-only baseline"},
@@ -111,21 +116,33 @@ def _hydra_path(path: str | Path) -> str:
     return value.replace("\\", "/")
 
 
-def profile_run_dir(output_root: Path, model: str, method: str, seed: int) -> Path:
-    return output_root / "dashboard_v3" / model / method / f"seed_{seed}"
+def profile_run_dir(
+    output_root: Path, model: str, method: str, seed: int,
+    dataset: str = DEFAULT_DATASET,
+) -> Path:
+    """``<root>/<dataset>/<model>/<method>/seed_<n>`` — the one layout used everywhere."""
+    return output_root / dataset / model / method / f"seed_{seed}"
 
 
-def profile_adapter_dir(output_root: Path, model: str, method: str, seed: int = 42) -> Path:
-    return profile_run_dir(output_root, model, method, seed) / "adapter"
+def profile_adapter_dir(
+    output_root: Path, model: str, method: str, seed: int = 42,
+    dataset: str = DEFAULT_DATASET,
+) -> Path:
+    return profile_run_dir(output_root, model, method, seed, dataset) / "adapter"
 
 
-def _manifest_matches(path: Path, *, model: str, method: str, seed: int, profile: str) -> bool:
+def _manifest_matches(
+    path: Path, *, model: str, method: str, seed: int, profile: str,
+    dataset: str | None = None,
+) -> bool:
     manifest_path = path / "manifest.json"
     if not manifest_path.exists():
         return False
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        return False
+    if dataset and str(manifest.get("dataset_version")) != dataset:
         return False
     return (
         manifest.get("profile") == profile
@@ -141,13 +158,16 @@ def _compatible_adapter(
     model: str,
     seed: int,
     profile: str,
+    dataset: str | None = None,
     training_config_hash: str | None = None,
     model_config_hash: str | None = None,
 ) -> bool:
     if not adapter_is_trained(path):
         return False
     run_path = path.parent
-    if not _manifest_matches(run_path, model=model, method="C", seed=seed, profile=profile):
+    if not _manifest_matches(
+        run_path, model=model, method="C", seed=seed, profile=profile, dataset=dataset
+    ):
         return False
     metadata_path = path / "training_metadata.json"
     if not metadata_path.exists():
@@ -170,10 +190,11 @@ def _compatible_complete(
     method: str,
     seed: int,
     profile: str,
+    dataset: str | None = None,
     cache_identity_hash: str | None = None,
 ) -> bool:
     if not run_is_complete(path) or not _manifest_matches(
-        path, model=model, method=method, seed=seed, profile=profile
+        path, model=model, method=method, seed=seed, profile=profile, dataset=dataset
     ):
         return False
     try:
@@ -228,6 +249,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--matrix", default=str(DEFAULT_MATRIX), help="Matrix definition")
     p.add_argument("--model", default=None, help="One model profile")
     p.add_argument("--all-models", action="store_true", help="Run all four final model profiles")
+    p.add_argument("--dataset", default=DEFAULT_DATASET,
+                   help="Frozen dataset config name, e.g. dashboard_v4 or dashboard_v3")
     p.add_argument("--method", default=None, help="One method key: A, B, C or D")
     p.add_argument("--methods", nargs="+", default=None, help="Selected method keys")
     p.add_argument("--all-methods", action="store_true", help="Run methods A, B, C and D")
@@ -307,8 +330,11 @@ def _selected_seeds(args: argparse.Namespace, matrix: dict) -> list[int]:
     return [int(seed) for seed in matrix.get("seeds", [42, 43, 44])]
 
 
-def _smoke_slice(n_items: int, out_path: Path, source: Path | None = None) -> int:
-    source = source or (_PROJECT_ROOT / "data" / "frozen" / "dashboard_v3" / "val.jsonl")
+def _smoke_slice(
+    n_items: int, out_path: Path, source: Path | None = None,
+    dataset: str = DEFAULT_DATASET,
+) -> int:
+    source = source or (_PROJECT_ROOT / "data" / "frozen" / dataset / "val.jsonl")
     if not source.exists():
         raise SystemExit(f"Validation split not found: {source}")
     records = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -343,14 +369,21 @@ def _print_runtime_profile(models: list[str]) -> None:
 
 def _base_overrides(
     *, profile: str, output_root_arg: str, model: str, method: str, seed: int,
-    extra: list[str], smoke_eval_file: str | None = None, smoke_items: int = 3,
+    extra: list[str], dataset: str = DEFAULT_DATASET,
+    smoke_eval_file: str | None = None, smoke_items: int = 3,
     output_model_path_arg: str | None = None,
     input_model_weights: str | None = None,
     kb_chunks_path: str | None = None,
     include_input_model_weights: bool = True,
 ) -> list[str]:
-    run_id = f"{model}_{method}_seed_{seed}"
-    values = [
+    run_id = f"{dataset}_{model}_{method}_seed_{seed}"
+    # The dataset group override must precede any data.* key override. When the
+    # caller already supplies one (the shell launcher does), it is not repeated:
+    # Hydra rejects the same group override twice.
+    values = [] if any(str(item).startswith("data=") for item in extra) else [
+        f"data={dataset}"
+    ]
+    values += [
         f"output_root={_hydra_path(output_root_arg)}",
         f"profile={profile}",
         f"run_layout={profile}",
@@ -367,6 +400,10 @@ def _base_overrides(
         values.append(f"method.adapter_path={_hydra_path(input_model_weights)}")
     if kb_chunks_path and method in {"B", "D"}:
         values.append(f"method.retriever.chunks_path={_hydra_path(kb_chunks_path)}")
+    # Caller extras first, then the smoke slice: Hydra applies overrides in
+    # order, so the small evaluation slice must come last or the caller's
+    # data.test_file would silently replace it.
+    values.extend(extra)
     if smoke_eval_file:
         values.extend([
             f"data.test_file={_hydra_path(smoke_eval_file)}",
@@ -374,7 +411,6 @@ def _base_overrides(
             "data.missing_info_file=null",
             f"data.max_samples={smoke_items}",
         ])
-    values.extend(extra)
     return values
 
 
@@ -445,9 +481,9 @@ def _resume_checkpoint_compatible(checkpoint_root: Path, expected_training_hash:
     return False
 
 
-def _aggregate_final(output_root: Path, results_dir: Path) -> int:
+def _aggregate_final(output_root: Path, results_dir: Path, dataset: str) -> int:
     script = str(_PROJECT_ROOT / "experiments" / "scripts" / "aggregate_results.py")
-    outputs = output_root / "dashboard_v3"
+    outputs = output_root / dataset
     return _execute(
         [sys.executable, script, "--outputs-root", str(outputs), "--out-dir", str(results_dir)],
         "AGGREGATE FINAL RESULTS",
@@ -495,6 +531,25 @@ def _write_summary(output_root: Path, payload: dict) -> None:
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     matrix = load_matrix(Path(args.matrix))
+    dataset = str(args.dataset or matrix.get("dataset") or DEFAULT_DATASET)
+    dataset_config = _PROJECT_ROOT / "src" / "config" / "data" / f"{dataset}.yaml"
+    if not dataset_config.exists():
+        raise SystemExit(
+            f"Unknown dataset '{dataset}': {dataset_config} does not exist. "
+            f"Available: "
+            + ", ".join(sorted(
+                path.stem for path in (_PROJECT_ROOT / "src" / "config" / "data").glob("dashboard_v*.yaml")
+            ))
+        )
+    override_dataset = next(
+        (str(item).split("=", 1)[1] for item in args.override if str(item).startswith("data=")),
+        None,
+    )
+    if override_dataset and override_dataset != dataset:
+        raise SystemExit(
+            f"Dataset mismatch: --dataset {dataset} but override 'data={override_dataset}'. "
+            "Results and adapters would be filed under a different dataset than the one used."
+        )
     models = _selected_models(args, matrix)
     methods = _selected_methods(args)
     seeds = _selected_seeds(args, matrix)
@@ -507,7 +562,7 @@ def main(argv: list[str] | None = None) -> None:
     output_model_root = _resolved(output_model_root_arg)
     results_dir = _resolved(
         args.results_dir
-        or (_PROJECT_ROOT / "experiments" / "results" / args.profile / "dashboard_v3")
+        or (_PROJECT_ROOT / "experiments" / "results" / args.profile / dataset)
     )
     explicit_input_adapter = (
         _resolved(args.input_model_weights) if args.input_model_weights else None
@@ -516,19 +571,22 @@ def main(argv: list[str] | None = None) -> None:
     smoke_file = None
     smoke_items = args.n_eval_items
     if args.profile == "smoke":
-        smoke_root = profile_run_dir(output_root, SMOKE_MODEL, "A", seeds[0]).parents[1]
+        smoke_root = profile_run_dir(
+            output_root, SMOKE_MODEL, "A", seeds[0], dataset
+        ).parents[1]
         smoke_path = smoke_root / "smoke_eval_items.jsonl"
         if args.dry_run:
             n_eval = args.n_eval_items
         else:
             smoke_source = _resolved(args.smoke_source) if args.smoke_source else None
-            n_eval = _smoke_slice(args.n_eval_items, smoke_path, smoke_source)
+            n_eval = _smoke_slice(args.n_eval_items, smoke_path, smoke_source, dataset)
         smoke_file = str(smoke_path)
         smoke_items = n_eval
 
     print("=" * 70)
     print(f"{args.profile.upper()} EXPERIMENT MATRIX")
     print("=" * 70)
+    print(f"  dataset      : {dataset}")
     print(f"  models       : {', '.join(models)}")
     print(f"  methods      : {', '.join(methods)}")
     print(f"  seeds        : {seeds}")
@@ -547,8 +605,8 @@ def main(argv: list[str] | None = None) -> None:
 
     for model in models:
         for seed in seeds:
-            c_adapter = profile_adapter_dir(output_model_root, model, "C", seed)
-            c_run = profile_run_dir(output_model_root, model, "C", seed)
+            c_adapter = profile_adapter_dir(output_model_root, model, "C", seed, dataset)
+            c_run = profile_run_dir(output_model_root, model, "C", seed, dataset)
             input_adapter_ready = bool(
                 explicit_input_adapter and adapter_is_trained(explicit_input_adapter)
             )
@@ -578,6 +636,7 @@ def main(argv: list[str] | None = None) -> None:
                 method="C",
                 seed=seed,
                 extra=train_extra,
+                dataset=dataset,
                 smoke_eval_file=smoke_file,
                 smoke_items=smoke_items,
                 output_model_path_arg=(
@@ -594,6 +653,7 @@ def main(argv: list[str] | None = None) -> None:
                 model=model,
                 seed=seed,
                 profile=args.profile,
+                dataset=dataset,
                 training_config_hash=expected_training_hash,
                 model_config_hash=expected_model_hash,
             )
@@ -668,6 +728,7 @@ def main(argv: list[str] | None = None) -> None:
                     method=method,
                     seed=seed,
                     extra=extra,
+                    dataset=dataset,
                     smoke_eval_file=smoke_file,
                     smoke_items=smoke_items,
                     output_model_path_arg=(
@@ -676,7 +737,7 @@ def main(argv: list[str] | None = None) -> None:
                     input_model_weights=args.input_model_weights,
                     kb_chunks_path=args.kb_chunks_path,
                 )
-                stage_dir = profile_run_dir(output_root, model, method, seed)
+                stage_dir = profile_run_dir(output_root, model, method, seed, dataset)
                 expected_cache_identity_hash, expected_config_hash = _planned_hashes(
                     METHODS[method]["experiment"], overrides
                 )
@@ -686,6 +747,7 @@ def main(argv: list[str] | None = None) -> None:
                     method=method,
                     seed=seed,
                     profile=args.profile,
+                    dataset=dataset,
                     cache_identity_hash=expected_cache_identity_hash,
                 ) and not args.force:
                     print(f"[SKIP] {method} already complete: {stage_dir}")
@@ -714,6 +776,7 @@ def main(argv: list[str] | None = None) -> None:
 
     payload = {
         "profile": args.profile,
+        "dataset": dataset,
         "models": models,
         "methods": methods,
         "seeds": seeds,
@@ -722,13 +785,13 @@ def main(argv: list[str] | None = None) -> None:
         "failures": failures,
     }
     if not args.dry_run:
-        _write_summary(output_root, payload)
+        _write_summary(output_root / dataset, payload)
 
     print("\n" + "=" * 70)
     print("MATRIX SUMMARY")
     print("=" * 70)
     for row in summary:
-        print(f"  {row['model']:<16} {row['method']:<6} seed={row['seed']:<5} {row['stage']:<6} {row['status']}")
+        print(f"  {dataset:<14} {row['model']:<16} {row['method']:<6} seed={row['seed']:<5} {row['stage']:<6} {row['status']}")
     print("=" * 70)
 
     if failures:
@@ -736,13 +799,13 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(1)
 
     if not args.dry_run:
-        if _aggregate_final(output_root, results_dir) != 0:
+        if _aggregate_final(output_root, results_dir, dataset) != 0:
             raise SystemExit(1)
         print(f"{args.profile.title()} results: {results_dir}")
 
     if args.profile == "smoke":
         print("PASS_QWEN_0_5B_END_TO_END_SMOKE")
-        print(f"Smoke artifacts: {output_root / 'dashboard_v3' / SMOKE_MODEL}")
+        print(f"Smoke artifacts: {output_root / dataset / SMOKE_MODEL}")
     else:
         print("PASS_MULTI_MODEL_EXPERIMENT_RELEASE_READY_FOR_PROFESSOR")
 

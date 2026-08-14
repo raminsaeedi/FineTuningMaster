@@ -11,9 +11,9 @@ Checks, in order:
     python version              required interpreter version
     required packages           inference + training stacks
     CUDA                        informational locally, required with --require-cuda
-    frozen dataset files        every file dashboard_v3 declares exists
-    dataset SHA-256             contents match data/frozen/dashboard_v3/hashes.json
-    split counts                train/val/test == 1281/264/274
+    frozen dataset files        every file the selected dataset declares exists
+    dataset SHA-256             contents match data/frozen/<dataset>/hashes.json
+    split counts                match the dataset manifest counts
     RAG knowledge base          guidelines present, chunks built, manifest matches
     experiment configs          every experiment config composes
     model config                the selected model config resolves
@@ -41,10 +41,40 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 MIN_PYTHON = (3, 10)
 
-FROZEN_DIR = _PROJECT_ROOT / "data" / "frozen" / "dashboard_v3"
-HASHES_FILE = FROZEN_DIR / "hashes.json"
+DEFAULT_DATASET = "dashboard_v4"
 
-EXPECTED_COUNTS = {"train.jsonl": 1281, "val.jsonl": 264, "test.jsonl": 274}
+# Fallback split counts for datasets whose manifest does not declare them.
+FALLBACK_COUNTS = {
+    "dashboard_v3": {"train.jsonl": 1281, "val.jsonl": 264, "test.jsonl": 274},
+    "dashboard_v4": {"train.jsonl": 2932, "val.jsonl": 613, "test.jsonl": 274},
+}
+
+
+def frozen_dir(dataset: str) -> Path:
+    return _PROJECT_ROOT / "data" / "frozen" / dataset
+
+
+def expected_counts(dataset: str) -> dict:
+    """Split counts declared by the dataset manifest, else the pinned fallback."""
+    manifest = frozen_dir(dataset) / "manifest.json"
+    if manifest.exists():
+        try:
+            counts = json.loads(manifest.read_text(encoding="utf-8")).get("counts") or {}
+        except Exception:
+            counts = {}
+        mapped = {}
+        for name, keys in (
+            ("train.jsonl", ("train",)),
+            ("val.jsonl", ("validation", "val")),
+            ("test.jsonl", ("test",)),
+        ):
+            for key in keys:
+                if isinstance(counts.get(key), int):
+                    mapped[name] = int(counts[key])
+                    break
+        if len(mapped) == 3:
+            return mapped
+    return dict(FALLBACK_COUNTS.get(dataset, {}))
 
 # Base stack needed for inference + evaluation; the training extra is separate
 # because the local machine may legitimately not have it.
@@ -200,7 +230,14 @@ def check_cuda(report: Report, require_cuda: bool) -> None:
         report.warn("cuda", message)
 
 
-def check_frozen_dataset(report: Report) -> Optional[dict]:
+def check_frozen_dataset(report: Report, dataset: str) -> Optional[dict]:
+    FROZEN_DIR = frozen_dir(dataset)
+    HASHES_FILE = FROZEN_DIR / "hashes.json"
+    config_file = _PROJECT_ROOT / "src" / "config" / "data" / f"{dataset}.yaml"
+    if not config_file.exists():
+        report.fail("dataset config", f"missing {config_file}")
+        return None
+    report.ok("dataset config", str(config_file.relative_to(_PROJECT_ROOT)))
     if not FROZEN_DIR.exists():
         report.fail("frozen dataset", f"missing directory {FROZEN_DIR}")
         return None
@@ -229,7 +266,8 @@ def check_frozen_dataset(report: Report) -> Optional[dict]:
     return records
 
 
-def check_hashes(report: Report, records: Optional[dict]) -> None:
+def check_hashes(report: Report, records: Optional[dict], dataset: str) -> None:
+    FROZEN_DIR = frozen_dir(dataset)
     if not records:
         report.fail("dataset sha256", "skipped (dataset check failed)")
         return
@@ -253,7 +291,12 @@ def check_hashes(report: Report, records: Optional[dict]) -> None:
         report.ok("dataset sha256", f"{len(records)} files verified")
 
 
-def check_counts(report: Report) -> None:
+def check_counts(report: Report, dataset: str) -> None:
+    FROZEN_DIR = frozen_dir(dataset)
+    EXPECTED_COUNTS = expected_counts(dataset)
+    if not EXPECTED_COUNTS:
+        report.warn("split counts", f"no declared counts for {dataset}")
+        return
     wrong = []
     for name, expected in EXPECTED_COUNTS.items():
         path = FROZEN_DIR / name
@@ -325,6 +368,7 @@ def check_configs(
     *,
     profile: str = "smoke",
     all_models: bool = False,
+    dataset: str = DEFAULT_DATASET,
 ) -> list[dict]:
     try:
         from src.utils.config import load_cfg
@@ -340,7 +384,10 @@ def check_configs(
         model_names = set()
         for experiment in EXPERIMENTS:
             try:
-                cfg = load_cfg(experiment=experiment, overrides=[f"model={model_key}"])
+                cfg = load_cfg(
+                    experiment=experiment,
+                    overrides=[f"data={dataset}", f"model={model_key}"],
+                )
             except Exception as exc:
                 model_broken.append(f"{experiment}: {type(exc).__name__}")
                 continue
@@ -452,6 +499,71 @@ def check_output_dir(report: Report, output_root: str) -> None:
         report.fail("output directory", f"not writable: {root} ({exc})")
 
 
+def check_robustness_splits(report: Report, dataset: str) -> None:
+    """Robustness splits are optional, but a missing declared file must be visible."""
+    try:
+        from src.utils.config import load_cfg
+
+        cfg = load_cfg(overrides=[f"data={dataset}"])
+    except Exception as exc:
+        report.warn("robustness splits", f"config not composable: {type(exc).__name__}")
+        return
+    missing = []
+    present = []
+    for key in ("paraphrased_file", "missing_info_file"):
+        raw = cfg.data.get(key)
+        if not raw:
+            continue
+        path = Path(str(raw))
+        if not path.is_absolute():
+            path = _PROJECT_ROOT / path
+        (present if path.exists() else missing).append(str(raw))
+    if missing:
+        suffix = dataset.replace("dashboard_", "")
+        report.warn(
+            "robustness splits",
+            f"declared but missing: {', '.join(missing)} -> "
+            f"python experiments/scripts/build_perturbations_v3.py --source "
+            f"data/frozen/{dataset}/test.jsonl --out-dir data/eval/robustness_{suffix}",
+        )
+    else:
+        report.ok("robustness splits", f"{len(present)} file(s) present")
+
+
+def check_adapter_path_logic(
+    report: Report, dataset: str, profile: str, output_root: str
+) -> None:
+    """Confirm D resolves the same-dataset/model/seed C adapter, without training."""
+    try:
+        from src.utils.adapter import resolve_adapter_path
+
+        cfg = {
+            "output_root": output_root,
+            "profile": profile,
+            "run_layout": profile,
+            "model_key": "qwen3_8b",
+            "method_key": "D",
+            "seed": 43,
+            "model": {"key": "qwen3_8b"},
+            "data": {"dataset_version": dataset},
+            "method": {
+                "name": "ft_rag",
+                "type": "fine_tuned_rag",
+                "adapter_source_experiment": "E03_qwen0_5b_ft",
+                "adapter_source_method_key": "C",
+            },
+        }
+        resolved = Path(resolve_adapter_path(cfg, _PROJECT_ROOT))
+    except Exception as exc:
+        report.fail("adapter path logic", f"{type(exc).__name__}: {exc}")
+        return
+    expected = (dataset, "qwen3_8b", "C", "seed_43", "adapter")
+    if resolved.parts[-5:] == expected:
+        report.ok("adapter path logic", "D -> same dataset/model/seed C adapter")
+    else:
+        report.fail("adapter path logic", f"unexpected resolution: {resolved}")
+
+
 # ----------------------------------------------------------------------------
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Verify this clone can run the experiments")
@@ -461,6 +573,8 @@ def parse_args() -> argparse.Namespace:
                    help="Fail (not warn) when the training extra is not installed")
     p.add_argument("--model", default=None,
                    help="Check against a specific model config name")
+    p.add_argument("--dataset", default=DEFAULT_DATASET,
+                   help="Frozen dataset config name (default: dashboard_v4)")
     p.add_argument("--profile", choices=("smoke", "final"), default="smoke",
                    help="Preflight profile (smoke or final)")
     p.add_argument("--all-models", action="store_true",
@@ -478,16 +592,19 @@ def main() -> None:
     print("EXPERIMENT RELEASE CHECK")
     print("=" * 70)
 
+    print(f"  dataset: {args.dataset}")
     check_python(report)
     final_profile = args.profile == "final"
     check_packages(report, require_training=args.require_training or final_profile)
     check_cuda(report, require_cuda=args.require_cuda or final_profile)
-    records = check_frozen_dataset(report)
-    check_hashes(report, records)
-    check_counts(report)
+    records = check_frozen_dataset(report, args.dataset)
+    check_hashes(report, records, args.dataset)
+    check_counts(report, args.dataset)
+    check_robustness_splits(report, args.dataset)
     check_knowledge_base(report)
     profiles = check_configs(
-        report, args.model, profile=args.profile, all_models=args.all_models
+        report, args.model, profile=args.profile, all_models=args.all_models,
+        dataset=args.dataset,
     )
     check_transformers_model_support(report, profiles)
     check_hf_access(report, profiles)
@@ -495,6 +612,7 @@ def main() -> None:
         "experiments/outputs/final" if final_profile else "experiments/outputs/smoke"
     )
     check_output_dir(report, output_root)
+    check_adapter_path_logic(report, args.dataset, args.profile, output_root)
 
     report.render()
     print("=" * 70)

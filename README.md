@@ -14,9 +14,16 @@ rationales). It compares four methods under one evaluation protocol:
 
 Primary model: **Qwen2.5-0.5B-Instruct**.
 
-Frozen dataset: **`data/frozen/dashboard_v3/`** (nvBench-derived; 1281 train /
-264 validation / 274 held-out test, plus a separate 40-item human-evaluation
-subset). Selected by `src/config/data/dashboard_v3.yaml`.
+Frozen dataset (final, default): **`data/frozen/dashboard_v4/`** (2932 train /
+613 validation / 274 held-out test, plus a separate 40-item human-evaluation
+subset). Selected by `src/config/data/dashboard_v4.yaml`.
+
+The earlier **`data/frozen/dashboard_v3/`** (1281 train / 264 validation / same
+274 held-out test) stays fully runnable — no source change needed:
+
+```bash
+./run_experiment.sh --profile final --dataset dashboard_v3 ...
+```
 
 > For the shortest GPU experiment instructions, see [RUN_PROFESSOR.md](RUN_PROFESSOR.md).
 

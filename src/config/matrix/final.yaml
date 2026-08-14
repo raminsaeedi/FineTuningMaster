@@ -8,6 +8,10 @@
 #
 # Qwen2.5-0.5B-Instruct remains the local smoke model. The final matrix is
 # explicitly the four profiles below.
+# Default frozen dataset for the final thesis matrix. Override per run with
+# `--dataset dashboard_v3` (or any other src/config/data/<name>.yaml).
+dataset: dashboard_v4
+
 model: qwen3_1_7b
 final_models: [qwen3_1_7b, qwen3_8b, qwen3_14b, llama3_1_8b]
 smoke_model: qwen2_5_0_5b

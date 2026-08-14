@@ -1,0 +1,37 @@
+# Frozen dashboard-design dataset v4 (final thesis dataset).
+#
+# v4 = the full dashboard_v3 train/val records plus 2,000 source-conditioned
+# generated records (semantically repaired). The test split is byte-identical to
+# dashboard_v3/test.jsonl, so v3 and v4 results are measured on the same
+# held-out items; only the training/validation material differs.
+#
+# `dataset_version` is the identity used for output paths, cache identity,
+# adapter compatibility and aggregation. `frozen_manifest_version` records the
+# exact freeze revision recorded inside data/frozen/dashboard_v4/manifest.json.
+name: dashboard_v4
+dataset_version: dashboard_v4
+frozen_manifest_version: dashboard_v4_1
+schema_version: GoldItem
+enrichment_spec_version: phase3-enrichment-v1
+frozen_dir: data/frozen/dashboard_v4
+
+train_file: data/frozen/dashboard_v4/train.jsonl
+val_file: data/frozen/dashboard_v4/val.jsonl # validation-only
+test_file: data/frozen/dashboard_v4/test.jsonl
+# Robustness variants of test.jsonl, built outside the frozen package by
+# `python experiments/scripts/build_perturbations_v3.py --source
+# data/frozen/dashboard_v4/test.jsonl --out-dir data/eval/robustness_v4`
+# (deterministic, no LLM).
+paraphrased_file: data/eval/robustness_v4/test_paraphrased.jsonl
+missing_info_file: data/eval/robustness_v4/test_missing_info.jsonl
+human_eval_file: data/frozen/dashboard_v4/human_eval_test_items_40.csv
+
+not_for_training:
+  - data/frozen/dashboard_v4/test.jsonl
+  - data/frozen/dashboard_v4/human_eval_test_items_40.csv
+  - data/eval/robustness_v4/test_paraphrased.jsonl
+  - data/eval/robustness_v4/test_missing_info.jsonl
+  - data/eval/l1_chart_effectiveness_v1.csv
+  - data/eval/real_briefs_v1.jsonl
+
+max_samples: null # cap items (useful for smoke tests)

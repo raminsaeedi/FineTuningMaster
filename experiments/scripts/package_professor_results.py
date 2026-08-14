@@ -25,20 +25,35 @@ def _resolve(raw: str) -> Path:
     return path if path.is_absolute() else _PROJECT_ROOT / path
 
 
+DEFAULT_DATASET = "dashboard_v4"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Package final professor results")
-    parser.add_argument("--outputs-root", default="experiments/outputs/final/dashboard_v3")
-    parser.add_argument("--results-dir", default="experiments/results/final/dashboard_v3")
-    parser.add_argument("--out", default="professor_results.zip")
+    parser.add_argument("--dataset", default=DEFAULT_DATASET,
+                        help="Frozen dataset the runs used (default: dashboard_v4)")
+    parser.add_argument("--profile", default="final", choices=("final", "smoke"))
+    parser.add_argument("--outputs-root", default=None,
+                        help="Default: experiments/outputs/<profile>/<dataset>")
+    parser.add_argument("--results-dir", default=None,
+                        help="Default: experiments/results/<profile>/<dataset>")
+    parser.add_argument("--out", default=None,
+                        help="Default: professor_results_<dataset>.zip")
     parser.add_argument("--dry-run", action="store_true")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    # V3 and V4 evidence never lands in the same archive: every default path is
+    # keyed on the dataset.
+    args.outputs_root = args.outputs_root or f"experiments/outputs/{args.profile}/{args.dataset}"
+    args.results_dir = args.results_dir or f"experiments/results/{args.profile}/{args.dataset}"
+    args.out = args.out or f"professor_results_{args.dataset}.zip"
+    return args
 
 
 def _write_external_manifest(manifest: dict, archive: Path) -> Path:
     payload = dict(manifest)
     payload["archive"] = archive.name
     payload["archive_sha256"] = hashlib.sha256(archive.read_bytes()).hexdigest()
-    target = archive.with_name("professor_results_manifest.json")
+    target = archive.with_name(f"{archive.stem}_manifest.json")
     target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return target
 
@@ -56,6 +71,9 @@ def main(argv: list[str] | None = None) -> None:
         )
 
     manifest = build_manifest(entries)
+    manifest["dataset"] = args.dataset
+    manifest["profile"] = args.profile
+    print(f"Dataset: {args.dataset} (profile {args.profile})")
     print(f"Packaging {manifest['counts']['total_files']} safe artifact file(s).")
     _print_large_file_warning(manifest)
     if args.dry_run:

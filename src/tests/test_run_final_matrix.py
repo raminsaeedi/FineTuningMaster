@@ -171,3 +171,44 @@ def test_commands_carry_the_seed_and_extra_overrides():
     run = matrix_runner.experiment_cmd("E04_qwen0_5b_ft_rag", 43, [])
     assert run[1].endswith("run_experiment.py")
     assert "seed=43" in run
+
+
+# --- dataset isolation -----------------------------------------------------
+
+def _completed_run(path: Path, dataset: str) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "metrics_auto.json").write_text('{"n_predictions": 2}', encoding="utf-8")
+    (path / "manifest.json").write_text(
+        '{"profile": "final", "model_key": "qwen3_8b", "method_key": "A", "seed": 42, '
+        f'"status": "completed", "dataset_version": "{dataset}"}}',
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_a_completed_run_of_another_dataset_is_not_a_cache_hit(tmp_path):
+    run = _completed_run(tmp_path / "run", "dashboard_v3")
+    kwargs = dict(model="qwen3_8b", method="A", seed=42, profile="final")
+    assert matrix_runner._compatible_complete(run, dataset="dashboard_v3", **kwargs) is True
+    assert matrix_runner._compatible_complete(run, dataset="dashboard_v4", **kwargs) is False
+
+
+def test_profile_run_dir_separates_datasets(tmp_path):
+    v3 = matrix_runner.profile_run_dir(tmp_path, "qwen3_8b", "C", 42, "dashboard_v3")
+    v4 = matrix_runner.profile_run_dir(tmp_path, "qwen3_8b", "C", 42, "dashboard_v4")
+    assert v3 == tmp_path / "dashboard_v3" / "qwen3_8b" / "C" / "seed_42"
+    assert v4 == tmp_path / "dashboard_v4" / "qwen3_8b" / "C" / "seed_42"
+    assert matrix_runner.DEFAULT_DATASET == "dashboard_v4"
+
+
+def test_dataset_group_override_is_not_duplicated():
+    with_caller = matrix_runner._base_overrides(
+        profile="final", output_root_arg="out", model="qwen3_8b", method="A", seed=42,
+        extra=["data=dashboard_v3"], dataset="dashboard_v3",
+    )
+    assert with_caller.count("data=dashboard_v3") == 1
+    without_caller = matrix_runner._base_overrides(
+        profile="final", output_root_arg="out", model="qwen3_8b", method="A", seed=42,
+        extra=[], dataset="dashboard_v4",
+    )
+    assert without_caller[0] == "data=dashboard_v4"

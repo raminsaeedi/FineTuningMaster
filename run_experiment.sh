@@ -23,12 +23,17 @@ RESUME="${RESUME:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 FORCE="${FORCE:-0}"
 
-DATA_PATH="${DATA_PATH:-data/frozen/dashboard_v3}"
+# Frozen dataset selection. dashboard_v4 is the final thesis dataset;
+# dashboard_v3 stays selectable with --dataset dashboard_v3 (no code change).
+DATASET="${DATASET:-dashboard_v4}"
+DATA_PATH="${DATA_PATH:-}"                         # empty = data/frozen/<dataset>
 TRAIN_DATA_PATH="${TRAIN_DATA_PATH:-}"
 VAL_DATA_PATH="${VAL_DATA_PATH:-}"
 TEST_DATA_PATH="${TEST_DATA_PATH:-}"
-PARAPHRASED_DATA_PATH="${PARAPHRASED_DATA_PATH:-data/eval/robustness_v3/test_paraphrased.jsonl}"
-MISSING_INFO_DATA_PATH="${MISSING_INFO_DATA_PATH:-data/eval/robustness_v3/test_missing_info.jsonl}"
+PARAPHRASED_DATA_PATH="${PARAPHRASED_DATA_PATH:-}"     # empty = dataset default
+MISSING_INFO_DATA_PATH="${MISSING_INFO_DATA_PATH:-}"   # empty = dataset default
+NO_PARAPHRASED=0
+NO_MISSING_INFO=0
 KB_CHUNKS_PATH="${KB_CHUNKS_PATH:-data/knowledge_base/chunks.jsonl}"
 
 BASE_MODEL_PATH="${BASE_MODEL_PATH:-}"             # local base-model directory
@@ -55,6 +60,7 @@ Usage:
 
 Modes and selection:
   --profile smoke|final       Profile (default: smoke)
+  --dataset NAME              Frozen dataset: dashboard_v4 (default) or dashboard_v3
   --mode full|inference|train Full matrix, inference-only, or C/QLoRA train
   --model PROFILE             One model profile
   --all-models                All four final model profiles
@@ -71,8 +77,10 @@ Paths:
   --train-data-path PATH      Training split override
   --val-data-path PATH        Validation split override
   --test-data-path PATH       Test split override
-  --paraphrased-data-path PATH  Robustness split; empty disables it
-  --missing-info-data-path PATH Robustness split; empty disables it
+  --paraphrased-data-path PATH  Robustness split override
+  --missing-info-data-path PATH Robustness split override
+  --no-paraphrased            Disable the paraphrase robustness split
+  --no-missing-info           Disable the missing-info robustness split
   --kb-chunks-path PATH       RAG knowledge-base chunks file
   --base-model-path PATH      Local base-model directory
   --model-id ID               Hugging Face model ID (or local directory)
@@ -96,8 +104,10 @@ Other:
 Examples:
   ./run_experiment.sh --profile smoke --model qwen2_5_0_5b \
       --all-methods --seed 42 --with-dependencies
-  ./run_experiment.sh --profile final --all-models \
-      --all-methods --seeds "42 43 44" --with-dependencies --resume
+  ./run_experiment.sh --profile final --dataset dashboard_v4 --all-models \
+      --all-methods --seeds 42 43 44 --with-dependencies --resume
+  ./run_experiment.sh --profile final --dataset dashboard_v3 --model qwen3_8b \
+      --all-methods --seed 42 --with-dependencies --resume
   ./run_experiment.sh --profile final --model qwen3_8b --method C \
       --data-path /mnt/thesis/data --base-model-path /mnt/models/qwen3-8b \
       --output-data-path /mnt/thesis/runs --output-model-path /mnt/thesis/adapters \
@@ -165,6 +175,9 @@ while [[ $# -gt 0 ]]; do
     --profile)
       need_value "$@" ; PROFILE="$2"; shift 2
       ;;
+    --dataset)
+      need_value "$@" ; DATASET="$2"; shift 2
+      ;;
     --mode)
       need_value "$@" ; MODE="$2"; shift 2
       ;;
@@ -209,6 +222,8 @@ while [[ $# -gt 0 ]]; do
     --test-data-path) need_value "$@" ; TEST_DATA_PATH="$2"; shift 2 ;;
     --paraphrased-data-path) need_value "$@" ; PARAPHRASED_DATA_PATH="$2"; shift 2 ;;
     --missing-info-data-path) need_value "$@" ; MISSING_INFO_DATA_PATH="$2"; shift 2 ;;
+    --no-paraphrased) NO_PARAPHRASED=1; PARAPHRASED_DATA_PATH=""; shift ;;
+    --no-missing-info) NO_MISSING_INFO=1; MISSING_INFO_DATA_PATH=""; shift ;;
     --kb-chunks-path) need_value "$@" ; KB_CHUNKS_PATH="$2"; shift 2 ;;
     --base-model-path) need_value "$@" ; BASE_MODEL_PATH="$2"; shift 2 ;;
     --model-id) need_value "$@" ; MODEL_ID="$2"; shift 2 ;;
@@ -247,6 +262,21 @@ esac
 
 case "$MODE" in full|inference|train) ;; *) die "MODE must be full, inference, or train." ;; esac
 
+# Dataset selection drives data paths, run/result paths and the Hydra data group.
+require_file "$PROJECT_ROOT/src/config/data/$DATASET.yaml"
+DATASET_SUFFIX="${DATASET#dashboard_}"
+[[ -n "$DATA_PATH" ]] || DATA_PATH="data/frozen/$DATASET"
+# The smoke profile is a plumbing check on a 2-item slice: the full 274-item
+# robustness splits would dominate its runtime, so they default to off there.
+if [[ "$PROFILE" != smoke ]]; then
+  if [[ "$NO_PARAPHRASED" == 0 && -z "$PARAPHRASED_DATA_PATH" ]]; then
+    PARAPHRASED_DATA_PATH="data/eval/robustness_${DATASET_SUFFIX}/test_paraphrased.jsonl"
+  fi
+  if [[ "$NO_MISSING_INFO" == 0 && -z "$MISSING_INFO_DATA_PATH" ]]; then
+    MISSING_INFO_DATA_PATH="data/eval/robustness_${DATASET_SUFFIX}/test_missing_info.jsonl"
+  fi
+fi
+
 if [[ "$MODE" == train && -z "$METHOD" && ( -z "$METHODS" || "$METHODS" == "A B C D" ) ]]; then
   METHODS="C"
 fi
@@ -279,7 +309,7 @@ done
 
 [[ -n "$OUTPUT_DATA_PATH" ]] || OUTPUT_DATA_PATH="experiments/outputs/$PROFILE"
 [[ -n "$OUTPUT_MODEL_PATH" ]] || OUTPUT_MODEL_PATH="$OUTPUT_DATA_PATH"
-[[ -n "$RESULTS_PATH" ]] || RESULTS_PATH="experiments/results/$PROFILE/dashboard_v3"
+[[ -n "$RESULTS_PATH" ]] || RESULTS_PATH="experiments/results/$PROFILE/$DATASET"
 
 # -----------------------------------------------------------------------------
 # Resolve and validate input paths before starting a run.
@@ -306,7 +336,10 @@ fi
 
 KB_CHUNKS_PATH="$(resolve_path "$KB_CHUNKS_PATH")"
 if contains_word B "${METHOD_LIST[@]}" || contains_word D "${METHOD_LIST[@]}"; then
-  require_file "$KB_CHUNKS_PATH"
+  # chunks.jsonl is gitignored: it is rebuilt from the tracked guidelines.
+  [[ -f "$KB_CHUNKS_PATH" ]] || die \
+    "RAG knowledge base missing: $KB_CHUNKS_PATH
+       Build it once with: python experiments/scripts/build_kb.py"
 fi
 
 if [[ -n "$BASE_MODEL_PATH" && -n "$MODEL_ID" ]]; then
@@ -358,6 +391,7 @@ fi
 
 # These are the actual Hydra keys consumed by train.py/run_experiment.py.
 declare -a DATA_OVERRIDES=(
+  "data=$DATASET"
   "data.frozen_dir=$(hydra_path "$DATA_PATH")"
   "data.train_file=$(hydra_path "$TRAIN_DATA_PATH")"
   "data.val_file=$(hydra_path "$VAL_DATA_PATH")"
@@ -405,6 +439,8 @@ print_config() {
   echo "RESOLVED EXPERIMENT LAUNCH CONFIGURATION"
   echo "======================================================================"
   printf '  project root       : %s\n' "$PROJECT_ROOT"
+  printf '  dataset            : %s
+' "$DATASET"
   printf '  profile / mode     : %s / %s\n' "$PROFILE" "$MODE"
   printf '  models             : %s\n' "${MODEL_LIST[*]}"
   printf '  methods            : %s\n' "${METHOD_LIST[*]}"
@@ -435,7 +471,7 @@ print_config
 run_training() {
   local model="$1"
   local seed="$2"
-  local run_id="${model}_C_seed_${seed}"
+  local run_id="${DATASET}_${model}_C_seed_${seed}"
   local -a overrides=(
     "output_root=$(hydra_path "$OUTPUT_DATA_PATH")"
     "output_model_path=$(hydra_path "$OUTPUT_MODEL_PATH")"
@@ -491,6 +527,7 @@ fi
 declare -a command=(
   "$PYTHON_BIN" "$RUNNER"
   --profile "$PROFILE"
+  --dataset "$DATASET"
   --output-root "$OUTPUT_DATA_PATH"
   --output-model-path "$OUTPUT_MODEL_PATH"
   --results-dir "$RESULTS_PATH"

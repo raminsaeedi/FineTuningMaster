@@ -3,8 +3,10 @@
 Operational guide for current master's-thesis repository.
 
 Commands below verified against current Python code and CLI help on 2026-08-13.
-Final experiments use frozen `data/frozen/dashboard_v3/`. Do not regenerate,
-edit, or replace that package during thesis experiments.
+Final experiments use frozen `data/frozen/dashboard_v4/` (default; select with
+`--dataset dashboard_v4`). `data/frozen/dashboard_v3/` stays selectable with
+`--dataset dashboard_v3`. Do not regenerate, edit, or replace either frozen
+package during thesis experiments. Remote GPU instructions: `RUN_PROFESSOR.md`.
 
 ## Which command do I need?
 
@@ -926,7 +928,9 @@ other seeds.
 
 ## Final operational guarantees
 
-- Final commands use frozen `dashboard_v3`; no final command regenerates it.
+- Final commands use frozen `dashboard_v4` by default (`dashboard_v3` remains
+  selectable via `--dataset`); no final command regenerates either package.
+- Outputs/results are keyed on the dataset, so v3 and v4 never mix.
 - A/B/C/D runs execute independently under selected output roots.
 - D resolves and validates matching C adapter by model/seed/dataset metadata.
 - Paired statistics require matching test IDs, dataset hashes, model/config, seed, and protocol.

@@ -1,0 +1,31 @@
+{
+  "generator": "experiments/scripts/build_perturbations_v3.py",
+  "generator_version": "robustness_v3_v1",
+  "description": "Deterministic offline robustness perturbations of the frozen dashboard_v3 test split. Briefs are transformed by src.data_pipeline.perturbations (meaning-preserving synonym paraphrase / information drop); the gold recommendation is copied unchanged and item_id is preserved so the robustness metrics can pair original vs perturbed predictions. No LLM, no network, no randomness.",
+  "dataset_version": "dashboard_v3",
+  "created_utc": "2026-08-14T22:50:07.016915+00:00",
+  "seed": 42,
+  "seed_note": "Recorded for provenance only: the perturbations are rule-based and contain no randomness, so the output is identical for any seed.",
+  "perturbation_module": "src.data_pipeline.perturbations",
+  "pairing_key": "item_id (mirrored in brief.extra.base_item_id)",
+  "source": {
+    "path": "data/frozen/dashboard_v4/test.jsonl",
+    "sha256": "e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5",
+    "n_records": 274,
+    "read_only": true
+  },
+  "outputs": {
+    "test_paraphrased.jsonl": {
+      "variant": "paraphrased",
+      "n_records": 274,
+      "n_briefs_changed": 151,
+      "sha256": "c0a64400f07057caa51c50cb8db989f244aa8f7b91bb5cef93c9e108319a97b8"
+    },
+    "test_missing_info.jsonl": {
+      "variant": "missing_info",
+      "n_records": 274,
+      "n_briefs_changed": 133,
+      "sha256": "27a61530337376ff5177202d35b7d162be6beec97a5eb712261133bbcd996860"
+    }
+  }
+}
