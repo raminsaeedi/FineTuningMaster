@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "near_duplicate_threshold": 0.8,
+  "all_train_val": {
+    "duplicate_ids": 0,
+    "duplicate_normalized_goals": 0,
+    "duplicate_briefs": 0,
+    "duplicate_records": 0
+  },
+  "generated": {
+    "duplicate_ids": 0,
+    "duplicate_normalized_goals": 0,
+    "duplicate_briefs": 0,
+    "duplicate_records": 0
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "dataset_version": "dashboard_v4_1",
+  "parent_dataset_version": "dashboard_v4",
+  "counts": {
+    "v3_train": 1281,
+    "v3_val": 264,
+    "generated": 2000,
+    "generated_train": 1651,
+    "generated_val": 349,
+    "final_train": 2932,
+    "final_val": 613,
+    "test": 274,
+    "human_eval": 40
+  },
+  "schema_invalid_count": 0,
+  "semantic_invalid_count": 0,
+  "checks": {
+    "all_generated_semantic_fields_clean": true,
+    "all_jsonl_records_schema_valid": true,
+    "protected_structural_fields_unchanged": true,
+    "generated_train_val_only": true,
+    "dashboard_v3_train_prefix_unchanged": true,
+    "dashboard_v3_val_prefix_unchanged": true,
+    "test_byte_identical_to_parent": true,
+    "human_eval_byte_identical_to_parent": true,
+    "duplicate_ids_zero": true,
+    "duplicate_records_zero": true,
+    "duplicate_goals_zero": true,
+    "duplicate_briefs_zero": true
+  }
+}

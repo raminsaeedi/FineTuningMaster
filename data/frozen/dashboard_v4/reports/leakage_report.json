@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "generation_input_policy": "dashboard_v4 generated Train/Validation only; Test and Human-Eval were not used as repair context",
+  "parent_dashboard_v4": "preserved_as_immutable_parent",
+  "generated_test_overlap": 0,
+  "generated_human_eval_overlap": 0,
+  "dashboard_v3_unchanged": true
+}

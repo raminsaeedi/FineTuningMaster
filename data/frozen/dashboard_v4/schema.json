@@ -1,0 +1,242 @@
+{
+  "$defs": {
+    "ChartType": {
+      "enum": [
+        "line",
+        "bar",
+        "stacked_bar",
+        "grouped_bar",
+        "area",
+        "pie",
+        "donut",
+        "scatter",
+        "heatmap",
+        "histogram",
+        "box",
+        "kpi_card",
+        "table",
+        "gauge",
+        "sankey",
+        "treemap",
+        "map"
+      ],
+      "title": "ChartType",
+      "type": "string"
+    },
+    "DashboardBrief": {
+      "additionalProperties": true,
+      "description": "Standardised input for all methods (masterplan Teil 3).",
+      "properties": {
+        "item_id": {
+          "default": "",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "users": {
+          "default": "",
+          "title": "Users",
+          "type": "string"
+        },
+        "goals": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "kpis": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kpis",
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "constraints": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraints"
+        },
+        "extra": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extra"
+        }
+      },
+      "title": "DashboardBrief",
+      "type": "object"
+    },
+    "DesignOutput": {
+      "additionalProperties": true,
+      "description": "Standardised output of all methods (masterplan Teil 3).",
+      "properties": {
+        "context_summary": {
+          "additionalProperties": true,
+          "title": "Context Summary",
+          "type": "object"
+        },
+        "kpi_chart_mapping": {
+          "items": {
+            "$ref": "#/$defs/KPIChartMapping"
+          },
+          "title": "Kpi Chart Mapping",
+          "type": "array"
+        },
+        "layout": {
+          "additionalProperties": true,
+          "title": "Layout",
+          "type": "object"
+        },
+        "styling": {
+          "additionalProperties": true,
+          "title": "Styling",
+          "type": "object"
+        },
+        "interactions": {
+          "items": {},
+          "title": "Interactions",
+          "type": "array"
+        },
+        "rationales": {
+          "items": {
+            "$ref": "#/$defs/Rationale"
+          },
+          "title": "Rationales",
+          "type": "array"
+        }
+      },
+      "title": "DesignOutput",
+      "type": "object"
+    },
+    "KPIChartMapping": {
+      "additionalProperties": true,
+      "properties": {
+        "kpi": {
+          "default": "",
+          "title": "Kpi",
+          "type": "string"
+        },
+        "task_type": {
+          "$ref": "#/$defs/TaskType"
+        },
+        "chart_type": {
+          "$ref": "#/$defs/ChartType"
+        },
+        "alternatives": {
+          "items": {},
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "encoding": {
+          "additionalProperties": true,
+          "title": "Encoding",
+          "type": "object"
+        }
+      },
+      "required": [
+        "task_type",
+        "chart_type"
+      ],
+      "title": "KPIChartMapping",
+      "type": "object"
+    },
+    "Rationale": {
+      "additionalProperties": true,
+      "properties": {
+        "claim": {
+          "default": "",
+          "title": "Claim",
+          "type": "string"
+        },
+        "principle": {
+          "default": "",
+          "title": "Principle",
+          "type": "string"
+        }
+      },
+      "title": "Rationale",
+      "type": "object"
+    },
+    "TaskType": {
+      "enum": [
+        "trend",
+        "comparison",
+        "composition",
+        "distribution",
+        "correlation",
+        "ranking",
+        "deviation",
+        "part_to_whole",
+        "flow"
+      ],
+      "title": "TaskType",
+      "type": "string"
+    }
+  },
+  "description": "A single labelled example: brief + reference design output.",
+  "properties": {
+    "item_id": {
+      "title": "Item Id",
+      "type": "string"
+    },
+    "brief": {
+      "$ref": "#/$defs/DashboardBrief"
+    },
+    "recommendation": {
+      "$ref": "#/$defs/DesignOutput"
+    },
+    "split": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Split"
+    }
+  },
+  "required": [
+    "item_id",
+    "brief",
+    "recommendation"
+  ],
+  "title": "GoldItem",
+  "type": "object",
+  "schema_version": "GoldItem",
+  "enrichment_spec_version": "phase3-enrichment-v1",
+  "required_enrichment_fields": [
+    "users",
+    "context_summary",
+    "layout",
+    "styling",
+    "interactions",
+    "rationales"
+  ]
+}

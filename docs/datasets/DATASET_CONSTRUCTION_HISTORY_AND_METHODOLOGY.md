@@ -52,7 +52,7 @@ The quality score combines source fidelity, KPI validity, chart suitability, con
 
 Identifier detection is implemented in `src/data_pipeline/nvbench_identifier.py`. A field name alone is never sufficient strong evidence because names such as “id” or “code” can be ambiguous. Strong evidence comes from primary-key, foreign-key, or unique-index metadata, a sufficiently high unique ratio with enough distinct values, repeated numeric entity-reference patterns, and related statistical evidence. The implemented rule version is `nvbench_identifier_v3`. The database profiler in `src/data_pipeline/nvbench_profile.py` caches schema information and full-table statistics including row counts, null and distinct ratios, uniqueness, numeric ratios, ranges, sign counts, and examples. SQL result profiles are read-only and capped at 1,000 rows; raw result values are not persisted.
 
-KPI selection is deliberately constrained. An explicit aggregate is retained when it is unambiguous; with two aggregates, the y-side aggregate is primary while both aggregates remain represented. When no aggregate is available, the selector searches for a numeric, non-identifier-like measure, preferring the y-side evidence when appropriate. COUNT is accepted as a meaningful measure only when the query expresses entity-count intent, such as COUNT(*) or counting an entity or categorical field. SUM, AVG, MIN, and MAX over a strong identifier are demoted with reason codes such as `identifier_as_measure`, `meaningless_identifier_aggregation`, `invalid_identifier_aggregation`, or `wrong_kpi`. If a source y field is retained for fidelity but no valid KPI can be established, the record is not silently repaired; its quality tier reflects the deficiency.
+KPI selection is deliberately constrained. An explicit aggregate is retained when it is unambiguous; with two aggregates, the y-side aggregate is primary while both aggregates remain represented. When no aggregate is available, the selector searches for a numeric, non-identifier-like measure, preferring the y-side evidence when appropriate. COUNT is accepted as a meaningful measure only when the query expresses entity-count intent, such as COUNT(\*) or counting an entity or categorical field. SUM, AVG, MIN, and MAX over a strong identifier are demoted with reason codes such as `identifier_as_measure`, `meaningless_identifier_aggregation`, `invalid_identifier_aggregation`, or `wrong_kpi`. If a source y field is retained for fidelity but no valid KPI can be established, the record is not silently repaired; its quality tier reflects the deficiency.
 
 ### Chart suitability
 
@@ -126,14 +126,14 @@ The final validation report summarizes the record-level distributions as compari
 
 ## 11. Consolidated final composition
 
-| Partition or artifact | Count | Provenance and role |
-| --- | ---: | --- |
-| Train | 1,281 | nvBench source-grounded analytical records with Phase-3 LLM presentation enrichment |
-| Validation | 264 | nvBench source-grounded analytical records with Phase-3 LLM presentation enrichment; validation-only |
-| Held-out test | 274 | nvBench source-grounded records from source-group-disjoint test groups; not enriched or trainable |
-| Human-evaluation file | 40 | deterministic sample from held-out test; separate evaluation artifact, not trainable |
-| Train plus validation | 1,545 | complete enriched input used by the final training workflow |
-| Frozen package | `dashboard_v3` | source version `nvbench_large_v2`, schema `GoldItem`, enrichment spec `phase3-enrichment-v1` |
+| Partition or artifact |          Count | Provenance and role                                                                                  |
+| --------------------- | -------------: | ---------------------------------------------------------------------------------------------------- |
+| Train                 |          1,281 | nvBench source-grounded analytical records with Phase-3 LLM presentation enrichment                  |
+| Validation            |            264 | nvBench source-grounded analytical records with Phase-3 LLM presentation enrichment; validation-only |
+| Held-out test         |            274 | nvBench source-grounded records from source-group-disjoint test groups; not enriched or trainable    |
+| Human-evaluation file |             40 | deterministic sample from held-out test; separate evaluation artifact, not trainable                 |
+| Train plus validation |          1,545 | complete enriched input used by the final training workflow                                          |
+| Frozen package        | `dashboard_v3` | source version `nvbench_large_v2`, schema `GoldItem`, enrichment spec `phase3-enrichment-v1`         |
 
 The final chart composition is 1,379 bar, 109 line, 242 pie, 13 scatter, and 76 stacked-bar records. The final source-group split is 784 groups in train, 167 in validation, and 167 in test. These counts and group memberships are taken from the final large-v2 manifest and the final frozen validation artifacts, not inferred from the raw object count.
 
@@ -157,16 +157,16 @@ Finally, the later quality-pool rebuild reports 21,244 technically valid records
 
 ## 13. Primary repository evidence
 
-| Construction question | Primary repository evidence |
-| --- | --- |
-| What was downloaded and what did it contain? | `data/raw_external/nvbench/source_manifest.json`; `data/raw_external/nvbench/extracted/nvBench-main/README.md` |
-| How were raw records and database evidence extracted? | `src/data_pipeline/builders/nvbench_builder.py`; `src/data_pipeline/nvbench_source.py`; `src/data_pipeline/nvbench_extract.py`; `src/data_pipeline/nvbench_cache.py`; `src/data_pipeline/nvbench_profile.py` |
-| How were identifiers, KPIs, charts, and constraints assessed? | `src/data_pipeline/nvbench_identifier.py`; `src/data_pipeline/nvbench_quality.py`; `src/config/data/nvbench_quality_rules.yaml`; `src/config/data/nvbench_mapping.yaml` |
-| What did the early pilots reveal? | `data/staging/dashboard_v3/nvbench_pilot_v1/`; `nvbench_pilot_v2/`; `nvbench_pilot_v3/`; their `manifest.json`, `validation_report.md`, and `reports/before_after_*.md` files |
-| How did quality tiering change selection? | `data/staging/dashboard_v3/nvbench_pilot_v4/`; `nvbench_pilot_v5/`; `nvbench_pilot_v6/`; their manifests, quality reports, validation reports, and comparison reports |
-| How was the large corpus selected and repaired? | `src/data_pipeline/nvbench_large_v1.py`; `experiments/scripts/run_nvbench_large_v1.py`; `experiments/scripts/build_nvbench_large_v2.py`; `data/staging/dashboard_v3/nvbench_quality_pool_final_v2/`; `data/staging/dashboard_v3/nvbench_large_v2/` |
-| How was enrichment constrained and audited? | `src/data_pipeline/enrichment.py`; `src/data_pipeline/enrichment_full.py`; `src/data_pipeline/enrichment_provider.py`; `data/staging/enrichment/sample_10/`; `pilot_30/`; `full_train_val_v1/` |
+| Construction question                                              | Primary repository evidence                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What was downloaded and what did it contain?                       | `data/raw_external/nvbench/source_manifest.json`; `data/raw_external/nvbench/extracted/nvBench-main/README.md`                                                                                                                                       |
+| How were raw records and database evidence extracted?              | `src/data_pipeline/builders/nvbench_builder.py`; `src/data_pipeline/nvbench_source.py`; `src/data_pipeline/nvbench_extract.py`; `src/data_pipeline/nvbench_cache.py`; `src/data_pipeline/nvbench_profile.py`                                         |
+| How were identifiers, KPIs, charts, and constraints assessed?      | `src/data_pipeline/nvbench_identifier.py`; `src/data_pipeline/nvbench_quality.py`; `src/config/data/nvbench_quality_rules.yaml`; `src/config/data/nvbench_mapping.yaml`                                                                              |
+| What did the early pilots reveal?                                  | `data/staging/dashboard_v3/nvbench_pilot_v1/`; `nvbench_pilot_v2/`; `nvbench_pilot_v3/`; their `manifest.json`, `validation_report.md`, and `reports/before_after_*.md` files                                                                        |
+| How did quality tiering change selection?                          | `data/staging/dashboard_v3/nvbench_pilot_v4/`; `nvbench_pilot_v5/`; `nvbench_pilot_v6/`; their manifests, quality reports, validation reports, and comparison reports                                                                                |
+| How was the large corpus selected and repaired?                    | `src/data_pipeline/nvbench_large_v1.py`; `experiments/scripts/run_nvbench_large_v1.py`; `experiments/scripts/build_nvbench_large_v2.py`; `data/staging/dashboard_v3/nvbench_quality_pool_final_v2/`; `data/staging/dashboard_v3/nvbench_large_v2/`   |
+| How was enrichment constrained and audited?                        | `src/data_pipeline/enrichment.py`; `src/data_pipeline/enrichment_full.py`; `src/data_pipeline/enrichment_provider.py`; `data/staging/enrichment/sample_10/`; `pilot_30/`; `full_train_val_v1/`                                                       |
 | How were freezing, lineage, leakage, and final counts established? | `src/config/data/dashboard_v3.yaml`; `data/frozen/dashboard_v3/manifest.json`; `dataset_card.md`; `validation_report.md`; `reports/pre_freeze_completeness_audit.md`; `reports/validation_report.json`; `reports/leakage_report.json`; `hashes.json` |
-| Which project-level instructions identify the final authority? | `PROJECT_COMMANDS.md`; `README.md`; `docs/project/SUPERVISOR_FULL_GPU_RUNBOOK.md` |
+| Which project-level instructions identify the final authority?     | `PROJECT_COMMANDS.md`; `README.md`; `docs/project/SUPERVISOR_FULL_GPU_RUNBOOK.md`                                                                                                                                                                    |
 
 Taken together, these artifacts support the following methodological interpretation: the project did not move directly from raw nvBench rows to model-ready examples. It first created a source-faithful, constraint-preserving representation; used progressively stricter parsing and database evidence to identify technically invalid or semantically unsuitable records; separated high-confidence dashboard candidates from diagnostic material through quality tiers; selected a group-safe, deduplicated, leakage-controlled large corpus; added a narrowly bounded LLM presentation layer without changing analytical evidence; and finally froze a hashed nvBench-only package whose trainable and held-out partitions are explicitly separated.

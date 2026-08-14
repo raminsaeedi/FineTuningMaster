@@ -1,0 +1,90 @@
+{
+  "status": "PASS",
+  "generated": {
+    "task_types": {
+      "correlation": 300,
+      "comparison": 993,
+      "trend": 399,
+      "distribution": 250,
+      "ranking": 200,
+      "part_to_whole": 200,
+      "flow": 150,
+      "deviation": 150,
+      "composition": 200
+    },
+    "chart_types": {
+      "scatter": 137,
+      "grouped_bar": 435,
+      "area": 299,
+      "line": 207,
+      "box": 127,
+      "bar": 638,
+      "treemap": 68,
+      "table": 351,
+      "heatmap": 163,
+      "histogram": 123,
+      "sankey": 69,
+      "pie": 56,
+      "stacked_bar": 93,
+      "donut": 76
+    }
+  },
+  "final_train": {
+    "task_types": {
+      "comparison": 1789,
+      "composition": 224,
+      "part_to_whole": 333,
+      "trend": 402,
+      "correlation": 264,
+      "distribution": 207,
+      "ranking": 167,
+      "flow": 124,
+      "deviation": 125
+    },
+    "chart_types": {
+      "bar": 1495,
+      "stacked_bar": 133,
+      "pie": 217,
+      "line": 242,
+      "scatter": 125,
+      "grouped_bar": 367,
+      "area": 251,
+      "box": 109,
+      "treemap": 53,
+      "table": 285,
+      "heatmap": 139,
+      "histogram": 98,
+      "sankey": 58,
+      "donut": 63
+    }
+  },
+  "final_val": {
+    "task_types": {
+      "comparison": 375,
+      "part_to_whole": 73,
+      "composition": 41,
+      "trend": 89,
+      "correlation": 47,
+      "flow": 26,
+      "distribution": 43,
+      "deviation": 25,
+      "ranking": 33
+    },
+    "chart_types": {
+      "bar": 314,
+      "pie": 45,
+      "stacked_bar": 25,
+      "line": 57,
+      "scatter": 23,
+      "table": 66,
+      "area": 48,
+      "histogram": 25,
+      "grouped_bar": 68,
+      "heatmap": 24,
+      "box": 18,
+      "treemap": 15,
+      "donut": 13,
+      "sankey": 11
+    }
+  }
+}

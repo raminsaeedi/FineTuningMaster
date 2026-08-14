@@ -1,0 +1,77 @@
+{
+  "dataset_version": "dashboard_v4_1",
+  "parent_dataset_version": "dashboard_v4",
+  "freeze_timestamp_utc": "2026-08-14T01:30:11.443219+00:00",
+  "status": "PASS_DASHBOARD_V4_GENERATED_FIELDS_SEMANTICALLY_CLEAN",
+  "schema_version": "GoldItem",
+  "parent_manifest": "data/frozen/dashboard_v4/manifest.json",
+  "repair_version": "dashboard_v4_1-semantic-repair-v1",
+  "repair_model": "gpt-5.6-luna",
+  "repair_mode": "codex_agent_context_aware",
+  "counts": {
+    "v3_train": 1281,
+    "v3_val": 264,
+    "generated_total": 2000,
+    "generated_train": 1651,
+    "generated_val": 349,
+    "train": 2932,
+    "validation": 613,
+    "test": 274,
+    "human_eval_test_items_40": 40
+  },
+  "lineage": {
+    "original_dashboard_v3": "preserved_unchanged",
+    "parent_dashboard_v4": "preserved_as_immutable_parent",
+    "generated": "ai_generated_semantic_repair",
+    "generated_not_gold": true
+  },
+  "repair_scope": {
+    "repaired_fields": [
+      "users",
+      "context_summary",
+      "layout",
+      "styling",
+      "interactions",
+      "rationales"
+    ],
+    "protected_fields": [
+      "goals",
+      "kpis",
+      "columns",
+      "constraints",
+      "task_type",
+      "chart_type",
+      "encoding"
+    ]
+  },
+  "base_dashboard_v3_sha256": {
+    "dashboard_v3_train": "f9ace854c64f89e2a26d2767ad2754b4951316fbcceec4a8e9374e4624fac222",
+    "dashboard_v3_val": "8394dcdb75d53de19fcd71c4c688e05e162b895d44a920f3cbb678f37ba2999d",
+    "dashboard_v3_test": "e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5",
+    "dashboard_v3_human_eval": "fa64afe0037dc6fcde9c5f9fc848aaab30ec4848d4d3aef120a7328b343b82f4"
+  },
+  "checks": {
+    "all_generated_semantic_fields_clean": true,
+    "all_jsonl_records_schema_valid": true,
+    "protected_structural_fields_unchanged": true,
+    "generated_train_val_only": true,
+    "dashboard_v3_train_prefix_unchanged": true,
+    "dashboard_v3_val_prefix_unchanged": true,
+    "test_byte_identical_to_parent": true,
+    "human_eval_byte_identical_to_parent": true,
+    "duplicate_ids_zero": true,
+    "duplicate_records_zero": true,
+    "duplicate_goals_zero": true,
+    "duplicate_briefs_zero": true
+  },
+  "reports": {
+    "repair": "reports/repair_report.json",
+    "semantic_audit_before": "reports/semantic_audit_before.json",
+    "semantic_audit_after": "reports/semantic_audit_after.json",
+    "validation": "reports/validation_report.json",
+    "duplicates": "reports/duplicate_report.json",
+    "leakage": "reports/leakage_report.json",
+    "distribution": "reports/distribution_report.json"
+  },
+  "hashes_file": "hashes.json"
+}

@@ -1,0 +1,167 @@
+{
+  "phase": "after",
+  "records": 2000,
+  "already_valid": 2000,
+  "records_with_issues": 0,
+  "issue_counts": {},
+  "field_issue_counts": {},
+  "issue_examples": {},
+  "repetition": {
+    "users": {
+      "unique_values": 499,
+      "max_exact_repetition": 39,
+      "top_repeated_values": [
+        {
+          "count": 39,
+          "value": "district commanders responsible for public safety decisions"
+        },
+        {
+          "count": 38,
+          "value": "plant managers responsible for manufacturing decisions"
+        },
+        {
+          "count": 37,
+          "value": "airport operations managers responsible for aviation operations decisions"
+        },
+        {
+          "count": 30,
+          "value": "branch performance managers responsible for finance and banking decisions"
+        },
+        {
+          "count": 23,
+          "value": "program directors responsible for education decisions"
+        }
+      ]
+    },
+    "context_summary": {
+      "unique_values": 2000,
+      "max_exact_repetition": 1,
+      "top_repeated_values": [
+        {
+          "count": 1,
+          "value": "{\"analysis_scope\":{\"mappings\":[{\"chart_type\":\"scatter\",\"filters\":[{\"field\":\"device_type\",\"operator\":\"=\",\"value\":\"phone\"},{\"field\":\"call_volume\",\"operator\":\">\",\"value\":\"above 100\"}],\"group_field\":\"service_plan\",\"kpi\":\"call volume\",\"limit\":5,\"sort_direction\":\"ascending\",\"sort_field\":\"call_volume\",\"task_type\":\"correlation\",\"time_field\":null,\"time_grain\":null,\"x\":\"call_volume\",\"y\":\"dropped_call_rate\"}]},\"available_columns\":[{\"dtype\":\"categorical\",\"name\":\"cell_region\",\"role\":\"dimension\"},{\"dtype\":\"ca"
+        },
+        {
+          "count": 1,
+          "value": "{\"analysis_scope\":{\"mappings\":[{\"chart_type\":\"grouped_bar\",\"filters\":[{\"field\":\"campus\",\"operator\":\"=\",\"value\":\"community\"}],\"group_field\":\"program\",\"kpi\":\"attendance rate\",\"limit\":6,\"sort_direction\":\"descending\",\"sort_field\":\"attendance_rate\",\"task_type\":\"comparison\",\"time_field\":\"term_date\",\"time_grain\":\"quarter\",\"x\":\"student_cohort\",\"y\":\"attendance_rate\"},{\"chart_type\":\"area\",\"filters\":[{\"field\":\"campus\",\"operator\":\"=\",\"value\":\"community\"}],\"group_field\":null,\"kpi\":\"enrollment count\",\"limit\":"
+        },
+        {
+          "count": 1,
+          "value": "{\"analysis_scope\":{\"mappings\":[{\"chart_type\":\"line\",\"filters\":[{\"field\":\"customer_segment\",\"operator\":\"=\",\"value\":\"loyalty\"}],\"group_field\":\"product_category\",\"kpi\":\"average order value\",\"limit\":7,\"sort_direction\":null,\"sort_field\":null,\"task_type\":\"trend\",\"time_field\":\"order_date\",\"time_grain\":\"month\",\"x\":\"order_date\",\"y\":\"average_order_value\"},{\"chart_type\":\"grouped_bar\",\"filters\":[{\"field\":\"customer_segment\",\"operator\":\"=\",\"value\":\"loyalty\"}],\"group_field\":null,\"kpi\":\"return rate\",\"limit\":nul"
+        },
+        {
+          "count": 1,
+          "value": "{\"analysis_scope\":{\"mappings\":[{\"chart_type\":\"box\",\"filters\":[{\"field\":\"aircraft_type\",\"operator\":\"=\",\"value\":\"wide body\"}],\"group_field\":null,\"kpi\":\"delay duration\",\"limit\":null,\"sort_direction\":\"descending\",\"sort_field\":\"delay_minutes\",\"task_type\":\"distribution\",\"time_field\":null,\"time_grain\":null,\"x\":\"delay_minutes\",\"y\":\"delay_minutes\"}]},\"available_columns\":[{\"dtype\":\"categorical\",\"name\":\"airport\",\"role\":\"dimension\"},{\"dtype\":\"categorical\",\"name\":\"aircraft_type\",\"role\":\"filter\"},{\"dtype\":\"nu"
+        },
+        {
+          "count": 1,
+          "value": "{\"analysis_scope\":{\"mappings\":[{\"chart_type\":\"bar\",\"filters\":[{\"field\":\"property\",\"operator\":\"=\",\"value\":\"city center\"}],\"group_field\":null,\"kpi\":\"room nights\",\"limit\":9,\"sort_direction\":\"ascending\",\"sort_field\":\"room_nights\",\"task_type\":\"ranking\",\"time_field\":\"stay_date\",\"time_grain\":\"day\",\"x\":\"booking_channel\",\"y\":\"room_nights\"},{\"chart_type\":\"bar\",\"filters\":[{\"field\":\"property\",\"operator\":\"=\",\"value\":\"city center\"}],\"group_field\":null,\"kpi\":\"occupancy rate\",\"limit\":null,\"sort_direction\":\"asce"
+        }
+      ]
+    },
+    "layout": {
+      "unique_values": 1503,
+      "max_exact_repetition": 5,
+      "top_repeated_values": [
+        {
+          "count": 5,
+          "value": "{\"blocks\":[{\"chart\":\"box\",\"focus_fields\":[\"engagement_score\",\"job_family\"],\"kpi\":\"engagement score\",\"order\":1,\"position\":\"primary\",\"purpose\":\"primary analytical view\"}],\"hierarchy\":\"One focused box view gives engagement score the full visual priority.\",\"layout_rationale\":\"The single block uses only the requested box mapping and does not invent additional panels.\",\"reading_order\":\"single requested view\",\"responsive\":true,\"type\":\"distribution_focus\"}"
+        },
+        {
+          "count": 4,
+          "value": "{\"blocks\":[{\"chart\":\"heatmap\",\"focus_fields\":[\"subscriber_additions\",\"view_count\",\"audience_segment\"],\"kpi\":\"subscriber additions\",\"order\":1,\"position\":\"primary\",\"purpose\":\"primary analytical view\"}],\"hierarchy\":\"One focused heatmap view gives subscriber additions the full visual priority.\",\"layout_rationale\":\"The single block uses only the requested heatmap mapping and does not invent additional panels.\",\"reading_order\":\"single requested view\",\"responsive\":true,\"type\":\"relationship_focus\"}"
+        },
+        {
+          "count": 4,
+          "value": "{\"blocks\":[{\"chart\":\"grouped_bar\",\"focus_fields\":[\"booking_channel\",\"average_daily_rate\",\"market_segment\",\"stay_date\",\"property\"],\"kpi\":\"average daily rate\",\"order\":1,\"position\":\"primary\",\"purpose\":\"primary analytical view\"}],\"hierarchy\":\"One focused grouped_bar view gives average daily rate the full visual priority.\",\"layout_rationale\":\"The single block uses only the requested grouped_bar mapping and does not invent additional panels.\",\"reading_order\":\"single requested view\",\"responsive\":true,\""
+        },
+        {
+          "count": 4,
+          "value": "{\"blocks\":[{\"chart\":\"histogram\",\"focus_fields\":[\"settlement_days\",\"region\",\"claim_date\",\"policy_type\"],\"kpi\":\"settlement time\",\"order\":1,\"position\":\"primary\",\"purpose\":\"primary analytical view\"}],\"hierarchy\":\"One focused histogram view gives settlement time the full visual priority.\",\"layout_rationale\":\"The single block uses only the requested histogram mapping and does not invent additional panels.\",\"reading_order\":\"single requested view\",\"responsive\":true,\"type\":\"distribution_focus\"}"
+        },
+        {
+          "count": 4,
+          "value": "{\"blocks\":[{\"chart\":\"line\",\"focus_fields\":[\"order_date\",\"average_order_value\",\"customer_segment\",\"sales_channel\"],\"kpi\":\"average order value\",\"order\":1,\"position\":\"primary\",\"purpose\":\"primary analytical view\"}],\"hierarchy\":\"One focused line view gives average order value the full visual priority.\",\"layout_rationale\":\"The single block uses only the requested line mapping and does not invent additional panels.\",\"reading_order\":\"single requested view\",\"responsive\":true,\"type\":\"time_series_focus\"}"
+        }
+      ]
+    },
+    "styling": {
+      "unique_values": 1064,
+      "max_exact_repetition": 7,
+      "top_repeated_values": [
+        {
+          "count": 7,
+          "value": "{\"accessibility\":\"Maintain WCAG AA contrast, direct-label important categories, and never rely on color alone.\",\"color_encoding\":\"student_cohort\",\"color_palette\":\"color-blind-safe categorical palette with a neutral background\",\"contrast\":\"WCAG AA contrast for text, marks, grid, and focus states.\",\"decorative_policy\":\"No decorative color or ornament is used when it does not encode a field in the brief.\",\"legend\":\"Legend for student cohort series.\",\"number_format\":\"completion rate: percentage with"
+        },
+        {
+          "count": 7,
+          "value": "{\"accessibility\":\"Maintain WCAG AA contrast, direct-label important categories, and never rely on color alone.\",\"color_encoding\":\"single accent; no categorical encoding\",\"color_palette\":\"single muted blue accent with neutral gray reference elements\",\"contrast\":\"WCAG AA contrast for text, marks, grid, and focus states.\",\"decorative_policy\":\"No decorative color or ornament is used when it does not encode a field in the brief.\",\"legend\":\"No legend; a single accent is sufficient for the encoded metr"
+        },
+        {
+          "count": 6,
+          "value": "{\"accessibility\":\"Maintain WCAG AA contrast, direct-label important categories, and never rely on color alone.\",\"color_encoding\":\"plant\",\"color_palette\":\"color-blind-safe categorical palette with a neutral background\",\"contrast\":\"WCAG AA contrast for text, marks, grid, and focus states.\",\"decorative_policy\":\"No decorative color or ornament is used when it does not encode a field in the brief.\",\"legend\":\"Legend for plant series.\",\"number_format\":\"units produced: whole-number counts or compact qua"
+        },
+        {
+          "count": 6,
+          "value": "{\"accessibility\":\"Maintain WCAG AA contrast, direct-label important categories, and never rely on color alone.\",\"color_encoding\":\"single accent; no categorical encoding\",\"color_palette\":\"single muted blue accent with neutral gray reference elements\",\"contrast\":\"WCAG AA contrast for text, marks, grid, and focus states.\",\"decorative_policy\":\"No decorative color or ornament is used when it does not encode a field in the brief.\",\"legend\":\"No legend; a single accent is sufficient for the encoded metr"
+        },
+        {
+          "count": 6,
+          "value": "{\"accessibility\":\"Maintain WCAG AA contrast, direct-label important categories, and never rely on color alone.\",\"color_encoding\":\"network_zone\",\"color_palette\":\"color-blind-safe categorical palette with a neutral background\",\"contrast\":\"WCAG AA contrast for text, marks, grid, and focus states.\",\"decorative_policy\":\"No decorative color or ornament is used when it does not encode a field in the brief.\",\"legend\":\"Legend for network zone series.\",\"number_format\":\"resolution rate: percentage with one"
+        }
+      ]
+    },
+    "interactions": {
+      "unique_values": 1512,
+      "max_exact_repetition": 4,
+      "top_repeated_values": [
+        {
+          "count": 4,
+          "value": "[{\"fields\":[\"settlement_days\",\"region\",\"claim_date\",\"policy_type\"],\"purpose\":\"Inspect the encoded dimensions and KPI fields needed to answer the stated goal.\",\"type\":\"tooltip\"},{\"fields\":[\"policy_type\"],\"purpose\":\"Apply the brief constraint on policy type before evaluating settlement time.\",\"type\":\"filter\"},{\"fields\":[\"claim_date\"],\"purpose\":\"Restrict the day-binned claim date view to the period relevant to the stated goal.\",\"type\":\"time_range_select\"}]"
+        },
+        {
+          "count": 4,
+          "value": "[{\"fields\":[\"crop_type\",\"water_use_m3\",\"farm_region\",\"harvest_date\",\"crop_loss_rate\"],\"purpose\":\"Inspect the encoded dimensions and KPI fields needed to answer the stated goal.\",\"type\":\"tooltip\"},{\"fields\":[\"harvest_date\"],\"purpose\":\"Restrict the year-binned harvest date view to the period relevant to the stated goal.\",\"type\":\"time_range_select\"}]"
+        },
+        {
+          "count": 4,
+          "value": "[{\"fields\":[\"approval_rate\",\"program_spend\"],\"purpose\":\"Inspect the encoded dimensions and KPI fields needed to answer the stated goal.\",\"type\":\"tooltip\"},{\"fields\":[\"approval_rate\",\"program_spend\"],\"purpose\":\"Select paired approval rate and program spend observations for local relationship inspection.\",\"type\":\"brush\"},{\"fields\":[\"approval_rate\",\"program_spend\"],\"purpose\":\"Zoom the approval rate–program spend relationship view without asserting a causal result.\",\"type\":\"zoom\"}]"
+        },
+        {
+          "count": 4,
+          "value": "[{\"fields\":[\"harvest_date\",\"crop_loss_rate\",\"farm_region\",\"harvest_cost\"],\"purpose\":\"Inspect the encoded dimensions and KPI fields needed to answer the stated goal.\",\"type\":\"tooltip\"},{\"fields\":[\"farm_region\"],\"purpose\":\"Apply the brief constraint on farm region before evaluating crop loss rate.\",\"type\":\"filter\"},{\"fields\":[\"farm_region\"],\"purpose\":\"Apply the brief constraint on farm region before evaluating crop loss rate.\",\"type\":\"filter\"},{\"fields\":[\"harvest_date\"],\"purpose\":\"Restrict the wee"
+        },
+        {
+          "count": 4,
+          "value": "[{\"fields\":[\"source_type\",\"peak_load_mw\",\"grid_zone\",\"reading_date\",\"asset_class\"],\"purpose\":\"Inspect the encoded dimensions and KPI fields needed to answer the stated goal.\",\"type\":\"tooltip\"},{\"fields\":[\"asset_class\"],\"purpose\":\"Apply the brief constraint on asset class before evaluating peak load.\",\"type\":\"filter\"},{\"fields\":[\"reading_date\"],\"purpose\":\"Restrict the quarter-binned reading date view to the period relevant to the stated goal.\",\"type\":\"time_range_select\"}]"
+        }
+      ]
+    },
+    "rationales": {
+      "unique_values": 1526,
+      "max_exact_repetition": 4,
+      "top_repeated_values": [
+        {
+          "count": 4,
+          "value": "[{\"claim\":\"For the distribution objective, the histogram mapping gives settlement time x=settlement days, y=settlement days, series=region; every referenced field is present in the brief and the statement describes an encoding rather than an observed outcome.\",\"principle\":\"Numeric bins of settlement days show the observed spread of settlement time; the binning does not assert that an unusual value exists.\"},{\"claim\":\"The layout gives the single settlement time mapping full priority and does not "
+        },
+        {
+          "count": 4,
+          "value": "[{\"claim\":\"For the comparison objective, the table mapping gives water use x=crop type, y=water use m3, series=farm region; every referenced field is present in the brief and the statement describes an encoding rather than an observed outcome.\",\"principle\":\"Tabular rows preserve the encoded crop type and water use m3 values so the requested water use comparison can be checked directly.\"},{\"claim\":\"For the trend objective, the area mapping gives crop loss rate x=harvest date, y=crop loss rate; ev"
+        },
+        {
+          "count": 4,
+          "value": "[{\"claim\":\"For the correlation objective, the scatter mapping gives approval rate x=approval rate, y=program spend; every referenced field is present in the brief and the statement describes an encoding rather than an observed outcome.\",\"principle\":\"Positions on the approval rate and program spend quantitative axes expose possible association for inspection without implying causation.\"},{\"claim\":\"The layout gives the single approval rate mapping full priority and does not add an unrequested visu"
+        },
+        {
+          "count": 4,
+          "value": "[{\"claim\":\"For the trend objective, the line mapping gives crop loss rate x=harvest date, y=crop loss rate; every referenced field is present in the brief and the statement describes an encoding rather than an observed outcome.\",\"principle\":\"The ordered harvest date axis places crop loss rate observations in sequence, allowing change to be inspected without asserting a direction that is not in the brief.\"},{\"claim\":\"For the comparison objective, the bar mapping gives harvest cost x=farm region, "
+        },
+        {
+          "count": 4,
+          "value": "[{\"claim\":\"For the part_to_whole objective, the treemap mapping gives peak load x=source type, y=peak load mw, series=grid zone; every referenced field is present in the brief and the statement describes an encoding rather than an observed outcome.\",\"principle\":\"Segment or area size represents each source type category's share of peak load; labels remain necessary because no factual share is assumed.\"},{\"claim\":\"The layout gives the single peak load mapping full priority and does not add an unre"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,371 @@
+{
+  "phase": "before",
+  "records": 2000,
+  "already_valid": 0,
+  "records_with_issues": 2000,
+  "issue_counts": {
+    "generic_user_template": 1819,
+    "context_constraints_missing": 2000,
+    "context_kpis_mismatch": 2000,
+    "context_not_anchored_to_goal": 2000,
+    "unsupported_context_fields": 2000,
+    "generic_layout_template": 2000,
+    "layout_block_underdescribed": 2000,
+    "generic_palette": 1906,
+    "styling_semantics_missing": 2000,
+    "interaction_missing_purpose": 2000,
+    "sort_task_mismatch": 779,
+    "generic_filler": 2000,
+    "unjustified_status_color": 564,
+    "interaction_nonexistent_column": 250,
+    "chart_principle_mismatch": 876
+  },
+  "field_issue_counts": {
+    "users": 1819,
+    "context_summary": 2000,
+    "layout": 2000,
+    "styling": 2000,
+    "interactions": 2000,
+    "rationales": 2000
+  },
+  "issue_examples": {
+    "generic_user_template": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38",
+      "v4_ai_00844ee09b00d69eaabc5b9c",
+      "v4_ai_43e8568ccd5d0ba4bf2b3c8f"
+    ],
+    "context_constraints_missing": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "context_kpis_mismatch": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "context_not_anchored_to_goal": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "unsupported_context_fields": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "generic_layout_template": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "layout_block_underdescribed": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "generic_palette": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38",
+      "v4_ai_00844ee09b00d69eaabc5b9c"
+    ],
+    "styling_semantics_missing": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "interaction_missing_purpose": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "sort_task_mismatch": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_00844ee09b00d69eaabc5b9c",
+      "v4_ai_43e8568ccd5d0ba4bf2b3c8f",
+      "v4_ai_9751927c9381b61aad40ab48",
+      "v4_ai_c4cfdc5e1d0f698a01e0a552",
+      "v4_ai_254136b139abf02ad80247c9"
+    ],
+    "generic_filler": [
+      "v4_ai_277d1444be53622ba5edd9c8",
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_bbb0dcaeb980e9cfa8dfcba6",
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_f1350151606d39941662a504",
+      "v4_ai_097a80a3a3d6b36ec5035c37",
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_5f617106af8de9dc69114150",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_f57f0ab6c7465db93b588d38"
+    ],
+    "unjustified_status_color": [
+      "v4_ai_a59c9c0490cf8b90b1ae3438",
+      "v4_ai_00844ee09b00d69eaabc5b9c",
+      "v4_ai_43e8568ccd5d0ba4bf2b3c8f",
+      "v4_ai_abfd08e6c8d2384370a9506a",
+      "v4_ai_9751927c9381b61aad40ab48",
+      "v4_ai_67621cd3799cb49569e33e96",
+      "v4_ai_990201a99949b69cc8226b46",
+      "v4_ai_d4d5623c4fd863bead773963",
+      "v4_ai_b312784c391c3ad07a7b5acd",
+      "v4_ai_f29c6701bf014701bebefe5c"
+    ],
+    "interaction_nonexistent_column": [
+      "v4_ai_c2fdd601c97c500b4cfd2a71",
+      "v4_ai_43e8568ccd5d0ba4bf2b3c8f",
+      "v4_ai_c4cfdc5e1d0f698a01e0a552",
+      "v4_ai_8c3d9bad4c81e1469637fd99",
+      "v4_ai_f29c6701bf014701bebefe5c",
+      "v4_ai_90b6d7a4d8152e223342470c",
+      "v4_ai_63f2298eec549d72db48113a",
+      "v4_ai_5bbca2d379e6b636560dce3e",
+      "v4_ai_ef7a0163deec35940b1c9130",
+      "v4_ai_241389cd4cce7405f6df896e"
+    ],
+    "chart_principle_mismatch": [
+      "v4_ai_164490ce27c1e6488d5f3e96",
+      "v4_ai_e88992b8894a7c330717a720",
+      "v4_ai_43e8568ccd5d0ba4bf2b3c8f",
+      "v4_ai_5b7e599db6e629f6da10053b",
+      "v4_ai_9751927c9381b61aad40ab48",
+      "v4_ai_e81eab5f1790c5d00ccd2745",
+      "v4_ai_c9ec3b6dbd34737f8b542687",
+      "v4_ai_254136b139abf02ad80247c9",
+      "v4_ai_8c3d9bad4c81e1469637fd99",
+      "v4_ai_fddb452fe11ef698db531f40"
+    ]
+  },
+  "repetition": {
+    "users": {
+      "unique_values": 60,
+      "max_exact_repetition": 45,
+      "top_repeated_values": [
+        {
+          "count": 45,
+          "value": "grid operators responsible for energy and utilities decisions"
+        },
+        {
+          "count": 43,
+          "value": "service delivery directors responsible for government services decisions"
+        },
+        {
+          "count": 42,
+          "value": "student success leads responsible for education decisions"
+        },
+        {
+          "count": 42,
+          "value": "crop planners responsible for agriculture decisions"
+        },
+        {
+          "count": 42,
+          "value": "research administrators responsible for scientific research decisions"
+        }
+      ]
+    },
+    "context_summary": {
+      "unique_values": 2000,
+      "max_exact_repetition": 1,
+      "top_repeated_values": [
+        {
+          "count": 1,
+          "value": "{\"audience\":\"network operations managers\",\"complexity\":\"advanced\",\"data_literacy\":\"beginner\",\"decision_focus\":\"for capacity planning during the monthly operating review under steady baseline conditions in the current planning horizon\",\"domain\":\"Telecommunications\",\"operating_condition\":\"steady baseline\",\"planning_window\":\"current planning horizon\",\"primary_goal\":\"Examine whether call volume is associated with dropped call rate across cell region for capacity planning during the monthly operating"
+        },
+        {
+          "count": 1,
+          "value": "{\"audience\":\"program directors\",\"complexity\":\"advanced\",\"data_literacy\":\"intermediate\",\"decision_focus\":\"for service recovery during the monthly operating review under steady baseline conditions in the current planning horizon\",\"domain\":\"Education\",\"operating_condition\":\"steady baseline\",\"planning_window\":\"current planning horizon\",\"primary_goal\":\"Compare attendance rate across student cohort to support for service recovery during the monthly operating review under steady baseline conditions in "
+        },
+        {
+          "count": 1,
+          "value": "{\"audience\":\"growth marketing leads\",\"complexity\":\"advanced\",\"data_literacy\":\"advanced\",\"decision_focus\":\"for resource allocation during the monthly operating review under steady baseline conditions in the current planning horizon\",\"domain\":\"E-Commerce\",\"operating_condition\":\"steady baseline\",\"planning_window\":\"current planning horizon\",\"primary_goal\":\"Monitor how average order value changes by month using order date for resource allocation during the monthly operating review under steady baseli"
+        },
+        {
+          "count": 1,
+          "value": "{\"audience\":\"airport operations managers\",\"complexity\":\"moderate\",\"data_literacy\":\"beginner\",\"decision_focus\":\"for portfolio review during the monthly operating review under steady baseline conditions in the current planning horizon\",\"domain\":\"Aviation Operations\",\"operating_condition\":\"steady baseline\",\"planning_window\":\"current planning horizon\",\"primary_goal\":\"Assess the distribution of delay duration to identify unusual operating patterns for portfolio review during the monthly operating rev"
+        },
+        {
+          "count": 1,
+          "value": "{\"audience\":\"revenue managers\",\"complexity\":\"moderate\",\"data_literacy\":\"intermediate\",\"decision_focus\":\"for quality improvement during the monthly operating review under steady baseline conditions in the current planning horizon\",\"domain\":\"Hospitality\",\"operating_condition\":\"steady baseline\",\"planning_window\":\"current planning horizon\",\"primary_goal\":\"Rank booking channel by room nights to focus attention for quality improvement during the monthly operating review under steady baseline condition"
+        }
+      ]
+    },
+    "layout": {
+      "unique_values": 945,
+      "max_exact_repetition": 12,
+      "top_repeated_values": [
+        {
+          "count": 12,
+          "value": "{\"blocks\":[{\"chart\":\"heatmap\",\"kpi\":\"downtime hours\",\"position\":\"primary\",\"purpose\":\"primary decision view\"}],\"reading_order\":\"primary decision view before supporting context\",\"responsive\":true,\"type\":\"single\"}"
+        },
+        {
+          "count": 11,
+          "value": "{\"blocks\":[{\"chart\":\"box\",\"kpi\":\"program spend\",\"position\":\"primary\",\"purpose\":\"primary decision view\"}],\"reading_order\":\"primary decision view before supporting context\",\"responsive\":true,\"type\":\"single\"}"
+        },
+        {
+          "count": 11,
+          "value": "{\"blocks\":[{\"chart\":\"heatmap\",\"kpi\":\"churn rate\",\"position\":\"primary\",\"purpose\":\"primary decision view\"}],\"reading_order\":\"primary decision view before supporting context\",\"responsive\":true,\"type\":\"single\"}"
+        },
+        {
+          "count": 11,
+          "value": "{\"blocks\":[{\"chart\":\"histogram\",\"kpi\":\"settlement time\",\"position\":\"primary\",\"purpose\":\"primary decision view\"}],\"reading_order\":\"primary decision view before supporting context\",\"responsive\":true,\"type\":\"single\"}"
+        },
+        {
+          "count": 11,
+          "value": "{\"blocks\":[{\"chart\":\"area\",\"kpi\":\"dropped call rate\",\"position\":\"primary\",\"purpose\":\"primary decision view\"}],\"reading_order\":\"primary decision view before supporting context\",\"responsive\":true,\"type\":\"single\"}"
+        }
+      ]
+    },
+    "styling": {
+      "unique_values": 792,
+      "max_exact_repetition": 8,
+      "top_repeated_values": [
+        {
+          "count": 8,
+          "value": "{\"accessibility\":\"maintain WCAG AA contrast and never rely on color alone\",\"color_encoding\":\"campus\",\"color_palette\":\"purple and green education palette\",\"emphasis\":\"correlation\",\"number_format\":\"percentage with one decimal place\",\"theme\":\"dark\"}"
+        },
+        {
+          "count": 8,
+          "value": "{\"accessibility\":\"maintain WCAG AA contrast and never rely on color alone\",\"color_encoding\":\"region\",\"color_palette\":\"navy and orange insurance palette\",\"emphasis\":\"composition\",\"number_format\":\"percentage with one decimal place\",\"theme\":\"light\"}"
+        },
+        {
+          "count": 7,
+          "value": "{\"accessibility\":\"maintain WCAG AA contrast and never rely on color alone\",\"color_encoding\":\"plant\",\"color_palette\":\"steel and amber industrial palette\",\"emphasis\":\"trend\",\"number_format\":\"whole-number counts or compact quantities\",\"theme\":\"high_contrast\"}"
+        },
+        {
+          "count": 7,
+          "value": "{\"accessibility\":\"maintain WCAG AA contrast and never rely on color alone\",\"color_encoding\":\"campus\",\"color_palette\":\"purple and green education palette\",\"emphasis\":\"ranking\",\"number_format\":\"percentage with one decimal place\",\"theme\":\"dark\"}"
+        },
+        {
+          "count": 7,
+          "value": "{\"accessibility\":\"maintain WCAG AA contrast and never rely on color alone\",\"color_encoding\":\"research area\",\"color_palette\":\"teal and purple research palette\",\"emphasis\":\"comparison\",\"number_format\":\"duration in minutes or days with one decimal where needed\",\"theme\":\"dark\"}"
+        }
+      ]
+    },
+    "interactions": {
+      "unique_values": 1329,
+      "max_exact_repetition": 6,
+      "top_repeated_values": [
+        {
+          "count": 6,
+          "value": "[{\"fields\":[\"campus\",\"completion_rate\"],\"type\":\"tooltip\"},{\"fields\":[\"program\"],\"type\":\"filter\"},{\"fields\":[\"student_cohort\"],\"type\":\"legend_toggle\"},{\"fields\":[\"student_cohort\"],\"type\":\"hover_highlight\"},{\"fields\":[\"completion_rate\"],\"type\":\"sort\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"fields\":[\"aircraft_type\",\"fuel_burn_kg\"],\"type\":\"tooltip\"},{\"fields\":[\"route_class\"],\"type\":\"filter\"},{\"fields\":[\"airport\"],\"type\":\"legend_toggle\"},{\"fields\":[\"airport\"],\"type\":\"hover_highlight\"},{\"fields\":[\"fuel_burn_kg\"],\"type\":\"sort\"},{\"fields\":[\"departure_date\"],\"type\":\"time_range_select\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"fields\":[\"source_type\",\"peak_load_mw\"],\"type\":\"tooltip\"},{\"fields\":[\"asset_class\"],\"type\":\"filter\"},{\"fields\":[\"grid_zone\"],\"type\":\"legend_toggle\"},{\"fields\":[\"grid_zone\"],\"type\":\"hover_highlight\"},{\"fields\":[\"peak_load_mw\"],\"type\":\"sort\"},{\"fields\":[\"reading_date\"],\"type\":\"time_range_select\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"fields\":[\"engagement_score\",\"COUNT(*)\"],\"type\":\"tooltip\"},{\"fields\":[\"job_family\"],\"type\":\"filter\"},{\"fields\":[\"engagement_score\"],\"type\":\"sort\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"fields\":[\"monitoring_zone\",\"emissions_tonnes\"],\"type\":\"tooltip\"},{\"fields\":[\"station_type\"],\"type\":\"legend_toggle\"},{\"fields\":[\"station_type\"],\"type\":\"hover_highlight\"},{\"fields\":[\"emissions_tonnes\"],\"type\":\"sort\"}]"
+        }
+      ]
+    },
+    "rationales": {
+      "unique_values": 1214,
+      "max_exact_repetition": 6,
+      "top_repeated_values": [
+        {
+          "count": 6,
+          "value": "[{\"claim\":\"The bar chart supports comparison analysis of review time using the stated encoding.\",\"principle\":\"Bar length supports precise magnitude comparison across discrete categories.\"},{\"claim\":\"The explicit filter and ranking constraints keep the dashboard focused on the stated decision.\",\"principle\":\"Constraint-aware views reduce cognitive load while preserving the analytical task.\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"claim\":\"The stacked_bar chart supports composition analysis of energy consumption using the stated encoding.\",\"principle\":\"Stacked bars show how a total divides into parts within each category.\"},{\"claim\":\"Grouping by asset class exposes meaningful series without changing the underlying measure.\",\"principle\":\"Categorical color and grouped marks support comparison when the number of series remains interpretable.\"},{\"claim\":\"The explicit filter and ranking constraints keep the dashboard focused"
+        },
+        {
+          "count": 5,
+          "value": "[{\"claim\":\"The heatmap chart supports correlation analysis of downtime hours using the stated encoding.\",\"principle\":\"Scatter plots expose the relationship between two quantitative metrics.\"},{\"claim\":\"The explicit filter and ranking constraints keep the dashboard focused on the stated decision.\",\"principle\":\"Constraint-aware views reduce cognitive load while preserving the analytical task.\"}]"
+        },
+        {
+          "count": 5,
+          "value": "[{\"claim\":\"The grouped_bar chart supports comparison analysis of downtime hours using the stated encoding.\",\"principle\":\"Bar length supports precise magnitude comparison across discrete categories.\"},{\"claim\":\"The area chart supports trend analysis of units produced using the stated encoding.\",\"principle\":\"Position along a common time axis is the most accurate encoding for temporal trends.\"},{\"claim\":\"The quarter-level temporal encoding preserves the requested chronological comparison.\",\"princip"
+        },
+        {
+          "count": 5,
+          "value": "[{\"claim\":\"The area chart supports composition analysis of completion rate using the stated encoding.\",\"principle\":\"Stacked bars show how a total divides into parts within each category.\"},{\"claim\":\"Grouping by student cohort exposes meaningful series without changing the underlying measure.\",\"principle\":\"Categorical color and grouped marks support comparison when the number of series remains interpretable.\"},{\"claim\":\"The explicit filter and ranking constraints keep the dashboard focused on the"
+        }
+      ]
+    }
+  }
+}

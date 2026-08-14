@@ -1,0 +1,63 @@
+{
+  "hash_algorithm": "SHA-256",
+  "dataset_version": "dashboard_v4_1",
+  "parent_dataset_version": "dashboard_v4",
+  "files": {
+    "train.jsonl": {
+      "sha256": "d3b7107e6522ec453eb5b49d2482b13d750314906dc0b12ae339e2c18f81c1d0",
+      "bytes": 23619932
+    },
+    "val.jsonl": {
+      "sha256": "1ffcc04d9ec66d5fe1566721eceeaa2fc0a33365c2577df5d671fb64bfabcc45",
+      "bytes": 4928188
+    },
+    "test.jsonl": {
+      "sha256": "e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5",
+      "bytes": 1254865
+    },
+    "human_eval_test_items_40.csv": {
+      "sha256": "fa64afe0037dc6fcde9c5f9fc848aaab30ec4848d4d3aef120a7328b343b82f4",
+      "bytes": 452008
+    },
+    "schema.json": {
+      "sha256": "4c216ad71d682468940e1a3289a8512bb0e9145d0e73f9109563ad960d567b21",
+      "bytes": 5503
+    },
+    "manifest.json": {
+      "sha256": "1b6163d4f1fe858b4d8ae5ba49dbb719d916e1c584f34a6bd0833771253f6302",
+      "bytes": 2596
+    },
+    "dataset_card.md": {
+      "sha256": "a959913efe8ee2365cfc353b0cbafcab025e7db24a432f57407432d5b2f86dc2",
+      "bytes": 1459
+    },
+    "reports/repair_report.json": {
+      "sha256": "e23181a3df79c35a4d42bf9bf7e4f0c061accf9887d630f653b203c4007fb927",
+      "bytes": 1555
+    },
+    "reports/semantic_audit_before.json": {
+      "sha256": "dd643e47fe5fc0027bd81593489cc3c90711175ebc431a17417d64588c5b92e3",
+      "bytes": 19526
+    },
+    "reports/semantic_audit_after.json": {
+      "sha256": "9331795b315047cc754281431fbad4c80b2b0c3ad9b128ed22a7cd441dbf2a34",
+      "bytes": 16462
+    },
+    "reports/validation_report.json": {
+      "sha256": "baba5425a5feca434912df23d2ba775b3c4e87b95fec90434446513b1589424b",
+      "bytes": 914
+    },
+    "reports/duplicate_report.json": {
+      "sha256": "a875cd03f9ce639ef44f553f9befa491d29bfbd3a1406f421067a249d8eccd4c",
+      "bytes": 336
+    },
+    "reports/leakage_report.json": {
+      "sha256": "358785977c13d07ed53fbe41bfed081c9e59aea76178bb0e5dba0aeb9d877781",
+      "bytes": 313
+    },
+    "reports/distribution_report.json": {
+      "sha256": "2782150b0465d403201163deb68209a00a17569e5eb187e28a58b7e7ac5ea3f6",
+      "bytes": 1755
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "status": "PASS_DASHBOARD_V4_1_SEMANTIC_REPAIR_COMPLETE",
+  "parent_dataset_version": "dashboard_v4",
+  "target_dataset_version": "dashboard_v4_1",
+  "repair_version": "dashboard_v4_1-semantic-repair-v1",
+  "repair_model": "gpt-5.6-luna",
+  "repair_mode": "codex_agent_context_aware",
+  "already_valid": 0,
+  "repaired": 2000,
+  "rejected_or_regenerated": 0,
+  "repaired_field_counts": {
+    "users": 1819,
+    "context_summary": 2000,
+    "layout": 2000,
+    "styling": 2000,
+    "interactions": 2000,
+    "rationales": 2000
+  },
+  "most_common_original_problems": {
+    "generic_user_template": 1819,
+    "context_constraints_missing": 2000,
+    "context_kpis_mismatch": 2000,
+    "context_not_anchored_to_goal": 2000,
+    "unsupported_context_fields": 2000,
+    "generic_layout_template": 2000,
+    "layout_block_underdescribed": 2000,
+    "generic_palette": 1906,
+    "styling_semantics_missing": 2000,
+    "interaction_missing_purpose": 2000,
+    "sort_task_mismatch": 779,
+    "generic_filler": 2000,
+    "unjustified_status_color": 564,
+    "interaction_nonexistent_column": 250,
+    "chart_principle_mismatch": 876
+  },
+  "protected_fields": [
+    "goals",
+    "kpis",
+    "columns",
+    "constraints",
+    "task_type",
+    "chart_type",
+    "encoding"
+  ],
+  "semantic_standard": {
+    "context_anchored_to_brief": true,
+    "interaction_fields_must_exist": true,
+    "chart_principles_must_match_chart_type": true,
+    "unsupported_outcome_claims_rejected": true,
+    "styling_must_state_accessibility_and_semantic_color_policy": true
+  }
+}
