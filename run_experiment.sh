@@ -10,6 +10,45 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 
+# -----------------------------------------------------------------------------
+# Per-machine paths file. One editable file per system decides where model
+# caches, run artifacts, adapters/checkpoints and results live, so a
+# storage-limited server never writes large files into the repository.
+#
+#   cp paths.env.example paths.env   # then edit paths.env
+#
+# Loaded BEFORE the defaults below, so every value it sets is picked up; a
+# command-line option still wins over the file. Sourced from paths.env by
+# default, or from --paths-file FILE / PATHS_FILE=FILE.
+PATHS_FILE="${PATHS_FILE:-paths.env}"
+for ((_i = 1; _i <= $#; _i++)); do
+  if [[ "${!_i}" == "--paths-file" ]]; then
+    _next=$((_i + 1))
+    [[ $_next -le $# ]] || { echo "[launcher] ERROR: --paths-file requires a value." >&2; exit 1; }
+    PATHS_FILE="${!_next}"
+  elif [[ "${!_i}" == --paths-file=* ]]; then
+    PATHS_FILE="${!_i#*=}"
+  elif [[ "${!_i}" == "--no-paths-file" ]]; then
+    PATHS_FILE=""
+  fi
+done
+if [[ -n "$PATHS_FILE" ]]; then
+  case "$PATHS_FILE" in
+    /*|[A-Za-z]:[\\/]*) _paths_path="$PATHS_FILE" ;;
+    *) _paths_path="$PROJECT_ROOT/$PATHS_FILE" ;;
+  esac
+  if [[ -f "$_paths_path" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$_paths_path"
+    set +a
+    echo "[launcher] paths file: $_paths_path"
+  elif [[ "$PATHS_FILE" != "paths.env" ]]; then
+    echo "[launcher] ERROR: paths file not found: $_paths_path" >&2
+    exit 1
+  fi
+fi
+
 # One-place configuration. Command-line values win over these defaults.
 PROFILE="${PROFILE:-smoke}"                         # smoke | final
 MODE="${MODE:-full}"                               # full | inference | train
@@ -52,6 +91,11 @@ N_TRAIN_ITEMS="${N_TRAIN_ITEMS:-2}"
 MAX_STEPS="${MAX_STEPS:-1}"
 
 declare -a EXTRA_OVERRIDES=()
+# EXTRA_OVERRIDES_STR lets the paths file add Hydra overrides (an array cannot
+# be expressed in a plain env file), e.g. training.sft.save_total_limit=1.
+if [[ -n "${EXTRA_OVERRIDES_STR:-}" ]]; then
+  read -r -a EXTRA_OVERRIDES <<< "$EXTRA_OVERRIDES_STR"
+fi
 
 usage() {
   cat <<'USAGE'
@@ -59,6 +103,8 @@ Usage:
   ./run_experiment.sh [options]
 
 Modes and selection:
+  --paths-file FILE           Per-machine path settings (default: paths.env)
+  --no-paths-file             Ignore paths.env
   --profile smoke|final       Profile (default: smoke)
   --dataset NAME              Frozen dataset: dashboard_v4 (default) or dashboard_v3
   --mode full|inference|train Full matrix, inference-only, or C/QLoRA train
@@ -177,6 +223,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dataset)
       need_value "$@" ; DATASET="$2"; shift 2
+      ;;
+    --paths-file)
+      need_value "$@" ; shift 2   # already consumed before the defaults block
+      ;;
+    --paths-file=*|--no-paths-file)
+      shift
       ;;
     --mode)
       need_value "$@" ; MODE="$2"; shift 2
@@ -439,6 +491,8 @@ print_config() {
   echo "RESOLVED EXPERIMENT LAUNCH CONFIGURATION"
   echo "======================================================================"
   printf '  project root       : %s\n' "$PROJECT_ROOT"
+  printf '  paths file         : %s
+' "${PATHS_FILE:-<disabled>}"
   printf '  dataset            : %s
 ' "$DATASET"
   printf '  profile / mode     : %s / %s\n' "$PROFILE" "$MODE"

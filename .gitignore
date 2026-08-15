@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# Per-machine path settings (paths.env.example is the tracked template).
+paths.env
+!paths.env.example
 *.token
 hf_token*
 .huggingface/

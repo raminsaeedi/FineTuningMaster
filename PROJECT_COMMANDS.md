@@ -10,22 +10,22 @@ package during thesis experiments. Remote GPU instructions: `RUN_PROFESSOR.md`.
 
 ## Which command do I need?
 
-| I want to... | Command | Cost |
-|---|---|---|
-| verify repository | `python experiments/scripts/check_experiment_release.py --require-cuda --require-training --model qwen2_5_0_5b --output-root experiments/outputs/final` | cheap, GPU check only |
-| verify frozen data | same release-check command | cheap/local |
-| test everything locally | `python experiments/scripts/run_smoke.py` | cheap smoke, tiny GPU training |
-| train C | `python experiments/scripts/train.py --experiment E03_qwen0_5b_ft --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final` | GPU-expensive |
-| resume C | same command with `--resume` before `--override` | GPU-expensive |
-| run A | `python experiments/scripts/run_experiment.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final` | model inference |
-| run B | `python experiments/scripts/run_experiment.py --experiment E02_qwen0_5b_rag --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final` | model inference |
-| run C | `python experiments/scripts/run_experiment.py --experiment E03_qwen0_5b_ft --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final` | model inference |
-| run D | `python experiments/scripts/run_experiment.py --experiment E04_qwen0_5b_ft_rag --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final method.adapter_source_experiment=E03_qwen0_5b_ft` | model inference |
-| evaluate cached predictions | `python experiments/scripts/eval_auto.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final` | cheap/local |
-| aggregate results | `python experiments/scripts/aggregate_results.py --outputs-root experiments/outputs/final --out-dir experiments/results` | cheap/local |
-| statistics | `python experiments/scripts/eval_stats.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --out-dir experiments/results/stats/seed_42 --override output_root=experiments/outputs/final seed=42 model=qwen2_5_0_5b` | cheap/local |
-| human evaluation | `python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --n-items 40 --n-raters 6 --ratings-per-output 3` | manual |
-| run full tests | `pytest -q` | cheap/moderate CPU |
+| I want to...                | Command                                                                                                                                                                                                                                                   | Cost                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| verify repository           | `python experiments/scripts/check_experiment_release.py --require-cuda --require-training --model qwen2_5_0_5b --output-root experiments/outputs/final`                                                                                                   | cheap, GPU check only          |
+| verify frozen data          | same release-check command                                                                                                                                                                                                                                | cheap/local                    |
+| test everything locally     | `python experiments/scripts/run_smoke.py`                                                                                                                                                                                                                 | cheap smoke, tiny GPU training |
+| train C                     | `python experiments/scripts/train.py --experiment E03_qwen0_5b_ft --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                                            | GPU-expensive                  |
+| resume C                    | same command with `--resume` before `--override`                                                                                                                                                                                                          | GPU-expensive                  |
+| run A                       | `python experiments/scripts/run_experiment.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                               | model inference                |
+| run B                       | `python experiments/scripts/run_experiment.py --experiment E02_qwen0_5b_rag --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                                  | model inference                |
+| run C                       | `python experiments/scripts/run_experiment.py --experiment E03_qwen0_5b_ft --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                                   | model inference                |
+| run D                       | `python experiments/scripts/run_experiment.py --experiment E04_qwen0_5b_ft_rag --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final method.adapter_source_experiment=E03_qwen0_5b_ft`                                              | model inference                |
+| evaluate cached predictions | `python experiments/scripts/eval_auto.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                                    | cheap/local                    |
+| aggregate results           | `python experiments/scripts/aggregate_results.py --outputs-root experiments/outputs/final --out-dir experiments/results`                                                                                                                                  | cheap/local                    |
+| statistics                  | `python experiments/scripts/eval_stats.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --out-dir experiments/results/stats/seed_42 --override output_root=experiments/outputs/final seed=42 model=qwen2_5_0_5b` | cheap/local                    |
+| human evaluation            | `python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --n-items 40 --n-raters 6 --ratings-per-output 3`                                                                  | manual                         |
+| run full tests              | `pytest -q`                                                                                                                                                                                                                                               | cheap/moderate CPU             |
 
 ## Cost labels
 
@@ -445,8 +445,8 @@ src/config/model/
 
 ### AVAILABLE NOW
 
-| Config name | Hugging Face model |
-|---|---|
+| Config name    | Hugging Face model           |
+| -------------- | ---------------------------- |
 | `qwen2_5_0_5b` | `Qwen/Qwen2.5-0.5B-Instruct` |
 
 Change model through Hydra override:
@@ -867,30 +867,30 @@ Paths under `experiments/outputs/final/`, `experiments/results/stats/`,
 `experiments/results/human_ratings/`, and `professor_results.zip` are generated
 by commands above. Angle-bracket path components are placeholders.
 
-| Purpose | Path |
-|---|---|
-| frozen Train | `data/frozen/dashboard_v3/train.jsonl` |
-| frozen Validation | `data/frozen/dashboard_v3/val.jsonl` |
-| frozen Test | `data/frozen/dashboard_v3/test.jsonl` |
-| human evaluation data | `data/frozen/dashboard_v3/human_eval_test_items_40.csv` |
-| dataset manifest | `data/frozen/dashboard_v3/manifest.json` |
-| dataset hashes | `data/frozen/dashboard_v3/hashes.json` |
-| RAG sources | `data/knowledge_base/guidelines/` |
-| built KB | `data/knowledge_base/chunks.jsonl`, `data/knowledge_base/kb_manifest.json` |
-| external robustness data | `data/eval/robustness_v3/` |
-| model configs | `src/config/model/` |
-| experiment configs | `src/config/experiment/` |
-| method configs | `src/config/method/` |
-| final matrix config | `src/config/matrix/final.yaml` |
-| adapters | `experiments/outputs/final/<experiment>_<seed>/adapter/` |
-| predictions | `experiments/outputs/final/<experiment>_<seed>/predictions*.jsonl` |
-| automatic metrics | `experiments/outputs/final/<experiment>_<seed>/metrics_auto.json` |
-| per-run reports | `experiments/outputs/final/<experiment>_<seed>/metrics.json`, `eval_per_item.jsonl` |
-| per-seed statistics | `experiments/results/stats/seed_<seed>/` |
-| final result reports | `experiments/results/comparison_table.*`, `multi_seed_summary.*`, `comparison_seeds.csv`, `final_report.md` |
-| human-evaluation assignment | `experiments/results/human_eval/` |
-| human ratings/statistics | `experiments/results/human_ratings/` |
-| professor package | `professor_results.zip` |
+| Purpose                     | Path                                                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| frozen Train                | `data/frozen/dashboard_v3/train.jsonl`                                                                      |
+| frozen Validation           | `data/frozen/dashboard_v3/val.jsonl`                                                                        |
+| frozen Test                 | `data/frozen/dashboard_v3/test.jsonl`                                                                       |
+| human evaluation data       | `data/frozen/dashboard_v3/human_eval_test_items_40.csv`                                                     |
+| dataset manifest            | `data/frozen/dashboard_v3/manifest.json`                                                                    |
+| dataset hashes              | `data/frozen/dashboard_v3/hashes.json`                                                                      |
+| RAG sources                 | `data/knowledge_base/guidelines/`                                                                           |
+| built KB                    | `data/knowledge_base/chunks.jsonl`, `data/knowledge_base/kb_manifest.json`                                  |
+| external robustness data    | `data/eval/robustness_v3/`                                                                                  |
+| model configs               | `src/config/model/`                                                                                         |
+| experiment configs          | `src/config/experiment/`                                                                                    |
+| method configs              | `src/config/method/`                                                                                        |
+| final matrix config         | `src/config/matrix/final.yaml`                                                                              |
+| adapters                    | `experiments/outputs/final/<experiment>_<seed>/adapter/`                                                    |
+| predictions                 | `experiments/outputs/final/<experiment>_<seed>/predictions*.jsonl`                                          |
+| automatic metrics           | `experiments/outputs/final/<experiment>_<seed>/metrics_auto.json`                                           |
+| per-run reports             | `experiments/outputs/final/<experiment>_<seed>/metrics.json`, `eval_per_item.jsonl`                         |
+| per-seed statistics         | `experiments/results/stats/seed_<seed>/`                                                                    |
+| final result reports        | `experiments/results/comparison_table.*`, `multi_seed_summary.*`, `comparison_seeds.csv`, `final_report.md` |
+| human-evaluation assignment | `experiments/results/human_eval/`                                                                           |
+| human ratings/statistics    | `experiments/results/human_ratings/`                                                                        |
+| professor package           | `professor_results.zip`                                                                                     |
 
 ## Model / seed / method explained simply
 
