@@ -32,22 +32,11 @@ for ((_i = 1; _i <= $#; _i++)); do
     PATHS_FILE=""
   fi
 done
-if [[ -n "$PATHS_FILE" ]]; then
-  case "$PATHS_FILE" in
-    /*|[A-Za-z]:[\\/]*) _paths_path="$PATHS_FILE" ;;
-    *) _paths_path="$PROJECT_ROOT/$PATHS_FILE" ;;
-  esac
-  if [[ -f "$_paths_path" ]]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "$_paths_path"
-    set +a
-    echo "[launcher] paths file: $_paths_path"
-  elif [[ "$PATHS_FILE" != "paths.env" ]]; then
-    echo "[launcher] ERROR: paths file not found: $_paths_path" >&2
-    exit 1
-  fi
-fi
+# shellcheck source=scripts/lib/paths.sh
+source "$PROJECT_ROOT/scripts/lib/paths.sh"
+load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
+apply_cache_paths "$PROJECT_ROOT"
+[[ -z "${PATHS_FILE_RESOLVED:-}" ]] || echo "[launcher] paths file: $PATHS_FILE_RESOLVED"
 
 # One-place configuration. Command-line values win over these defaults.
 PROFILE="${PROFILE:-smoke}"                         # smoke | final
@@ -427,10 +416,8 @@ declare -a PYTHON_CMD=()
 if [[ -n "$PYTHON_BIN" ]]; then
   command -v "$PYTHON_BIN" >/dev/null 2>&1 || die "Python executable not found: $PYTHON_BIN"
   PYTHON_CMD=("$PYTHON_BIN")
-elif [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
-  PYTHON_CMD=("$PROJECT_ROOT/.venv/bin/python")
-elif [[ -x "$PROJECT_ROOT/.venv/Scripts/python.exe" ]]; then
-  PYTHON_CMD=("$PROJECT_ROOT/.venv/Scripts/python.exe")
+elif [[ -n "$(venv_python_path "$PROJECT_ROOT")" ]]; then
+  PYTHON_CMD=("$(venv_python_path "$PROJECT_ROOT")")
 elif [[ -x "$PROJECT_ROOT/.poetry/bin/poetry" ]]; then
   PYTHON_CMD=("$PROJECT_ROOT/.poetry/bin/poetry" run python)
 elif command -v poetry >/dev/null 2>&1; then

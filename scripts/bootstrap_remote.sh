@@ -8,6 +8,9 @@
 # re-run: an existing environment is synced, not rebuilt. Installs no secrets
 # and starts no training.
 #
+# Machine-specific locations (environment, caches, outputs) come from paths.env
+# -- see paths.env.example. Nothing here is hard-coded to this repository.
+#
 # Options:
 #   --no-train        Inference/evaluation only (methods A and B)
 #   --with-dev        Also install pytest
@@ -28,6 +31,7 @@ WITH_TRAIN=1
 WITH_DEV=0
 REQUIRE_CUDA=1
 PYTHON_BIN="${PYTHON_BIN:-}"
+PATHS_FILE="${PATHS_FILE:-paths.env}"
 
 log()  { printf '[bootstrap] %s\n' "$*"; }
 die()  { printf '[bootstrap] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -38,10 +42,19 @@ while [[ $# -gt 0 ]]; do
     --with-dev) WITH_DEV=1; shift ;;
     --cpu-ok) REQUIRE_CUDA=0; shift ;;
     --python) [[ $# -ge 2 ]] || die "--python needs a value."; PYTHON_BIN="$2"; shift 2 ;;
+    --paths-file) [[ $# -ge 2 ]] || die "--paths-file needs a value."; PATHS_FILE="$2"; shift 2 ;;
     -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
 done
+
+# Per-machine paths: VENV_PATH, HF_HOME, CACHE_PATH, ... (all optional).
+# shellcheck source=lib/paths.sh
+source "$PROJECT_ROOT/scripts/lib/paths.sh"
+load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
+apply_cache_paths "$PROJECT_ROOT"
+[[ -z "${PATHS_FILE_RESOLVED:-}" ]] || log "paths file: $PATHS_FILE_RESOLVED"
+[[ -z "${HF_HOME:-}" ]] || log "HF_HOME: $HF_HOME"
 
 # ---------------------------------------------------------------------------
 # 1. Supported Python interpreter (Poetry cannot install one).
@@ -99,8 +112,21 @@ fi
 log "poetry: $("$POETRY" --version)"
 
 # ---------------------------------------------------------------------------
-# 3. Project environment in ./.venv (poetry.toml sets virtualenvs.in-project).
-"$POETRY" env use "$PYTHON_BIN" >/dev/null
+# 3. Project environment. By default ./.venv (poetry.toml sets
+#    virtualenvs.in-project). VENV_PATH in paths.env moves it to another volume:
+#    the venv is created there and Poetry is pointed at that interpreter.
+TARGET_VENV="$(paths_resolve "$PROJECT_ROOT" "${VENV_PATH:-$PROJECT_ROOT/.venv}")"
+if [[ "$TARGET_VENV" != "$PROJECT_ROOT/.venv" ]]; then
+  if [[ -z "$(venv_exe "$TARGET_VENV" python)" ]]; then
+    log "creating the project environment in $TARGET_VENV"
+    "$PYTHON_BIN" -m venv "$TARGET_VENV"
+  fi
+  ENV_PYTHON="$(venv_exe "$TARGET_VENV" python)"
+  [[ -n "$ENV_PYTHON" ]] || die "Could not create the environment in $TARGET_VENV."
+  "$POETRY" env use "$ENV_PYTHON" >/dev/null
+else
+  "$POETRY" env use "$PYTHON_BIN" >/dev/null
+fi
 log "environment: $("$POETRY" env info --path)"
 
 # ---------------------------------------------------------------------------
@@ -178,6 +204,5 @@ PYCHECK
 log "done."
 log "next:"
 log "  export HF_TOKEN=\"hf_...\"                       # gated Llama profile"
-log "  ./.venv/bin/python experiments/scripts/build_kb.py"
-log "  ./.venv/bin/python experiments/scripts/check_experiment_release.py --profile final --all-models --dataset dashboard_v4"
-log "  ./run_experiment.sh --profile final --dataset dashboard_v4 --model qwen3_1_7b --all-methods --seed 42 --with-dependencies --resume"
+log "  ./run_professor.sh                              # everything in one command"
+log "  ./run_professor.sh --model qwen3_1_7b --seed 42  # one model, one seed"

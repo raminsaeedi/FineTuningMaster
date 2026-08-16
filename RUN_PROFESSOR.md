@@ -46,17 +46,84 @@ to be started by hand.
 Results:
 
 ```text
-experiments/results/final/dashboard_v4/        aggregated tables
+experiments/results/final/dashboard_v4/            aggregated tables (CSV + Markdown)
+experiments/results/final/dashboard_v4/figures/    thesis figures (PNG + PDF) + figure_data.csv
 experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/   per-run artifacts
-professor_results_dashboard_v4.zip             the package to send back
+professor_results_dashboard_v4.zip                 the package to send back
 ```
 
 If the GPU session dies, just run `./run_professor.sh` again: finished models,
 seeds, adapters and predictions are reused, never recomputed.
 
-Low disk space? `cp paths.env.example paths.env` and set `BIG=` to a large
-volume once — model caches, adapters and checkpoints then live there instead of
-in the repository.
+### Where things are stored (one file)
+
+All machine-specific locations live in **one** file. Copy the template once and
+edit the first line:
+
+```bash
+cp paths.env.example paths.env
+```
+
+```bash
+BIG=/mnt/big            # the only line most machines need to change
+VENV_PATH=$BIG/venv     # Python environment
+HF_HOME=$BIG/hf         # downloaded model weights (~65 GB for all four models)
+CACHE_PATH=$BIG/hf-cache
+OUTPUT_DATA_PATH=$BIG/runs      # predictions, metrics, manifests, logs
+OUTPUT_MODEL_PATH=$BIG/adapters # adapters + trainer checkpoints (large)
+RESULTS_PATH=$BIG/results       # tables and figures
+# DATA_PATH=...                 # where the dataset is read from (default: in-repo)
+```
+
+Every script — `run_professor.sh`, `run_experiment.sh`, `scripts/bootstrap_remote.sh`,
+the SLURM jobs — reads this file automatically. Without it, everything defaults
+to sensible in-repository paths and `~/.cache/huggingface`.
+
+### Choosing GPUs
+
+```bash
+./run_professor.sh --gpus 0            # use GPU 0 only
+```
+
+```bash
+./run_professor.sh --gpus 0,1 --model qwen3_14b   # shard the 14B model over two GPUs
+```
+
+Sets `CUDA_VISIBLE_DEVICES`; model sharding across the selected devices is
+automatic (`device_map="auto"`).
+
+### On an HPC cluster (SLURM)
+
+One array task per (model, seed), one GPU each, running in parallel, plus a
+dependent job that aggregates, builds the figures and writes the ZIP:
+
+```bash
+./scripts/submit_slurm.sh
+```
+
+```bash
+./scripts/submit_slurm.sh --model qwen3_14b --gpus 2 --time 48:00:00 --partition gpu
+```
+
+```bash
+./scripts/submit_slurm.sh --dry-run     # print the generated sbatch script, submit nothing
+```
+
+Options: `--partition --gpus --time --mem --cpus --account --max-parallel`.
+Logs and generated job scripts land in `experiments/slurm/jobs/`.
+
+### Figures and tables
+
+Generated automatically at the end of a run, and regenerable at any time without
+a GPU:
+
+```bash
+./.venv/bin/python experiments/scripts/make_figures.py --dataset dashboard_v4
+```
+
+`experiments/results/final/dashboard_v4/figures/README.md` explains every
+figure; `figure_data.csv` next to it holds the exact plotted numbers, and
+`comparison_table.csv` / `model_method_summary.md` hold the tables.
 
 ---
 

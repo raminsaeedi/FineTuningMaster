@@ -31,6 +31,8 @@ dependencies = [
     "scikit-learn==1.8.0",
     "pandas==2.2.3",
     "pyyaml==6.0.2",
+    # Thesis figures (experiments/scripts/make_figures.py); headless Agg backend.
+    "matplotlib==3.10.7",
 ]
 
 [project.optional-dependencies]

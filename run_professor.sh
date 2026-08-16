@@ -21,6 +21,9 @@
 #   --seed N           one seed instead of 42 43 44
 #   --seeds "42 43"    selected seeds
 #   --methods "A C"    selected methods (default: A B C D)
+#   --gpus "0,1"       restrict/choose GPUs (sets CUDA_VISIBLE_DEVICES)
+#   --paths-file FILE  per-machine paths (default: paths.env; see paths.env.example)
+#   --no-figures       skip figure generation
 #   --skip-setup       do not run the environment bootstrap
 #   --no-package       do not create the result ZIP
 #   --cpu-ok           allow a machine without a CUDA GPU (A/B only, slow)
@@ -40,6 +43,9 @@ SKIP_SETUP=0
 DO_PACKAGE=1
 CPU_OK=0
 DRY_RUN=0
+GPUS=""
+DO_FIGURES=1
+PATHS_FILE="${PATHS_FILE:-paths.env}"
 
 ALL_MODELS=(qwen3_1_7b qwen3_8b qwen3_14b llama3_1_8b)
 GATED_MODELS=(llama3_1_8b)
@@ -58,6 +64,10 @@ while [[ $# -gt 0 ]]; do
     --skip-setup) SKIP_SETUP=1; shift ;;
     --no-package) DO_PACKAGE=0; shift ;;
     --cpu-ok) CPU_OK=1; shift ;;
+    --gpus) [[ $# -ge 2 ]] || die "--gpus needs a value."; GPUS="$2"; shift 2 ;;
+    --paths-file) [[ $# -ge 2 ]] || die "--paths-file needs a value."; PATHS_FILE="$2"; shift 2 ;;
+    --no-paths-file) PATHS_FILE=""; shift ;;
+    --no-figures) DO_FIGURES=0; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
     *) die "Unknown option: $1 (see --help). Advanced options live in ./run_experiment.sh." ;;
@@ -77,6 +87,18 @@ fi
 read -r -a SEED_LIST <<< "${SEEDS//,/ }"
 read -r -a METHOD_LIST <<< "${METHODS//,/ }"
 
+# Per-machine paths (environment, caches, model store, outputs, results).
+# shellcheck source=scripts/lib/paths.sh
+source "$PROJECT_ROOT/scripts/lib/paths.sh"
+load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
+apply_cache_paths "$PROJECT_ROOT"
+
+# GPU selection. device_map=auto then shards across exactly these devices, so
+# one GPU per job (or a subset for a big model) is a single flag.
+if [[ -n "$GPUS" ]]; then
+  export CUDA_VISIBLE_DEVICES="$GPUS"
+fi
+
 run() {  # echo + execute, or only echo in --dry-run
   printf '  $ %s\n' "$*"
   [[ "$DRY_RUN" == 1 ]] || "$@"
@@ -90,6 +112,8 @@ info "methods : ${METHOD_LIST[*]}"
 info "seeds   : ${SEED_LIST[*]}"
 info "resume  : on (completed work is reused, never recomputed)"
 info "package : $([[ "$DO_PACKAGE" == 1 ]] && echo yes || echo no)"
+info "paths   : ${PATHS_FILE_RESOLVED:-<defaults; see paths.env.example>}"
+info "gpus    : ${CUDA_VISIBLE_DEVICES:-<all visible>}"
 
 # ---------------------------------------------------------------------------
 # 1. HF_TOKEN gate. Checked before any expensive step, and never stored,
@@ -108,14 +132,8 @@ fi
 
 # ---------------------------------------------------------------------------
 # 2. Environment. Bootstrap only when ./.venv cannot import the stack.
-venv_python() {
-  if [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then printf '%s' "$PROJECT_ROOT/.venv/bin/python"
-  elif [[ -x "$PROJECT_ROOT/.venv/Scripts/python.exe" ]]; then printf '%s' "$PROJECT_ROOT/.venv/Scripts/python.exe"
-  fi
-}
-
 say "environment"
-PY="$(venv_python || true)"
+PY="$(venv_python_path "$PROJECT_ROOT" || true)"
 env_ready=0
 if [[ -n "$PY" ]] && "$PY" -c "import torch, transformers, peft, trl, bitsandbytes, accelerate, datasets" 2>/dev/null; then
   env_ready=1
@@ -129,7 +147,7 @@ else
   declare -a BOOTSTRAP_ARGS=()
   [[ "$CPU_OK" == 1 ]] && BOOTSTRAP_ARGS+=(--cpu-ok)
   run ./scripts/bootstrap_remote.sh "${BOOTSTRAP_ARGS[@]}"
-  PY="$(venv_python || true)"
+  PY="$(venv_python_path "$PROJECT_ROOT" || true)"
   if [[ "$DRY_RUN" != 1 ]]; then
     [[ -n "$PY" ]] || die "Bootstrap did not produce ./.venv."
   fi
@@ -181,6 +199,12 @@ run "${PREFLIGHT[@]}"
 say "experiments"
 declare -a EXPERIMENT=(./run_experiment.sh --profile final --dataset "$DATASET"
                        --with-dependencies --resume)
+# Forward the same paths file, so both layers agree on every location.
+if [[ -n "$PATHS_FILE" ]]; then
+  EXPERIMENT+=(--paths-file "$PATHS_FILE")
+else
+  EXPERIMENT+=(--no-paths-file)
+fi
 if [[ -n "$MODEL" ]]; then EXPERIMENT+=(--model "$MODEL"); else EXPERIMENT+=(--all-models); fi
 EXPERIMENT+=(--methods "${METHOD_LIST[@]}" --seeds "${SEED_LIST[@]}")
 [[ "$DRY_RUN" == 1 ]] && EXPERIMENT+=(--dry-run)
@@ -194,7 +218,18 @@ RESULTS_ROOT="${RESULTS_PATH:-$PROJECT_ROOT/experiments/results/final/$DATASET}"
 SUMMARY="$OUTPUT_ROOT/$DATASET/matrix_summary.json"
 
 # ---------------------------------------------------------------------------
-# 6. Package. Attempted even after a partial failure, so finished work is
+# 6. Figures for the thesis, generated from the aggregated tables.
+if [[ "$DO_FIGURES" == 1 && "$DRY_RUN" != 1 ]]; then
+  say "figures"
+  "$PY" experiments/scripts/make_figures.py --dataset "$DATASET"     || info "figures skipped (no aggregated results yet)"
+elif [[ "$DO_FIGURES" == 1 ]]; then
+  say "figures"
+  printf '  $ %s
+' "$PY experiments/scripts/make_figures.py --dataset $DATASET"
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Package. Attempted even after a partial failure, so finished work is
 #    always retrievable; completed results are never discarded.
 PACKAGE_PATH="$PROJECT_ROOT/professor_results_$DATASET.zip"
 if [[ "$DO_PACKAGE" == 1 && "$DRY_RUN" != 1 ]]; then
@@ -212,7 +247,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Report.
+# 8. Report.
 if [[ "$DRY_RUN" == 1 ]]; then
   say "dry run complete - nothing was executed"
   exit 0
@@ -225,6 +260,7 @@ echo "======================================================================"
 echo
 echo "Results:"
 echo "  $RESULTS_ROOT"
+echo "  $RESULTS_ROOT/figures/            (thesis figures)"
 echo "  $OUTPUT_ROOT/$DATASET/<model>/<A|B|C|D>/seed_<seed>/"
 echo
 echo "Package:"
