@@ -32,6 +32,7 @@ import importlib.util
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -479,23 +480,52 @@ def check_hf_access(report: Report, profiles: list[dict], *, verify_remote: bool
             )
 
 
+# Model-profile key prefix -> the transformers `model_type` it needs.
+_MODEL_TYPE_BY_PREFIX = (
+    ("qwen3", "qwen3"),
+    ("qwen2_5", "qwen2"),
+    ("llama3", "llama"),
+)
+
+
 def check_transformers_model_support(report: Report, profiles: list[dict]) -> None:
-    """Verify Qwen3/Llama config classes exist without loading model weights."""
+    """Verify the installed transformers knows the needed architectures.
+
+    Reads the auto-config registry (a plain name -> class-name mapping) instead
+    of importing ``transformers.models.<arch>``. Importing a model subpackage
+    pulls that architecture's whole modeling module tree from disk, which costs
+    ~7 s warm and ~60 s on a cold file cache and was by far the slowest part of
+    this preflight. The registry lookup answers the same question -- "can this
+    transformers build instantiate a Qwen3/Llama config?" -- in milliseconds,
+    and still downloads and loads nothing.
+    """
     try:
-        from transformers.models.llama import LlamaConfig
-        from transformers.models.qwen3 import Qwen3Config
+        from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES
     except Exception as exc:
-        report.fail("transformers model support", f"Qwen3/Llama classes unavailable: {type(exc).__name__}")
+        report.fail(
+            "transformers model support",
+            f"auto-config registry unavailable: {type(exc).__name__}: {exc}",
+        )
         return
-    families = {str(profile["key"]).split("_", 1)[0] for profile in profiles}
-    details = []
-    if any(key.startswith("qwen3") for key in families) or any(
-        str(profile["key"]).startswith("qwen3") for profile in profiles
-    ):
-        details.append(Qwen3Config.model_type)
-    if any(str(profile["key"]).startswith("llama3") for profile in profiles):
-        details.append(LlamaConfig.model_type)
-    report.ok("transformers model support", ", ".join(details) or "Qwen3/Llama classes available")
+
+    needed = {
+        model_type
+        for profile in profiles
+        for prefix, model_type in _MODEL_TYPE_BY_PREFIX
+        if str(profile["key"]).startswith(prefix)
+    }
+    missing = sorted(name for name in needed if name not in CONFIG_MAPPING_NAMES)
+    if missing:
+        report.fail(
+            "transformers model support",
+            f"installed transformers has no config for: {', '.join(missing)} "
+            f"(upgrade transformers)",
+        )
+        return
+    report.ok(
+        "transformers model support",
+        ", ".join(sorted(needed)) or "no architecture-specific requirement",
+    )
 
 
 def check_output_dir(report: Report, output_root: str) -> None:
@@ -606,29 +636,50 @@ def main() -> None:
     print("=" * 70)
 
     print(f"  dataset: {args.dataset}")
-    check_python(report)
     final_profile = args.profile == "final"
-    check_packages(report, require_training=args.require_training or final_profile)
-    check_cuda(report, require_cuda=args.require_cuda or final_profile)
-    records = check_frozen_dataset(report, args.dataset)
-    check_hashes(report, records, args.dataset)
-    check_counts(report, args.dataset)
-    check_robustness_splits(report, args.dataset)
-    check_knowledge_base(report)
-    profiles = check_configs(
-        report, args.model, profile=args.profile, all_models=args.all_models,
-        dataset=args.dataset,
-    )
-    check_transformers_model_support(report, profiles)
-    check_hf_access(report, profiles)
     output_root = args.output_root or (
         "experiments/outputs/final" if final_profile else "experiments/outputs/smoke"
     )
-    check_output_dir(report, output_root)
-    check_adapter_path_logic(report, args.dataset, args.profile, output_root)
 
+    # Ordered stages. Each is announced before it runs and timed, so a slow
+    # step is visible immediately instead of looking like a hang.
+    state: dict = {}
+    stages = [
+        ("python", lambda: check_python(report)),
+        ("packages", lambda: check_packages(
+            report, require_training=args.require_training or final_profile)),
+        ("cuda / pytorch", lambda: check_cuda(
+            report, require_cuda=args.require_cuda or final_profile)),
+        ("frozen dataset", lambda: state.update(
+            records=check_frozen_dataset(report, args.dataset))),
+        ("dataset sha256", lambda: check_hashes(report, state.get("records"), args.dataset)),
+        ("split counts", lambda: check_counts(report, args.dataset)),
+        ("robustness splits", lambda: check_robustness_splits(report, args.dataset)),
+        ("knowledge base", lambda: check_knowledge_base(report)),
+        ("experiment configs", lambda: state.update(profiles=check_configs(
+            report, args.model, profile=args.profile, all_models=args.all_models,
+            dataset=args.dataset))),
+        ("transformers support", lambda: check_transformers_model_support(
+            report, state.get("profiles") or [])),
+        ("hugging face access", lambda: check_hf_access(report, state.get("profiles") or [])),
+        ("output directory", lambda: check_output_dir(report, output_root)),
+        ("adapter path logic", lambda: check_adapter_path_logic(
+            report, args.dataset, args.profile, output_root)),
+    ]
+
+    total = len(stages)
+    started = time.perf_counter()
+    for index, (label, run) in enumerate(stages, start=1):
+        print(f"  [{index:>2}/{total}] {label} ...", end="", flush=True)
+        stage_started = time.perf_counter()
+        run()
+        print(f" {time.perf_counter() - stage_started:.1f}s", flush=True)
+
+    print("=" * 70)
     report.render()
     print("=" * 70)
+    print(f"  checked in {time.perf_counter() - started:.1f}s "
+          f"(no model weights were downloaded)")
 
     if report.failed:
         print(f"FAIL: {report.failed} check(s) failed. Fix the lines marked FAIL above.")
