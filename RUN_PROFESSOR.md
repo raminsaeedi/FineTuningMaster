@@ -1,8 +1,70 @@
 # Running the final experiments on a GPU server
 
-This is the single authoritative guide for the remote run. One launcher does
-everything: `./run_experiment.sh`. No Hydra knowledge is needed, and adapters
-never have to be located by hand.
+## Quick Start
+
+1. Clone the repository
+2. Set `HF_TOKEN`
+3. Run:
+
+```bash
+git clone https://github.com/raminsaeedi/FineTuningMaster.git
+cd FineTuningMaster
+export HF_TOKEN="hf_your_token_here"
+./run_professor.sh
+```
+
+That's it.
+
+The script installs and verifies the environment, checks GPU/CUDA/dataset/model
+access, builds or reuses the RAG knowledge base, resumes any existing work, runs
+the complete `dashboard_v4` matrix (4 models x A/B/C/D x seeds 42/43/44),
+aggregates the results and creates the final ZIP automatically. Nothing else has
+to be started by hand.
+
+### The only alternatives you need
+
+```bash
+./run_professor.sh                              # full matrix (default)
+```
+
+```bash
+./run_professor.sh --model qwen3_8b             # one model, all three seeds
+```
+
+```bash
+./run_professor.sh --model qwen3_8b --seed 42   # one model, one seed
+```
+
+```bash
+./run_professor.sh                              # re-run to RESUME after an interruption
+```
+
+```bash
+./run_professor.sh --dataset dashboard_v3       # the earlier dataset
+```
+
+Results:
+
+```text
+experiments/results/final/dashboard_v4/        aggregated tables
+experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/   per-run artifacts
+professor_results_dashboard_v4.zip             the package to send back
+```
+
+If the GPU session dies, just run `./run_professor.sh` again: finished models,
+seeds, adapters and predictions are reused, never recomputed.
+
+Low disk space? `cp paths.env.example paths.env` and set `BIG=` to a large
+volume once — model caches, adapters and checkpoints then live there instead of
+in the repository.
+
+---
+
+## Reference (advanced / details)
+
+The rest of this document explains what `run_professor.sh` orchestrates. Use it
+only if you want to run a single step manually; `./run_experiment.sh` is the
+lower-level launcher and takes the same selection flags plus advanced options.
 
 Final matrix: 4 models x 4 methods (A/B/C/D) x 3 seeds (42/43/44) on the frozen
 dataset `dashboard_v4`.
@@ -31,6 +93,9 @@ cd FineTuningMaster
 ```
 
 ## 2. Install everything (one command)
+
+`./run_professor.sh` does this for you; run it manually only if you want the
+environment without starting any experiment.
 
 ```bash
 ./scripts/bootstrap_remote.sh

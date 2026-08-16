@@ -25,7 +25,8 @@ The earlier **`data/frozen/dashboard_v3/`** (1281 train / 264 validation / same
 ./run_experiment.sh --profile final --dataset dashboard_v3 ...
 ```
 
-> For the shortest GPU experiment instructions, see [RUN_PROFESSOR.md](RUN_PROFESSOR.md).
+> Remote GPU run, one command: `export HF_TOKEN=... && ./run_professor.sh`.
+> See [RUN_PROFESSOR.md](RUN_PROFESSOR.md).
 
 ## Architecture
 
