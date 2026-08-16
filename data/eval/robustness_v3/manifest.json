@@ -19,13 +19,14 @@
       "variant": "paraphrased",
       "n_records": 274,
       "n_briefs_changed": 151,
-      "sha256": "c0a64400f07057caa51c50cb8db989f244aa8f7b91bb5cef93c9e108319a97b8"
+      "sha256": "46de83228fa8aaef24c0aca459502345b62ade634afa475ee6a472e5135cf4ac"
     },
     "test_missing_info.jsonl": {
       "variant": "missing_info",
       "n_records": 274,
       "n_briefs_changed": 133,
-      "sha256": "27a61530337376ff5177202d35b7d162be6beec97a5eb712261133bbcd996860"
+      "sha256": "f0c4e695d9c71f369247ca76bd707f2223d85880b59e3e5eb079d6fc3946f088"
     }
-  }
+  },
+  "line_endings": "LF"
 }

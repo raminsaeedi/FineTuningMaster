@@ -4,28 +4,28 @@
   "parent_dataset_version": "dashboard_v4",
   "files": {
     "train.jsonl": {
-      "sha256": "d3b7107e6522ec453eb5b49d2482b13d750314906dc0b12ae339e2c18f81c1d0",
-      "bytes": 23619932
+      "sha256": "aa1e7ec912ea155fc335bc6d93477ab37e9e4f8983d7f80f95d3e77fefd9feb4",
+      "bytes": 23618651
     },
     "val.jsonl": {
-      "sha256": "1ffcc04d9ec66d5fe1566721eceeaa2fc0a33365c2577df5d671fb64bfabcc45",
-      "bytes": 4928188
+      "sha256": "91a98f29226ef93e31d2617ce888622fc05ad8667392c0d361d12b9166e2cdbc",
+      "bytes": 4927924
     },
     "test.jsonl": {
       "sha256": "e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5",
       "bytes": 1254865
     },
     "human_eval_test_items_40.csv": {
-      "sha256": "fa64afe0037dc6fcde9c5f9fc848aaab30ec4848d4d3aef120a7328b343b82f4",
-      "bytes": 452008
+      "sha256": "2c336ee26398e8e487991df7e1c6e31385787c555228962d77e811f9a920cb8a",
+      "bytes": 451967
     },
     "schema.json": {
-      "sha256": "4c216ad71d682468940e1a3289a8512bb0e9145d0e73f9109563ad960d567b21",
-      "bytes": 5503
+      "sha256": "50e264be71f5d052f489e9a2753c4d878ec6b1ea17b8b38e3b19cf8cd0129183",
+      "bytes": 5261
     },
     "manifest.json": {
-      "sha256": "1b6163d4f1fe858b4d8ae5ba49dbb719d916e1c584f34a6bd0833771253f6302",
-      "bytes": 2596
+      "sha256": "2349ec50676919a960fab98618582c68e4eacc98e5e48b3e4a1cefd26ecb57a2",
+      "bytes": 2620
     },
     "dataset_card.md": {
       "sha256": "a959913efe8ee2365cfc353b0cbafcab025e7db24a432f57407432d5b2f86dc2",
@@ -59,5 +59,7 @@
       "sha256": "2782150b0465d403201163deb68209a00a17569e5eb187e28a58b7e7ac5ea3f6",
       "bytes": 1755
     }
-  }
+  },
+  "line_endings": "LF",
+  "line_endings_note": "Hashes are over LF bytes, the platform-independent form stored in Git."
 }

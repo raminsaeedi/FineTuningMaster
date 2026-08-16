@@ -3,11 +3,11 @@
   "dataset_version": "dashboard_v3",
   "files": {
     "train.jsonl": {
-      "sha256": "f9ace854c64f89e2a26d2767ad2754b4951316fbcceec4a8e9374e4624fac222",
+      "sha256": "202b28dd673e4937b5d50b154dae96e0cae7bdbe9eb6aca06b76f9f489a1d648",
       "records": 1281
     },
     "val.jsonl": {
-      "sha256": "8394dcdb75d53de19fcd71c4c688e05e162b895d44a920f3cbb678f37ba2999d",
+      "sha256": "dd16d3a2d02c9f4d1e4e84e547272116d87224366c3000deea299ae88fde3456",
       "records": 264
     },
     "test.jsonl": {
@@ -15,16 +15,18 @@
       "records": 274
     },
     "human_eval_test_items_40.csv": {
-      "sha256": "fa64afe0037dc6fcde9c5f9fc848aaab30ec4848d4d3aef120a7328b343b82f4",
+      "sha256": "2c336ee26398e8e487991df7e1c6e31385787c555228962d77e811f9a920cb8a",
       "records": 40
     },
     "schema.json": {
-      "sha256": "4c216ad71d682468940e1a3289a8512bb0e9145d0e73f9109563ad960d567b21",
+      "sha256": "50e264be71f5d052f489e9a2753c4d878ec6b1ea17b8b38e3b19cf8cd0129183",
       "records": null
     },
     "reports/human_enrichment_r1.csv": {
-      "sha256": "f82be2a00752eb56413e3844a16673c32bbc3b3bec7b62e097a94ca371fed438",
+      "sha256": "afb936145655381a3d33a60da8d6e3ad5b3e41c31e728ec429e03ccc0e0c4f67",
       "records": 30
     }
-  }
+  },
+  "line_endings": "LF",
+  "line_endings_note": "Hashes are over LF bytes, the platform-independent form stored in Git."
 }

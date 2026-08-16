@@ -51,13 +51,13 @@ repository root. Everything below is detail — read it only if needed.
 
 ## 1. What gets run
 
-| | |
-|---|---|
-| Dataset | `dashboard_v4` (2932 train / 613 validation / 274 held-out test) |
-| Models | `qwen3_1_7b`, `qwen3_8b`, `qwen3_14b`, `llama3_1_8b` |
-| Methods | **A** prompt-only, **B** RAG, **C** QLoRA fine-tuning, **D** QLoRA + RAG |
-| Seeds | 42, 43, 44 |
-| Total | 4 models x 4 methods x 3 seeds = 48 evaluation runs + 12 fine-tuning runs |
+|         |                                                                           |
+| ------- | ------------------------------------------------------------------------- |
+| Dataset | `dashboard_v4` (2932 train / 613 validation / 274 held-out test)          |
+| Models  | `qwen3_1_7b`, `qwen3_8b`, `qwen3_14b`, `llama3_1_8b`                      |
+| Methods | **A** prompt-only, **B** RAG, **C** QLoRA fine-tuning, **D** QLoRA + RAG  |
+| Seeds   | 42, 43, 44                                                                |
+| Total   | 4 models x 4 methods x 3 seeds = 48 evaluation runs + 12 fine-tuning runs |
 
 Method C trains one adapter per model and seed. Method D automatically reuses
 the C adapter of the **same** model, seed and dataset — never another one.
@@ -84,15 +84,15 @@ exactly the ones the thesis was developed with.
 export HF_TOKEN="hf_your_token_here"
 ```
 
-| Goal | Command |
-|---|---|
-| Everything (default) | `./run_professor.sh` |
-| One model, all 3 seeds | `./run_professor.sh --model qwen3_8b` |
-| One model, one seed | `./run_professor.sh --model qwen3_8b --seed 42` |
-| Continue after an interruption | `./run_professor.sh` (same command again) |
-| See the plan without running | `./run_professor.sh --dry-run` |
-| Only some methods | `./run_professor.sh --methods "A B"` |
-| The earlier dataset | `./run_professor.sh --dataset dashboard_v3` |
+| Goal                           | Command                                         |
+| ------------------------------ | ----------------------------------------------- |
+| Everything (default)           | `./run_professor.sh`                            |
+| One model, all 3 seeds         | `./run_professor.sh --model qwen3_8b`           |
+| One model, one seed            | `./run_professor.sh --model qwen3_8b --seed 42` |
+| Continue after an interruption | `./run_professor.sh` (same command again)       |
+| See the plan without running   | `./run_professor.sh --dry-run`                  |
+| Only some methods              | `./run_professor.sh --methods "A B"`            |
+| The earlier dataset            | `./run_professor.sh --dataset dashboard_v3`     |
 
 Model keys: `qwen3_1_7b`, `qwen3_8b`, `qwen3_14b`, `llama3_1_8b`.
 Seeds: `42`, `43`, `44`.
@@ -208,18 +208,18 @@ Job scripts and logs land in `experiments/slurm/jobs/`.
 
 ## 8. If something goes wrong
 
-| Message | What to do |
-|---|---|
-| `Permission denied` on `./run_professor.sh` | `bash run_professor.sh` |
-| `HF_TOKEN is not set, and llama3_1_8b is gated` | `export HF_TOKEN="hf_..."`, or run the public models only: `--model qwen3_8b` |
-| `PyTorch cannot see a CUDA GPU` | check `nvidia-smi` and the driver version; this must be a GPU machine |
-| `The installed torch is a CPU-only build` | `"$(./scripts/lib/venv_python.sh)" -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124` |
-| `No Python 3.11-3.13 found` | install one, or `./scripts/bootstrap_remote.sh --python /path/to/python3.12` |
-| `rag knowledge base ... not built` | `"$(./scripts/lib/venv_python.sh)" experiments/scripts/build_kb.py` |
-| Disk full | set up `paths.env` (§6), then re-run |
-| Session died mid-run | run the same command again |
-| `UnicodeDecodeError` while importing `trl` | only happens outside the launchers; prefix the command with `PYTHONUTF8=1` |
-| Anything else | re-run with `--dry-run` first; it prints the exact plan without executing anything |
+| Message                                         | What to do                                                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `Permission denied` on `./run_professor.sh`     | `bash run_professor.sh`                                                                                            |
+| `HF_TOKEN is not set, and llama3_1_8b is gated` | `export HF_TOKEN="hf_..."`, or run the public models only: `--model qwen3_8b`                                      |
+| `PyTorch cannot see a CUDA GPU`                 | check `nvidia-smi` and the driver version; this must be a GPU machine                                              |
+| `The installed torch is a CPU-only build`       | `"$(./scripts/lib/venv_python.sh)" -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124` |
+| `No Python 3.11-3.13 found`                     | install one, or `./scripts/bootstrap_remote.sh --python /path/to/python3.12`                                       |
+| `rag knowledge base ... not built`              | `"$(./scripts/lib/venv_python.sh)" experiments/scripts/build_kb.py`                                                |
+| Disk full                                       | set up `paths.env` (§6), then re-run                                                                               |
+| Session died mid-run                            | run the same command again                                                                                         |
+| `UnicodeDecodeError` while importing `trl`      | only happens outside the launchers; prefix the command with `PYTHONUTF8=1`                                         |
+| Anything else                                   | re-run with `--dry-run` first; it prints the exact plan without executing anything                                 |
 
 Environment check on its own (fast, downloads nothing, ~10 s):
 

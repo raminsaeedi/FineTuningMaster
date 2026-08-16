@@ -8,7 +8,7 @@ Dataset: nvBench
 - schema/enum/non-empty problems: 0
 - duplicate item_id: 0
 - duplicate brief fingerprint: 0 (diagnostic)
-- sha256: `f9ace854c64f89e2a26d2767ad2754b4951316fbcceec4a8e9374e4624fac222`
+- sha256: `202b28dd673e4937b5d50b154dae96e0cae7bdbe9eb6aca06b76f9f489a1d648`
 
 ## `val.jsonl`
 - records: 264
@@ -16,7 +16,7 @@ Dataset: nvBench
 - schema/enum/non-empty problems: 0
 - duplicate item_id: 0
 - duplicate brief fingerprint: 0 (diagnostic)
-- sha256: `8394dcdb75d53de19fcd71c4c688e05e162b895d44a920f3cbb678f37ba2999d`
+- sha256: `dd16d3a2d02c9f4d1e4e84e547272116d87224366c3000deea299ae88fde3456`
 
 ## `test.jsonl`
 - records: 274
@@ -58,3 +58,5 @@ _(none)_
 **Hard checks: PASS**
 
 > `train.jsonl` and `val.jsonl` are the only trainable files. `test.jsonl`, the human-evaluation CSV, and all reports are NEVER used for training.
+
+> Line endings normalised to LF on 2026-08-16; the SHA-256 values above are over the LF bytes (the platform-independent form stored in Git). Record contents are unchanged.

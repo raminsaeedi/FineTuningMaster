@@ -385,9 +385,17 @@ fi
 KB_CHUNKS_PATH="$(resolve_path "$KB_CHUNKS_PATH")"
 if contains_word B "${METHOD_LIST[@]}" || contains_word D "${METHOD_LIST[@]}"; then
   # chunks.jsonl is gitignored: it is rebuilt from the tracked guidelines.
-  [[ -f "$KB_CHUNKS_PATH" ]] || die \
-    "RAG knowledge base missing: $KB_CHUNKS_PATH
+  # Under --dry-run this is only a note: on a fresh clone the plan is still
+  # valid, and run_professor.sh builds the knowledge base before the real run.
+  if [[ ! -f "$KB_CHUNKS_PATH" ]]; then
+    if [[ "$DRY_RUN" == 1 ]]; then
+      echo "[launcher] NOTE: RAG knowledge base not built yet: $KB_CHUNKS_PATH" >&2
+      echo "[launcher]       It is created by: python experiments/scripts/build_kb.py" >&2
+    else
+      die "RAG knowledge base missing: $KB_CHUNKS_PATH
        Build it once with: python experiments/scripts/build_kb.py"
+    fi
+  fi
 fi
 
 if [[ -n "$BASE_MODEL_PATH" && -n "$MODEL_ID" ]]; then

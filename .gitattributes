@@ -1,0 +1,25 @@
+# Line-ending policy.
+#
+# Later rules win, so the data override at the bottom is the decisive one.
+
+# --- ordinary source and documentation ---------------------------------
+*.py      text eol=lf
+*.md      text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.toml    text eol=lf
+*.txt     text eol=lf
+*.cfg     text eol=lf
+# Shell scripts MUST keep LF: a CRLF shebang (`#!/usr/bin/env bash\r`) makes
+# Linux refuse to execute the file.
+*.sh      text eol=lf
+
+# --- data: never touched -----------------------------------------------
+# The frozen datasets and evaluation sets are verified byte-for-byte against
+# their recorded SHA-256 (experiments/scripts/check_experiment_release.py). Any
+# end-of-line conversion changes those bytes and makes the preflight fail on a
+# fresh clone, so Git stores and restores these files verbatim on every
+# platform. This block is last on purpose: it overrides the rules above.
+data/**   -text
+*.jsonl   -text
+*.csv     -text
