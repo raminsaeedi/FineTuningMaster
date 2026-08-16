@@ -7,6 +7,13 @@
 
 set -euo pipefail
 
+# Force UTF-8 for every child process. Some dependencies (e.g. trl's
+# chat_template_utils) read packaged UTF-8 files with Python's *locale* encoding;
+# on a non-UTF-8 locale that raises UnicodeDecodeError at import time. Harmless
+# where UTF-8 is already the default.
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 

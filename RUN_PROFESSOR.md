@@ -1,10 +1,11 @@
-# Running the final experiments on a GPU server
+# Quick Start
 
-## Quick Start
+**Before you start**, the machine needs: a Linux **NVIDIA GPU** (driver >= 550),
+**Python 3.11–3.13** with `venv`, `git`, internet, ~65 GB free disk, and a
+Hugging Face token from an account approved for `meta-llama/Llama-3.1-8B-Instruct`.
+Nothing else has to be installed by hand.
 
-1. Clone the repository
-2. Set `HF_TOKEN`
-3. Run:
+**Then copy-paste these four lines:**
 
 ```bash
 git clone https://github.com/raminsaeedi/FineTuningMaster.git
@@ -13,534 +14,282 @@ export HF_TOKEN="hf_your_token_here"
 ./run_professor.sh
 ```
 
-That's it.
+**That is the whole procedure.** One command does all of it, in order:
 
-The script installs and verifies the environment, checks GPU/CUDA/dataset/model
-access, builds or reuses the RAG knowledge base, resumes any existing work, runs
-the complete `dashboard_v4` matrix (4 models x A/B/C/D x seeds 42/43/44),
-aggregates the results and creates the final ZIP automatically. Nothing else has
-to be started by hand.
+1. installs every dependency into `./.venv` (exact locked versions),
+2. checks GPU, CUDA, PyTorch, dataset and model access,
+3. builds the RAG knowledge base,
+4. runs all 4 models x methods A/B/C/D x seeds 42/43/44,
+5. aggregates the results and draws the figures,
+6. writes `professor_results_dashboard_v4.zip` to send back.
 
-### The only alternatives you need
+**If it stops** — session ended, GPU lost, network died, anything — run the
+**same command again**:
 
 ```bash
-./run_professor.sh                              # full matrix (default)
+./run_professor.sh
 ```
+
+It continues where it stopped. Finished models, seeds, adapters and predictions
+are reused, never recomputed. Nothing that already succeeded is lost.
+
+**Smaller pieces**, when a session is too short for everything:
 
 ```bash
 ./run_professor.sh --model qwen3_8b             # one model, all three seeds
-```
-
-```bash
 ./run_professor.sh --model qwen3_8b --seed 42   # one model, one seed
+./run_professor.sh --dry-run                    # show the plan, run nothing
 ```
+
+Results land in `experiments/results/final/dashboard_v4/`; the ZIP in the
+repository root. Everything below is detail — read it only if needed.
+
+> Shell says `Permission denied`? Use `bash run_professor.sh`, or once:
+> `chmod +x run_professor.sh scripts/*.sh scripts/lib/*.sh`.
+
+---
+
+## 1. What gets run
+
+| | |
+|---|---|
+| Dataset | `dashboard_v4` (2932 train / 613 validation / 274 held-out test) |
+| Models | `qwen3_1_7b`, `qwen3_8b`, `qwen3_14b`, `llama3_1_8b` |
+| Methods | **A** prompt-only, **B** RAG, **C** QLoRA fine-tuning, **D** QLoRA + RAG |
+| Seeds | 42, 43, 44 |
+| Total | 4 models x 4 methods x 3 seeds = 48 evaluation runs + 12 fine-tuning runs |
+
+Method C trains one adapter per model and seed. Method D automatically reuses
+the C adapter of the **same** model, seed and dataset — never another one.
+
+## 2. What the machine needs
+
+Only these cannot be installed by the script:
+
+- Linux with an **NVIDIA GPU** and driver **>= 550** (CUDA 12.4 wheels)
+- **Python 3.11–3.13** with `venv` (e.g. `sudo apt install python3.12 python3.12-venv`)
+- `git`, internet access
+- Disk: ~65 GB for model weights plus space for adapters and checkpoints
+  (see [§6](#6-storage-on-a-small-disk) if the home volume is small)
+- A Hugging Face account **approved for `meta-llama/Llama-3.1-8B-Instruct`**
+  (the three Qwen models are public)
+
+Everything else — Poetry, the virtual environment, PyTorch, the training stack —
+is installed automatically from the committed `poetry.lock`, so the versions are
+exactly the ones the thesis was developed with.
+
+## 3. Run it
 
 ```bash
-./run_professor.sh                              # re-run to RESUME after an interruption
+export HF_TOKEN="hf_your_token_here"
 ```
+
+| Goal | Command |
+|---|---|
+| Everything (default) | `./run_professor.sh` |
+| One model, all 3 seeds | `./run_professor.sh --model qwen3_8b` |
+| One model, one seed | `./run_professor.sh --model qwen3_8b --seed 42` |
+| Continue after an interruption | `./run_professor.sh` (same command again) |
+| See the plan without running | `./run_professor.sh --dry-run` |
+| Only some methods | `./run_professor.sh --methods "A B"` |
+| The earlier dataset | `./run_professor.sh --dataset dashboard_v3` |
+
+Model keys: `qwen3_1_7b`, `qwen3_8b`, `qwen3_14b`, `llama3_1_8b`.
+Seeds: `42`, `43`, `44`.
+
+**If the GPU session has a time limit**, run one model and one seed per session.
+The commands compose freely and each one resumes:
 
 ```bash
-./run_professor.sh --dataset dashboard_v3       # the earlier dataset
+./run_professor.sh --model qwen3_1_7b --seed 42
+./run_professor.sh --model qwen3_1_7b --seed 43
+./run_professor.sh --model qwen3_1_7b --seed 44
 ```
 
-Results:
+`./run_professor.sh --help` lists every option.
+
+## 4. Resuming
+
+Re-running the same command **never repeats finished work**. Reused as-is:
+
+- completed runs with their predictions and metrics,
+- compatible fine-tuning checkpoints,
+- the C adapter that method D needs,
+- the RAG knowledge base.
+
+A run is reused only when dataset, model, method, seed, dataset hashes, training
+config, inference config and knowledge-base hash all match; otherwise it is
+recomputed. A failed model or seed never damages results that already finished —
+the end-of-run report lists `Completed:` and `Failed:` separately.
+
+## 5. Results
+
+At the end the script prints where everything is:
 
 ```text
-experiments/results/final/dashboard_v4/            aggregated tables (CSV + Markdown)
-experiments/results/final/dashboard_v4/figures/    thesis figures (PNG + PDF) + figure_data.csv
-experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/   per-run artifacts
-professor_results_dashboard_v4.zip                 the package to send back
+experiments/results/final/dashboard_v4/
+├── comparison_table.csv / .md        one row per run
+├── cross_model/model_method_summary.csv / .md
+├── multi_seed_summary.csv / .md      mean and spread across seeds
+├── per_model/<model>/                per-model tables
+├── figures/                          F1–F5 as PNG + PDF, plus figure_data.csv
+└── final_report.md                   readable summary
+
+experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/
+├── predictions.jsonl                 model outputs
+├── metrics_auto.json                 scores for this run
+├── manifest.json                     dataset/model/method/seed/hashes/adapter/timestamps
+├── config_snapshot.yaml, logs/, errors.jsonl
+└── adapter/ + checkpoints/           (method C only)
 ```
 
-If the GPU session dies, just run `./run_professor.sh` again: finished models,
-seeds, adapters and predictions are reused, never recomputed.
+The ZIP to send back is created automatically in the repository root:
 
-### Where things are stored (one file)
+```text
+professor_results_dashboard_v4.zip
+```
 
-All machine-specific locations live in **one** file. Copy the template once and
-edit the first line:
+It holds predictions, metrics, manifests, configs, logs, training metadata,
+tables and figures — no model weights, no caches, no credentials.
+
+Rebuild the figures or the ZIP at any time, without a GPU:
+
+```bash
+PY="$(./scripts/lib/venv_python.sh)"
+"$PY" experiments/scripts/make_figures.py --dataset dashboard_v4
+"$PY" experiments/scripts/package_professor_results.py --dataset dashboard_v4
+```
+
+## 6. Storage on a small disk
+
+By default, model weights go to `~/.cache/huggingface` and all run artifacts
+stay inside the repository. To put them on a bigger volume, edit **one** file:
 
 ```bash
 cp paths.env.example paths.env
 ```
 
 ```bash
-BIG=/mnt/big            # the only line most machines need to change
-VENV_PATH=$BIG/venv     # Python environment
-HF_HOME=$BIG/hf         # downloaded model weights (~65 GB for all four models)
+BIG=/mnt/big                    # usually the only line to change
+VENV_PATH=$BIG/venv             # the Python environment
+HF_HOME=$BIG/hf                 # downloaded model weights (~65 GB)
 CACHE_PATH=$BIG/hf-cache
-OUTPUT_DATA_PATH=$BIG/runs      # predictions, metrics, manifests, logs
-OUTPUT_MODEL_PATH=$BIG/adapters # adapters + trainer checkpoints (large)
+OUTPUT_DATA_PATH=$BIG/runs      # predictions, metrics, logs
+OUTPUT_MODEL_PATH=$BIG/adapters # adapters + checkpoints (large)
 RESULTS_PATH=$BIG/results       # tables and figures
-# DATA_PATH=...                 # where the dataset is read from (default: in-repo)
 ```
 
-Every script — `run_professor.sh`, `run_experiment.sh`, `scripts/bootstrap_remote.sh`,
-the SLURM jobs — reads this file automatically. Without it, everything defaults
-to sensible in-repository paths and `~/.cache/huggingface`.
+Every script reads `paths.env` automatically. Nothing else changes.
 
-### Choosing GPUs
+To keep fewer training checkpoints, add to the same file:
 
 ```bash
-./run_professor.sh --gpus 0            # use GPU 0 only
+EXTRA_OVERRIDES_STR="training.sft.save_total_limit=1 training.sft.save_steps=200"
 ```
 
+## 7. Several GPUs, or a cluster
+
 ```bash
-./run_professor.sh --gpus 0,1 --model qwen3_14b   # shard the 14B model over two GPUs
+./run_professor.sh --gpus 0                        # use GPU 0 only
+./run_professor.sh --gpus 0,1 --model qwen3_14b    # split the 14B model over two GPUs
 ```
 
-Sets `CUDA_VISIBLE_DEVICES`; model sharding across the selected devices is
-automatic (`device_map="auto"`).
-
-### On an HPC cluster (SLURM)
-
-One array task per (model, seed), one GPU each, running in parallel, plus a
-dependent job that aggregates, builds the figures and writes the ZIP:
+On SLURM: one array task per (model, seed), one GPU each, running in parallel,
+followed automatically by an aggregation + packaging job.
 
 ```bash
-./scripts/submit_slurm.sh
-```
-
-```bash
+./scripts/submit_slurm.sh                          # 12 tasks: 4 models x 3 seeds
+./scripts/submit_slurm.sh --dry-run                # show the job script, submit nothing
 ./scripts/submit_slurm.sh --model qwen3_14b --gpus 2 --time 48:00:00 --partition gpu
 ```
 
-```bash
-./scripts/submit_slurm.sh --dry-run     # print the generated sbatch script, submit nothing
-```
-
 Options: `--partition --gpus --time --mem --cpus --account --max-parallel`.
-Logs and generated job scripts land in `experiments/slurm/jobs/`.
+Job scripts and logs land in `experiments/slurm/jobs/`.
 
-### Figures and tables
+## 8. If something goes wrong
 
-Generated automatically at the end of a run, and regenerable at any time without
-a GPU:
+| Message | What to do |
+|---|---|
+| `Permission denied` on `./run_professor.sh` | `bash run_professor.sh` |
+| `HF_TOKEN is not set, and llama3_1_8b is gated` | `export HF_TOKEN="hf_..."`, or run the public models only: `--model qwen3_8b` |
+| `PyTorch cannot see a CUDA GPU` | check `nvidia-smi` and the driver version; this must be a GPU machine |
+| `The installed torch is a CPU-only build` | `"$(./scripts/lib/venv_python.sh)" -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124` |
+| `No Python 3.11-3.13 found` | install one, or `./scripts/bootstrap_remote.sh --python /path/to/python3.12` |
+| `rag knowledge base ... not built` | `"$(./scripts/lib/venv_python.sh)" experiments/scripts/build_kb.py` |
+| Disk full | set up `paths.env` (§6), then re-run |
+| Session died mid-run | run the same command again |
+| `UnicodeDecodeError` while importing `trl` | only happens outside the launchers; prefix the command with `PYTHONUTF8=1` |
+| Anything else | re-run with `--dry-run` first; it prints the exact plan without executing anything |
+
+Environment check on its own (fast, downloads nothing, ~10 s):
 
 ```bash
-./.venv/bin/python experiments/scripts/make_figures.py --dataset dashboard_v4
+"$(./scripts/lib/venv_python.sh)" experiments/scripts/check_experiment_release.py \
+    --profile final --all-models --dataset dashboard_v4
 ```
 
-`experiments/results/final/dashboard_v4/figures/README.md` explains every
-figure; `figure_data.csv` next to it holds the exact plotted numbers, and
-`comparison_table.csv` / `model_method_summary.md` hold the tables.
+Its last line must be `PASS`.
 
 ---
 
-## Reference (advanced / details)
-
-The rest of this document explains what `run_professor.sh` orchestrates. Use it
-only if you want to run a single step manually; `./run_experiment.sh` is the
-lower-level launcher and takes the same selection flags plus advanced options.
-
-Final matrix: 4 models x 4 methods (A/B/C/D) x 3 seeds (42/43/44) on the frozen
-dataset `dashboard_v4`.
-
-| Method | Meaning |
-| --- | --- |
-| A | Prompt-only baseline |
-| B | RAG (retrieval-augmented) |
-| C | QLoRA fine-tuning (trains one adapter per model+seed) |
-| D | QLoRA fine-tuning + RAG (reuses the C adapter of the same dataset+model+seed) |
-
-| Model key | Hugging Face ID |
-| --- | --- |
-| `qwen3_1_7b` | `Qwen/Qwen3-1.7B` |
-| `qwen3_8b` | `Qwen/Qwen3-8B` |
-| `qwen3_14b` | `Qwen/Qwen3-14B` |
-| `llama3_1_8b` | `meta-llama/Llama-3.1-8B-Instruct` (gated: needs an approved account) |
-
----
-
-## 1. Clone
-
-```bash
-git clone https://github.com/raminsaeedi/FineTuningMaster.git
-cd FineTuningMaster
-```
-
-## 2. Install everything (one command)
-
-`./run_professor.sh` does this for you; run it manually only if you want the
-environment without starting any experiment.
-
-```bash
-./scripts/bootstrap_remote.sh
-```
-
-This installs a pinned Poetry, creates `./.venv`, installs the exact package
-versions recorded in `poetry.lock` (including the QLoRA training stack), and
-then verifies that PyTorch really sees the GPU. It is safe to re-run and starts
-no training.
-
-System requirements it cannot install for you: **Python 3.11-3.13**, the
-**NVIDIA driver** (>= 550 for the CUDA 12.4 wheels) and the **GPU** itself. It
-stops with a clear message if any of them is missing or if the installed
-PyTorch turns out to be a CPU-only build.
-
-Useful variants:
-
-```bash
-./scripts/bootstrap_remote.sh --python /usr/bin/python3.12   # pick the interpreter
-```
-
-```bash
-./scripts/bootstrap_remote.sh --no-train                     # methods A and B only
-```
-
-Afterwards everything runs inside `./.venv`. `./run_experiment.sh` finds it by
-itself. Scripts you call directly are run with `./.venv/bin/python` (equivalent
-to `poetry run python`, but it needs no Poetry on your PATH).
-
-## 3. Set HF_TOKEN
-
-The Qwen3 profiles are public. `meta-llama/Llama-3.1-8B-Instruct` is gated and
-needs an approved Hugging Face account plus a token. Set it in the environment
-only — never in YAML, manifests or archives.
-
-```bash
-export HF_TOKEN="hf_your_token_here"
-```
-
-## 4. Build the RAG knowledge base (required for methods B and D)
-
-The guideline documents are in Git; the chunk index is generated locally.
-
-```bash
-./.venv/bin/python experiments/scripts/build_kb.py
-```
-
-## 5. Preflight (no model weights are downloaded)
-
-```bash
-./.venv/bin/python experiments/scripts/check_experiment_release.py --profile final --all-models --dataset dashboard_v4
-```
-
-It verifies: Python version, core + training packages, PyTorch build (CUDA vs
-CPU-only), CUDA/GPU, frozen dataset files, SHA-256 of every dataset file, split counts, robustness
-splits, RAG knowledge base, all model configs, Hugging Face access and token,
-output-directory writability, and the D-to-C adapter path logic. Continue only
-when the last line is `PASS`.
-
-A command-level preview of everything that would run:
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 --all-models --all-methods --seeds 42 43 44 --dry-run
-```
-
-## 6. Run one model, one seed (recommended unit of work)
-
-Every command below is safe to interrupt and re-run.
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods --seed 42 \
-  --with-dependencies --resume
-```
-
-## 7. Run one complete model (all three seeds)
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-## 8. Run all four models
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --all-models --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-## 9. Resume after an interruption
-
-Re-run **exactly the same command** with `--resume` (all commands here already
-include it). The launcher then:
-
-- skips runs that are already complete **and** compatible (same dataset, model,
-  method, seed, dataset hashes, training config, inference config, RAG KB hash);
-- reuses completed predictions and metrics;
-- resumes a compatible C training checkpoint, and starts fresh if the existing
-  checkpoint belongs to a different config;
-- reuses the correct completed C adapter for D instead of retraining;
-- never accepts a run, cache or adapter from another dataset, model or seed;
-- leaves already-finished seeds untouched when another seed fails.
-
-A failed stage is reported in the summary table at the end; other seeds and
-models keep their results.
-
-## 10. Where the results are
-
-Per-run artifacts:
-
-```text
-experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/
-```
-
-For example `experiments/outputs/final/dashboard_v4/qwen3_8b/C/seed_42/`.
-
-Each run directory contains:
-
-```text
-manifest.json              dataset, model, method, seed, base model ID, adapter path,
-                           source C run (for D), training/inference config, config hash,
-                           dataset hashes, KB hash, cache identity, status, timestamps
-config_snapshot.yaml       fully resolved config
-config_hash.txt / git_hash.txt / env.txt
-cache_identity.json / dataset_hashes.json / kb_hashes.json
-predictions.jsonl
-predictions_paraphrased.jsonl     (when the robustness split is enabled)
-predictions_missing_info.jsonl    (when the robustness split is enabled)
-metrics_auto.json
-errors.jsonl
-logs/
-```
-
-Method C additionally contains:
-
-```text
-adapter/                   LoRA adapter + tokenizer
-adapter/training_metadata.json
-checkpoints/               trainer checkpoints (stay on the GPU machine)
-resume_metadata.json
-```
-
-Aggregated results:
-
-```text
-experiments/results/final/dashboard_v4/
-├── per_model/<model>/comparison_table.csv, run_index.json
-├── cross_model/comparison_by_run.csv
-├── cross_model/model_method_summary.csv
-├── cross_model/model_method_summary.md
-├── statistics/
-├── final_run_index.json
-├── comparison_table.csv / .md
-├── multi_seed_summary.csv / .md
-└── final_report.md
-```
-
-`dashboard_v3` results, if ever produced, land under
-`experiments/outputs/final/dashboard_v3/` and
-`experiments/results/final/dashboard_v3/`. V3 and V4 are never mixed.
-
-## 11. Package the results and send them back
-
-```bash
-./.venv/bin/python experiments/scripts/package_professor_results.py --dataset dashboard_v4
-```
-
-This writes `professor_results_dashboard_v4.zip` plus
-`professor_results_dashboard_v4_manifest.json` in the repository root. The
-archive contains manifests, resolved configs, predictions, metrics, error logs,
-training metadata, run logs, aggregate CSV/Markdown tables, statistics and the
-run index. It excludes base model weights, the Hugging Face cache, trainer
-checkpoints and anything secret-like.
-
----
-
-## Copy-paste command block
-
-### Qwen3 1.7B
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods --seed 42 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods --seed 43 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_1_7b --all-methods --seed 44 --with-dependencies --resume
-```
-
-### Qwen3 8B
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --all-methods --seed 42 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --all-methods --seed 43 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --all-methods --seed 44 --with-dependencies --resume
-```
-
-### Qwen3 14B
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_14b --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_14b --all-methods --seed 42 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_14b --all-methods --seed 43 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_14b --all-methods --seed 44 --with-dependencies --resume
-```
-
-### Llama 3.1 8B Instruct (needs HF_TOKEN)
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model llama3_1_8b --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model llama3_1_8b --all-methods --seed 42 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model llama3_1_8b --all-methods --seed 43 --with-dependencies --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model llama3_1_8b --all-methods --seed 44 --with-dependencies --resume
-```
-
-### Entire four-model matrix
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --all-models --all-methods \
-  --seeds 42 43 44 --with-dependencies --resume
-```
-
-### Single scenario
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --method C --seed 42 --resume
-```
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_8b --method D --seed 42 --with-dependencies --resume
-```
-
-With `--with-dependencies`, method D trains the matching C adapter first when it
-does not exist yet. Without it, D aborts rather than using a foreign adapter.
-
----
-
-## Seed handling for A/B versus C/D — and why
-
-All four methods are executed with seeds 42, 43 and 44.
-
-The reason is in the generation config (`src/config/method/*.yaml`): every
-method, including A and B, generates with `do_sample: true`, `temperature: 0.1`,
-`top_p: 0.9`. Sampling is stochastic, and the seed is set per run
-(`src/utils/seed.py`), so A and B produce genuinely different outputs per seed.
-Reusing one A/B run across three seeds would therefore misreport run-to-run
-variability, not save an identical computation. Retrieval (TF-IDF over a fixed
-KB) is deterministic, but it is only one part of the pipeline.
-
-C and D additionally carry training randomness, so they need the three seeds
-regardless.
-
-If A/B were made deterministic later (`do_sample: false`), a single A/B run per
-model could be referenced across seeds — that change is not part of this run,
-and no result here silently reuses a run across seeds.
-
----
-
-## Optional: local pipeline smoke test
-
-Small model, two evaluation items, one training step. A plumbing check, not a
-thesis result:
+## Appendix A — what `run_professor.sh` does internally
+
+It only orchestrates; it contains no training or inference code of its own.
+
+1. `scripts/bootstrap_remote.sh` — installs Poetry and `./.venv` from
+   `poetry.lock`, then verifies that PyTorch sees the GPU. **Skipped** when the
+   environment already imports the stack.
+2. `experiments/scripts/build_kb.py` — RAG knowledge base. **Skipped** when the
+   existing one still matches its manifest.
+3. `experiments/scripts/check_experiment_release.py` — preflight: packages,
+   PyTorch/CUDA, dataset files and SHA-256, split counts, model configs, Hugging
+   Face access, output permissions, adapter-path logic. Downloads no weights.
+4. `run_experiment.sh` → `run_final_matrix.py` → `train.py` / `run_experiment.py`
+   → `aggregate_results.py` — the matrix itself, with resume and the C→D adapter
+   dependency.
+5. `experiments/scripts/make_figures.py` — figures from the aggregated tables.
+6. `experiments/scripts/package_professor_results.py` — the ZIP.
+
+Each step can also be run on its own; every one supports `--help`.
+
+## Appendix B — why all four methods use three seeds
+
+Generation is stochastic for every method: `src/config/method/*.yaml` set
+`do_sample: true`, `temperature: 0.1`, `top_p: 0.9`, and the seed is applied per
+run. A and B therefore produce genuinely different outputs per seed, so reusing
+one A/B run across three seeds would misreport run-to-run variability rather
+than save duplicate work. C and D additionally carry training randomness.
+Retrieval itself (TF-IDF over a fixed knowledge base) is deterministic.
+
+## Appendix C — quick pipeline test (optional, small model)
+
+Checks the whole chain with Qwen2.5-0.5B, 2 items and 1 training step. It is a
+plumbing test, not a result:
 
 ```bash
 ./run_experiment.sh --profile smoke --dataset dashboard_v4 \
   --model qwen2_5_0_5b --all-methods --seed 42 --with-dependencies --resume
 ```
 
-Expected final line: `PASS_QWEN_0_5B_END_TO_END_SMOKE`.
+Expected last line: `PASS_QWEN_0_5B_END_TO_END_SMOKE`.
 
----
+## Appendix D — advanced launcher
 
-## Selecting the other dataset
-
-`dashboard_v4` is the default final thesis dataset. `dashboard_v3` remains
-runnable without any source change:
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v3 \
-  --all-models --all-methods --seeds 42 43 44 --with-dependencies --resume
-```
-
-```bash
-./.venv/bin/python experiments/scripts/package_professor_results.py --dataset dashboard_v3
-```
-
----
-
-## Custom storage locations (low disk space)
-
-Without configuration, base model weights (~65 GB for the four models) go to
-`~/.cache/huggingface`, and adapters plus trainer checkpoints go into
-`experiments/outputs/` inside the repository. On a storage-limited server, set
-them once in a per-machine file:
-
-```bash
-cp paths.env.example paths.env
-```
-
-Edit `paths.env` (only `BIG=` usually matters), then run the normal commands —
-`./run_experiment.sh` picks the file up automatically.
-
-Equivalent one-off flags:
-
-```bash
-./run_experiment.sh --profile final --dataset dashboard_v4 \
-  --model qwen3_14b --all-methods --seeds 42 43 44 \
-  --with-dependencies --resume \
-  --cache-path /mnt/hf-cache \
-  --output-data-path /mnt/thesis/runs \
-  --output-model-path /mnt/thesis/adapters \
-  --results-path /mnt/thesis/results
-```
-
-These paths are passed through to training and inference, not merely printed.
-
-## Full launcher help
+`./run_experiment.sh` is the lower-level entry point behind `run_professor.sh`.
+It exposes the full matrix selection plus Hydra overrides, separate output roots,
+local base-model directories and inference-only mode:
 
 ```bash
 ./run_experiment.sh --help
 ```
+
+Example — one method, one seed, custom locations:
+
+```bash
+./run_experiment.sh --profile final --dataset dashboard_v4 \
+  --model qwen3_8b --method C --seed 42 --resume \
+  --cache-path /mnt/hf-cache --output-model-path /mnt/adapters
+```
+
+`dashboard_v3` remains fully runnable (`--dataset dashboard_v3`); its results go
+to their own directories and are never mixed with `dashboard_v4`.

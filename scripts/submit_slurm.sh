@@ -106,7 +106,7 @@ needs_token=0
 for model in "${MODELS[@]}"; do
   [[ "$model" == llama3_1_8b ]] && needs_token=1
 done
-if [[ "$needs_token" == 1 && -z "${HF_TOKEN:-}" ]]; then
+if [[ "$needs_token" == 1 && -z "${HF_TOKEN:-}" && "$DRY_RUN" != 1 ]]; then
   die "HF_TOKEN is not set and llama3_1_8b is gated. export HF_TOKEN=\"hf_...\" first."
 fi
 
@@ -129,6 +129,7 @@ cat > "$RUN_SCRIPT" <<EOF
 #SBATCH --error=$JOB_DIR/%x_%A_%a.out
 $ACCOUNT_LINE
 set -euo pipefail
+export PYTHONUTF8=1
 cd "$PROJECT_ROOT"
 
 # Map this array index to its (model, seed) pair.
