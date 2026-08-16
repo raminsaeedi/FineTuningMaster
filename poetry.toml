@@ -1,0 +1,5 @@
+# Project-local Poetry settings (tracked): keep the environment in ./.venv so it
+# is easy to inspect, delete and reproduce on any machine.
+[virtualenvs]
+in-project = true
+create = true

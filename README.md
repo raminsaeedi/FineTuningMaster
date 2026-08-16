@@ -92,14 +92,15 @@ are kept under `data/raw_legacy/` only as a fallback.
 You only need to run **one command**. Hydra is used internally — you do not need
 to learn it.
 
-**1. Prerequisites:** a CUDA GPU and Python ≥ 3.10. Install a CUDA-matched
-PyTorch first, then the training requirements:
+**1. Prerequisites:** a CUDA GPU, an NVIDIA driver (>= 550) and Python
+3.11-3.13. Dependencies are managed with Poetry and pinned in `poetry.lock`;
+one command installs the whole environment into `./.venv`:
 
 ```bash
-# Example for CUDA 12.4 — adjust to your CUDA version:
-pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
-pip install -r requirements-train.txt
+./scripts/bootstrap_remote.sh
 ```
+
+Full remote instructions: [RUN_PROFESSOR.md](RUN_PROFESSOR.md).
 
 **2. Build the dataset** (deterministic splits from the gold data):
 
@@ -148,9 +149,9 @@ That folder is everything needed to run and reproduce the fine-tuned model.
 Install the base stack only (no training dependencies needed):
 
 ```bash
-pip install -e .
-python experiments/scripts/build_data.py        # once: hash-split dataset
-python experiments/scripts/build_kb.py          # once: build the RAG knowledge base
+./scripts/bootstrap_remote.sh --no-train --cpu-ok
+./.venv/bin/python experiments/scripts/build_data.py   # once: hash-split dataset
+./.venv/bin/python experiments/scripts/build_kb.py     # once: build the RAG knowledge base
 ```
 
 **Method A — prompt-only**, end to end (inference + metrics):
@@ -217,7 +218,7 @@ A complete Streamlit rating workflow with a balanced, blind assignment and
 Krippendorff's α.
 
 ```bash
-pip install -e ".[human]"
+poetry install --extras human
 
 # 1. Build the eval set + balanced rater assignment from the four method runs:
 python experiments/scripts/build_human_eval.py \
@@ -267,10 +268,10 @@ are required for the core A/B/C/D study.
 
 | Feature | Install | Use |
 |---|---|---|
-| **Constrained JSON decoding** (Outlines) — forces schema-valid output | `pip install -e ".[constrained]"` | add `method.generate.constrained=true` |
-| **Dense retriever** (BGE embeddings) — semantic RAG, for a retriever ablation | `pip install -e ".[rag-dense]"` | `--override method.retriever.name=dense` |
+| **Constrained JSON decoding** (Outlines) — forces schema-valid output | `poetry install --extras constrained` | add `method.generate.constrained=true` |
+| **Dense retriever** (BGE embeddings) — semantic RAG, for a retriever ablation | `poetry install --extras rag-dense` | `--override method.retriever.name=dense` |
 | **DoRA / RSLoRA** — fine-tuning algorithm ablation | (uses the base train stack) | `--override training=dora` (or `training=rslora`) |
-| **GaLore** — full-parameter fine-tuning ablation | `pip install -e ".[galore]"` | `--override training=galore` |
+| **GaLore** — full-parameter fine-tuning ablation | `poetry install --extras galore` | `--override training=galore` |
 | **G-Eval (LLM-as-judge)** — auto rubric scoring vs. humans | set `OPENAI_API_KEY` | `--override eval=with_judge` |
 
 ## Scope

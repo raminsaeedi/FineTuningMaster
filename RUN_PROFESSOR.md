@@ -30,34 +30,37 @@ git clone https://github.com/raminsaeedi/FineTuningMaster.git
 cd FineTuningMaster
 ```
 
-## 2. Create the Python environment
-
-Python 3.10 or newer.
+## 2. Install everything (one command)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+./scripts/bootstrap_remote.sh
 ```
 
-## 3. Install dependencies
+This installs a pinned Poetry, creates `./.venv`, installs the exact package
+versions recorded in `poetry.lock` (including the QLoRA training stack), and
+then verifies that PyTorch really sees the GPU. It is safe to re-run and starts
+no training.
 
-Install a CUDA-matched PyTorch build first (adjust `cu124` to the server's CUDA
-version), then the rest:
+System requirements it cannot install for you: **Python 3.11-3.13**, the
+**NVIDIA driver** (>= 550 for the CUDA 12.4 wheels) and the **GPU** itself. It
+stops with a clear message if any of them is missing or if the installed
+PyTorch turns out to be a CPU-only build.
+
+Useful variants:
 
 ```bash
-pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+./scripts/bootstrap_remote.sh --python /usr/bin/python3.12   # pick the interpreter
 ```
 
 ```bash
-pip install -r requirements-train.txt
+./scripts/bootstrap_remote.sh --no-train                     # methods A and B only
 ```
 
-```bash
-pip install -e .
-```
+Afterwards everything runs inside `./.venv`. `./run_experiment.sh` finds it by
+itself. Scripts you call directly are run with `./.venv/bin/python` (equivalent
+to `poetry run python`, but it needs no Poetry on your PATH).
 
-## 4. Set HF_TOKEN
+## 3. Set HF_TOKEN
 
 The Qwen3 profiles are public. `meta-llama/Llama-3.1-8B-Instruct` is gated and
 needs an approved Hugging Face account plus a token. Set it in the environment
@@ -67,22 +70,22 @@ only — never in YAML, manifests or archives.
 export HF_TOKEN="hf_your_token_here"
 ```
 
-## 5. Build the RAG knowledge base (required for methods B and D)
+## 4. Build the RAG knowledge base (required for methods B and D)
 
 The guideline documents are in Git; the chunk index is generated locally.
 
 ```bash
-python experiments/scripts/build_kb.py
+./.venv/bin/python experiments/scripts/build_kb.py
 ```
 
-## 6. Preflight (no model weights are downloaded)
+## 5. Preflight (no model weights are downloaded)
 
 ```bash
-python experiments/scripts/check_experiment_release.py --profile final --all-models --dataset dashboard_v4
+./.venv/bin/python experiments/scripts/check_experiment_release.py --profile final --all-models --dataset dashboard_v4
 ```
 
-It verifies: Python version, core + training packages, CUDA/PyTorch/bitsandbytes,
-frozen dataset files, SHA-256 of every dataset file, split counts, robustness
+It verifies: Python version, core + training packages, PyTorch build (CUDA vs
+CPU-only), CUDA/GPU, frozen dataset files, SHA-256 of every dataset file, split counts, robustness
 splits, RAG knowledge base, all model configs, Hugging Face access and token,
 output-directory writability, and the D-to-C adapter path logic. Continue only
 when the last line is `PASS`.
@@ -93,7 +96,7 @@ A command-level preview of everything that would run:
 ./run_experiment.sh --profile final --dataset dashboard_v4 --all-models --all-methods --seeds 42 43 44 --dry-run
 ```
 
-## 7. Run one model, one seed (recommended unit of work)
+## 6. Run one model, one seed (recommended unit of work)
 
 Every command below is safe to interrupt and re-run.
 
@@ -103,7 +106,7 @@ Every command below is safe to interrupt and re-run.
   --with-dependencies --resume
 ```
 
-## 8. Run one complete model (all three seeds)
+## 7. Run one complete model (all three seeds)
 
 ```bash
 ./run_experiment.sh --profile final --dataset dashboard_v4 \
@@ -111,7 +114,7 @@ Every command below is safe to interrupt and re-run.
   --seeds 42 43 44 --with-dependencies --resume
 ```
 
-## 9. Run all four models
+## 8. Run all four models
 
 ```bash
 ./run_experiment.sh --profile final --dataset dashboard_v4 \
@@ -119,7 +122,7 @@ Every command below is safe to interrupt and re-run.
   --seeds 42 43 44 --with-dependencies --resume
 ```
 
-## 10. Resume after an interruption
+## 9. Resume after an interruption
 
 Re-run **exactly the same command** with `--resume` (all commands here already
 include it). The launcher then:
@@ -136,7 +139,7 @@ include it). The launcher then:
 A failed stage is reported in the summary table at the end; other seeds and
 models keep their results.
 
-## 11. Where the results are
+## 10. Where the results are
 
 Per-run artifacts:
 
@@ -191,10 +194,10 @@ experiments/results/final/dashboard_v4/
 `experiments/outputs/final/dashboard_v3/` and
 `experiments/results/final/dashboard_v3/`. V3 and V4 are never mixed.
 
-## 12. Package the results and send them back
+## 11. Package the results and send them back
 
 ```bash
-python experiments/scripts/package_professor_results.py --dataset dashboard_v4
+./.venv/bin/python experiments/scripts/package_professor_results.py --dataset dashboard_v4
 ```
 
 This writes `professor_results_dashboard_v4.zip` plus
@@ -371,14 +374,26 @@ runnable without any source change:
 ```
 
 ```bash
-python experiments/scripts/package_professor_results.py --dataset dashboard_v3
+./.venv/bin/python experiments/scripts/package_professor_results.py --dataset dashboard_v3
 ```
 
 ---
 
-## Custom storage locations (optional)
+## Custom storage locations (low disk space)
 
-If model caches, adapters or results must live on a different volume:
+Without configuration, base model weights (~65 GB for the four models) go to
+`~/.cache/huggingface`, and adapters plus trainer checkpoints go into
+`experiments/outputs/` inside the repository. On a storage-limited server, set
+them once in a per-machine file:
+
+```bash
+cp paths.env.example paths.env
+```
+
+Edit `paths.env` (only `BIG=` usually matters), then run the normal commands —
+`./run_experiment.sh` picks the file up automatically.
+
+Equivalent one-off flags:
 
 ```bash
 ./run_experiment.sh --profile final --dataset dashboard_v4 \

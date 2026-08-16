@@ -47,46 +47,46 @@ package during thesis experiments. Remote GPU instructions: `RUN_PROFESSOR.md`.
 - A gated/private model requires external `hf auth login`. Never put tokens in this file or repository.
 - CPU-only machines can run validation, cached evaluation, aggregation, statistics, and human-rating tools. They are not the recommended environment for C training.
 
-### Windows PowerShell: base/local environment
+### Environment (Poetry is authoritative)
 
-```powershell
-python --version
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e .
-```
-
-### Linux/bash: base/local environment
+Dependencies live in `pyproject.toml` and are pinned in `poetry.lock`. Python
+3.11-3.13 is required. One command builds `./.venv` with the exact locked
+versions, including the QLoRA training stack:
 
 ```bash
-python3 --version
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .
+./scripts/bootstrap_remote.sh
 ```
 
-### GPU training environment
+Variants: `--no-train` (inference/evaluation only), `--with-dev` (pytest),
+`--cpu-ok` (no GPU), `--python /path/to/python3.12`.
 
-Install CUDA-matched PyTorch first. CUDA 12.4 example:
+Run project commands inside that environment:
 
-```powershell
-python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
-python -m pip install -e ".[train]"
+```bash
+./.venv/bin/python experiments/scripts/<script>.py ...
 ```
 
-Same commands work in bash after environment activation. `requirements-train.txt`
-is also present with pinned base/training versions.
+`./run_experiment.sh` resolves `./.venv` (then `poetry run`) automatically.
+
+`requirements-train.txt` is a GENERATED pip export of the lockfile, kept only
+for machines where Poetry cannot be installed. Never edit it by hand:
+
+```bash
+poetry export -f requirements.txt --extras train --without-hashes -o requirements-train.txt
+```
 
 ### Optional dependencies
 
-```powershell
-python -m pip install -e ".[human]"       # Streamlit human-rating app
-python -m pip install -e ".[dev]"         # pytest
-python -m pip install -e ".[constrained]" # optional constrained decoding
-python -m pip install -e ".[rag-dense]"   # optional dense retriever
-python -m pip install -e ".[galore]"      # optional GaLore training
+`bootstrap_remote.sh` installs Poetry into `./.poetry` when it is not already on
+PATH; in that case call it as `./.poetry/bin/poetry`.
+
+```bash
+poetry install --extras human        # Streamlit human-rating app
+poetry install --with dev            # pytest
+poetry install --extras constrained  # optional constrained decoding
+poetry install --extras rag-dense    # optional dense retriever
+poetry install --extras galore       # optional GaLore training
+poetry install --extras enrichment   # dataset enrichment (OpenAI-compatible SDK)
 ```
 
 G-Eval is optional and uses an OpenAI-compatible endpoint. It requires an
@@ -651,12 +651,8 @@ available Qwen-0.5B config, seed 42, and `experiments/outputs/final`.
 
 ### STEP 1 — Clone/install
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
-python -m pip install -e ".[train]"
+```bash
+./scripts/bootstrap_remote.sh
 ```
 
 ### STEP 2 — Preflight

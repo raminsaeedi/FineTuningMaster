@@ -39,7 +39,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-MIN_PYTHON = (3, 10)
+MIN_PYTHON = (3, 11)  # pyproject: requires-python = ">=3.11,<3.14"
 
 DEFAULT_DATASET = "dashboard_v4"
 
@@ -212,6 +212,19 @@ def check_cuda(report: Report, require_cuda: bool) -> None:
     try:
         import torch
 
+        build = getattr(getattr(torch, "version", None), "cuda", None)
+        report.ok("pytorch", f"{torch.__version__} (CUDA build: {build or 'none - CPU-only wheel'})")
+        if not build:
+            message = (
+                "CPU-only PyTorch wheel installed; QLoRA training cannot run. Reinstall the "
+                "CUDA build: poetry run pip install torch==2.6.0 "
+                "--index-url https://download.pytorch.org/whl/cu124"
+            )
+            if require_cuda:
+                report.fail("cuda", message)
+            else:
+                report.warn("cuda", message)
+            return
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
             free, total = torch.cuda.mem_get_info(0)

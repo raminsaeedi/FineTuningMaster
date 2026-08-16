@@ -84,7 +84,7 @@ OUTPUT_DATA_PATH="${OUTPUT_DATA_PATH:-}"
 OUTPUT_MODEL_PATH="${OUTPUT_MODEL_PATH:-}"
 RESULTS_PATH="${RESULTS_PATH:-}"
 
-PYTHON_BIN="${PYTHON_BIN:-python}"
+PYTHON_BIN="${PYTHON_BIN:-}"   # empty = resolve the Poetry environment below
 TRAIN_EXPERIMENT="${TRAIN_EXPERIMENT:-E03_qwen0_5b_ft}"
 N_EVAL_ITEMS="${N_EVAL_ITEMS:-2}"
 N_TRAIN_ITEMS="${N_TRAIN_ITEMS:-2}"
@@ -137,7 +137,7 @@ Paths:
   --results-path PATH         Aggregated results directory
 
 Other:
-  --python PATH               Python executable
+  --python PATH               Python executable (default: ./.venv, else poetry run)
   --train-experiment NAME     Existing training config (default: E03_qwen0_5b_ft)
   --n-eval-items N            Smoke evaluation items (default: 2)
   --n-train-items N           Smoke training items (default: 2)
@@ -416,7 +416,32 @@ OUTPUT_DATA_PATH="$(resolve_path "$OUTPUT_DATA_PATH")"
 OUTPUT_MODEL_PATH="$(resolve_path "$OUTPUT_MODEL_PATH")"
 RESULTS_PATH="$(resolve_path "$RESULTS_PATH")"
 
-command -v "$PYTHON_BIN" >/dev/null 2>&1 || die "Python executable not found: $PYTHON_BIN"
+# -----------------------------------------------------------------------------
+# Interpreter resolution. A fresh clone must never fall back to a system Python
+# that lacks the locked thesis stack, so the project environment wins:
+#   1. --python / PYTHON_BIN, when given explicitly
+#   2. ./.venv  (created by scripts/bootstrap_remote.sh via poetry.toml)
+#   3. `poetry run python`
+#   4. system python, with a warning
+declare -a PYTHON_CMD=()
+if [[ -n "$PYTHON_BIN" ]]; then
+  command -v "$PYTHON_BIN" >/dev/null 2>&1 || die "Python executable not found: $PYTHON_BIN"
+  PYTHON_CMD=("$PYTHON_BIN")
+elif [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+  PYTHON_CMD=("$PROJECT_ROOT/.venv/bin/python")
+elif [[ -x "$PROJECT_ROOT/.venv/Scripts/python.exe" ]]; then
+  PYTHON_CMD=("$PROJECT_ROOT/.venv/Scripts/python.exe")
+elif [[ -x "$PROJECT_ROOT/.poetry/bin/poetry" ]]; then
+  PYTHON_CMD=("$PROJECT_ROOT/.poetry/bin/poetry" run python)
+elif command -v poetry >/dev/null 2>&1; then
+  PYTHON_CMD=(poetry run python)
+elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+  PYTHON_CMD=("$(command -v python3 || command -v python)")
+  echo "[launcher] WARNING: no Poetry environment found; using $(command -v python3 || command -v python)." >&2
+  echo "[launcher]          Run ./scripts/bootstrap_remote.sh for the locked thesis environment." >&2
+else
+  die "No Python interpreter found. Run ./scripts/bootstrap_remote.sh first."
+fi
 RUNNER="$PROJECT_ROOT/experiments/scripts/run_final_matrix.py"
 TRAINER="$PROJECT_ROOT/experiments/scripts/train.py"
 require_file "$RUNNER"
@@ -491,6 +516,8 @@ print_config() {
   echo "RESOLVED EXPERIMENT LAUNCH CONFIGURATION"
   echo "======================================================================"
   printf '  project root       : %s\n' "$PROJECT_ROOT"
+  printf '  python             : %s
+' "${PYTHON_CMD[*]}"
   printf '  paths file         : %s
 ' "${PATHS_FILE:-<disabled>}"
   printf '  dataset            : %s
@@ -553,7 +580,7 @@ run_training() {
       "training.sft.save_steps=1000"
     )
   fi
-  local -a command=("$PYTHON_BIN" "$TRAINER" --experiment "$TRAIN_EXPERIMENT")
+  local -a command=("${PYTHON_CMD[@]}" "$TRAINER" --experiment "$TRAIN_EXPERIMENT")
   [[ "$RESUME" == 1 ]] && command+=(--resume)
   command+=(--override "${overrides[@]}")
   echo
@@ -579,7 +606,7 @@ fi
 
 # Matrix and inference modes delegate to the canonical runner.
 declare -a command=(
-  "$PYTHON_BIN" "$RUNNER"
+  "${PYTHON_CMD[@]}" "$RUNNER"
   --profile "$PROFILE"
   --dataset "$DATASET"
   --output-root "$OUTPUT_DATA_PATH"

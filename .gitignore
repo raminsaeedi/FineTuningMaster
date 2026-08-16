@@ -9,6 +9,11 @@ paths.env
 hf_token*
 .huggingface/
 
+# ── Python environments (Poetry keeps the project env in ./.venv) ──
+.venv/
+venv/
+.poetry/
+
 # ── Python ───────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
