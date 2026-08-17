@@ -7,6 +7,7 @@ correction.
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 
@@ -31,16 +32,39 @@ def friedman_test(scores_by_method: Dict[str, List[float]]) -> dict:
     if len(lengths) != 1:
         raise ValueError(f"All methods must have the same number of items, got {lengths}")
 
+    n = next(iter(lengths))
+    if n == 0:
+        return {
+            "test": "friedman",
+            "applicable": False,
+            "reason": "Friedman requires at least one matched item.",
+            "k": len(methods),
+            "n": 0,
+            "methods": methods,
+        }
+    if all(len(set(row)) == 1 for row in zip(*(scores_by_method[m] for m in methods))):
+        return {
+            "test": "friedman",
+            "applicable": True,
+            "statistic": 0.0,
+            "p_value": 1.0,
+            "k": len(methods),
+            "n": n,
+            "methods": methods,
+        }
+
     from scipy.stats import friedmanchisquare
 
     columns = [scores_by_method[m] for m in methods]
     stat, p = friedmanchisquare(*columns)
+    if not math.isfinite(float(stat)) or not math.isfinite(float(p)):
+        stat, p = 0.0, 1.0
     return {
         "test": "friedman",
         "applicable": True,
         "statistic": float(stat),
         "p_value": float(p),
         "k": len(methods),
-        "n": lengths.pop(),
+        "n": n,
         "methods": methods,
     }

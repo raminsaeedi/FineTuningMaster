@@ -70,7 +70,22 @@ def load_all_ratings(ratings_dir: str | Path) -> List[dict]:
                 if not line:
                     continue
                 try:
-                    rows.append(json.loads(line))
-                except json.JSONDecodeError:
+                    row = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    # Keep malformed rows visible to completion validation rather
+                    # than silently treating them as if they never existed.
+                    rows.append({
+                        "_parse_error": str(exc),
+                        "_source_file": str(path),
+                        "_line": line,
+                    })
                     continue
+                if not isinstance(row, dict):
+                    rows.append({
+                        "_parse_error": "rating row must be a JSON object",
+                        "_source_file": str(path),
+                        "_line": line,
+                    })
+                    continue
+                rows.append(row)
     return rows

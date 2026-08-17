@@ -1,9 +1,7 @@
 """Blind human-rating app for dashboard design recommendations.
 
-Run via ``python scripts/run_human_eval.py`` (which calls ``streamlit run`` on
-this file). The eval set and assignment are read from RESULTS_DIR (env
-HUMAN_EVAL_DIR, default results/human_eval); ratings are written per rater to
-RATINGS_DIR (env HUMAN_RATINGS_DIR, default results/human_ratings).
+Run via ``python experiments/scripts/run_human_eval.py --study-dir ...``. The
+items, assignment and ratings directory are resolved from that study directory.
 
 Raters never see which method produced an output — rating is blind. Progress is
 saved after every submission and resumes automatically.
@@ -27,8 +25,9 @@ from src.evaluation.human.render import render_brief, render_output
 from src.evaluation.human.rubric import LIKERT_MAX, LIKERT_MIN, RUBRIC
 from src.evaluation.human.storage import append_rating, load_done_units
 
-EVAL_DIR = Path(os.environ.get("HUMAN_EVAL_DIR", _PROJECT_ROOT / "results" / "human_eval"))
-RATINGS_DIR = Path(os.environ.get("HUMAN_RATINGS_DIR", _PROJECT_ROOT / "results" / "human_ratings"))
+_DEFAULT_STUDY_DIR = _PROJECT_ROOT / "experiments" / "results" / "human_eval"
+EVAL_DIR = Path(os.environ.get("HUMAN_EVAL_STUDY_DIR", os.environ.get("HUMAN_EVAL_DIR", _DEFAULT_STUDY_DIR)))
+RATINGS_DIR = Path(os.environ.get("HUMAN_RATINGS_DIR", EVAL_DIR / "ratings"))
 
 
 @st.cache_data
@@ -82,7 +81,10 @@ def main() -> None:
 
     task = remaining[0]
     item = items[task["item_id"]]
-    output = item["outputs"][task["method"]]  # method hidden from the UI below
+    # Assignment stores method for later unblinding, but no method/model/seed
+    # identity is rendered to the rater.
+    output_key = task.get("output_id", task.get("method"))
+    output = item["outputs"][output_key]
 
     left, right = st.columns(2)
     with left:

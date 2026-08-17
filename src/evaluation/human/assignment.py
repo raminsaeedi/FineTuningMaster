@@ -21,6 +21,7 @@ def build_eval_items(
     briefs_by_id: Dict[str, dict],
     n_items: int,
     seed: int = 42,
+    item_ids: List[str] | None = None,
 ) -> List[dict]:
     """Return eval items present in every method, each with all systems' outputs.
 
@@ -37,9 +38,19 @@ def build_eval_items(
         common &= set(by_method[m])
     common_ids = sorted(common)
 
-    rng = random.Random(seed)
-    rng.shuffle(common_ids)
-    chosen = common_ids[:n_items]
+    if item_ids is not None:
+        requested = list(item_ids)
+        missing = [item_id for item_id in requested if item_id not in common]
+        if missing:
+            raise ValueError(
+                "Requested evaluation item IDs are not present in every method and brief set: "
+                f"{missing[:10]}"
+            )
+        chosen = requested[:n_items]
+    else:
+        rng = random.Random(seed)
+        rng.shuffle(common_ids)
+        chosen = common_ids[:n_items]
 
     items = []
     for item_id in chosen:

@@ -1,19 +1,18 @@
-"""Build the blind human-evaluation set + balanced rater assignment.
+"""Build one immutable blind human-evaluation study.
 
-    python scripts/build_human_eval.py \
-        --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag \
-        --n-items 60 --n-raters 6 --ratings-per-output 3
+Primary Professor layout::
 
-Reads each experiment's cached predictions + the gold test briefs, selects items
-present in every method, and writes:
-    results/human_eval/items.jsonl     (brief + each system's output per item)
-    results/human_eval/assignment.json (per-rater blind task lists)
+    python experiments/scripts/build_human_eval.py \
+        --dataset dashboard_v4 --model qwen3_8b --seed 42 \
+        --n-items 40 --n-raters 6 --ratings-per-output 3
+
+The four prediction files are resolved automatically from
+``experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>``.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -21,75 +20,76 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from src.data_pipeline.dataset import load_gold_items
-from src.evaluation.human.assignment import build_assignment, build_eval_items
-from src.utils.artifacts import experiment_dir
-from src.utils.config import load_cfg
-from src.utils.io import read_jsonl, write_jsonl
+from src.evaluation.human.pipeline import (  # noqa: E402
+    DEFAULT_OUTPUTS_ROOT,
+    HumanEvaluationError,
+    build_study,
+)
 
 
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Build human-eval set + assignment")
-    p.add_argument("--experiments", nargs="+", required=True,
-                   help="Experiment names, one per method")
-    p.add_argument("--n-items", type=int, default=60)
-    p.add_argument("--n-raters", type=int, default=6)
-    p.add_argument("--rater-ids", nargs="*", default=None,
-                   help="Explicit rater ids (overrides --n-raters)")
-    p.add_argument("--ratings-per-output", type=int, default=3)
-    p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out-dir", default="experiments/results/human_eval")
-    return p.parse_args()
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build a blind human-evaluation study")
+    parser.add_argument("--dataset", default="dashboard_v4")
+    parser.add_argument("--model", default=None, help="Final model key, e.g. qwen3_8b")
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--outputs-root", default=DEFAULT_OUTPUTS_ROOT)
+    parser.add_argument("--n-items", type=int, default=40)
+    parser.add_argument("--n-raters", type=int, default=6)
+    parser.add_argument("--rater-ids", nargs="+", default=None)
+    parser.add_argument("--ratings-per-output", type=int, default=3)
+    parser.add_argument("--assignment-seed", type=int, default=42)
+    parser.add_argument("--item-list", default=None, help="Optional CSV/JSONL item-ID list")
+    parser.add_argument("--test-file", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--out-dir", default=None)
+    # Retain old spelling as a clear migration path. It is deliberately not
+    # used for the final path: callers must place Professor outputs in A-D dirs.
+    parser.add_argument("--experiments", nargs="+", default=None, help=argparse.SUPPRESS)
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    if args.experiments:
+        raise SystemExit(
+            "Legacy --experiments path resolution is deprecated. "
+            "Use --dataset, --model, --seed with the Professor A/B/C/D layout."
+        )
+    if args.model is None or args.seed is None:
+        raise SystemExit("--model and --seed are required for the final Professor layout.")
+    try:
+        result = build_study(
+            project_root=_PROJECT_ROOT,
+            dataset=args.dataset,
+            model=args.model,
+            seed=args.seed,
+            outputs_root=args.outputs_root,
+            n_items=args.n_items,
+            n_raters=args.n_raters,
+            rater_ids=args.rater_ids,
+            ratings_per_output=args.ratings_per_output,
+            assignment_seed=args.assignment_seed,
+            item_list=args.item_list,
+            test_file=args.test_file,
+            out_dir=args.out_dir,
+        )
+    except HumanEvaluationError as exc:
+        raise SystemExit(str(exc)) from exc
 
-    method_to_predictions = {}
-    briefs_by_id = None
-    for name in args.experiments:
-        cfg = load_cfg(experiment=name)
-        method = str(cfg.method.name)
-        exp_dir = experiment_dir(cfg, _PROJECT_ROOT)
-        pred_path = exp_dir / "predictions.jsonl"
-        if not pred_path.exists():
-            raise SystemExit(f"Missing predictions for {name}: {pred_path}. Run inference first.")
-        method_to_predictions[method] = read_jsonl(pred_path)
-
-        if briefs_by_id is None:
-            test_file = Path(str(cfg.data.test_file))
-            if not test_file.is_absolute():
-                test_file = _PROJECT_ROOT / test_file
-            briefs_by_id = {
-                it.item_id: it.brief.model_dump(mode="json") for it in load_gold_items(test_file)
-            }
-
-    items = build_eval_items(method_to_predictions, briefs_by_id, n_items=args.n_items, seed=args.seed)
-    if not items:
-        raise SystemExit("No items common to all methods — check that every method ran on the same test set.")
-
-    methods = list(method_to_predictions)
-    item_ids = [it["item_id"] for it in items]
-    raters = args.rater_ids or [f"rater_{i:02d}" for i in range(1, args.n_raters + 1)]
-    assignment = build_assignment(item_ids, methods, raters, args.ratings_per_output, args.seed)
-
-    out_dir = _PROJECT_ROOT / args.out_dir if not Path(args.out_dir).is_absolute() else Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    write_jsonl(items, out_dir / "items.jsonl")
-    (out_dir / "assignment.json").write_text(json.dumps(assignment, indent=2), encoding="utf-8")
-
-    print("=" * 56)
-    print("HUMAN-EVAL SET BUILT")
-    print("=" * 56)
-    print(f"  Methods            : {methods}")
-    print(f"  Items              : {len(items)}")
-    print(f"  Raters             : {raters}")
-    print(f"  Ratings per output : {args.ratings_per_output}")
-    print(f"  Total ratings      : {assignment['config']['n_units'] * args.ratings_per_output}")
-    print(f"  Per-rater load     : {assignment['load']}")
-    print(f"  Output dir         : {out_dir}")
-    print("\nNext: python scripts/run_human_eval.py")
-    print("=" * 56)
+    manifest = result["manifest"]
+    assignment = result["assignment"]
+    print("HUMAN-EVAL STUDY BUILT")
+    print(f"  study type        : {manifest['study_type']}")
+    print(f"  dataset/model/seed: {manifest['dataset']} / {manifest['model']} / {manifest['seed']}")
+    print(f"  methods           : {', '.join(manifest['methods'])}")
+    print(f"  items             : {manifest['n_items']}")
+    print(f"  outputs           : {manifest['total_expected_outputs']}")
+    print(f"  raters            : {manifest['n_raters']}")
+    print(f"  ratings/output    : {manifest['ratings_per_output']}")
+    print(f"  expected ratings  : {manifest['total_expected_ratings']}")
+    print(f"  rater load        : {assignment['load']}")
+    print(f"  study directory   : {result['study_dir']}")
+    print("  rating files      : ratings/")
+    print("  analysis files    : analysis/")
 
 
 if __name__ == "__main__":

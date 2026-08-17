@@ -7,11 +7,13 @@ itself). The Streamlit app lives in ``streamlit_app.py`` and is launched via
 
 from src.evaluation.human.assignment import build_assignment, build_eval_items
 from src.evaluation.human.irr import krippendorff_alpha
-from src.evaluation.human.rubric import RUBRIC, RUBRIC_KEYS
+from src.evaluation.human.rubric import RUBRIC, RUBRIC_KEYS, RUBRIC_VERSION, rubric_hash
 
 __all__ = [
     "RUBRIC",
     "RUBRIC_KEYS",
+    "RUBRIC_VERSION",
+    "rubric_hash",
     "build_assignment",
     "build_eval_items",
     "krippendorff_alpha",

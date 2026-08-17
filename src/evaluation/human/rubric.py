@@ -7,10 +7,13 @@ rubric stable once rating starts — changing it mid-study breaks comparability.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Dict, List
 
 LIKERT_MIN = 1
 LIKERT_MAX = 5
+RUBRIC_VERSION = "dashboard-human-rubric-v1"
 
 RUBRIC: List[Dict[str, object]] = [
     {
@@ -52,3 +55,15 @@ RUBRIC: List[Dict[str, object]] = [
 ]
 
 RUBRIC_KEYS: List[str] = [d["key"] for d in RUBRIC]  # type: ignore[misc]
+
+
+def rubric_hash() -> str:
+    """Return stable hash used to prevent analysis with a changed rubric."""
+    payload = {
+        "version": RUBRIC_VERSION,
+        "likert_min": LIKERT_MIN,
+        "likert_max": LIKERT_MAX,
+        "rubric": RUBRIC,
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
