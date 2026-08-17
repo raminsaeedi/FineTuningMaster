@@ -98,9 +98,32 @@ def _normalise_mapping(m: Any) -> Optional[dict]:
     return out
 
 
+def _as_object(raw: Any, string_key: str = "summary") -> Dict[str, Any]:
+    """Coerce a possibly-string field into a dict.
+
+    The 0.5B model sometimes returns a plain string (e.g. the brief's user
+    description) where the schema expects an object. If it happens to be a
+    JSON object encoded as a string, parse it; otherwise wrap it under
+    ``string_key`` so no information is lost.
+    """
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        s = raw.strip()
+        if s.startswith("{"):
+            parsed = _try_parse(s)
+            if isinstance(parsed, dict):
+                return parsed
+        return {string_key: raw}
+    return {}
+
+
 def _normalise_output(obj: Dict[str, Any]) -> Dict[str, Any]:
     """Apply lenient normalisation before Pydantic validation."""
     out = dict(obj)
+    # context_summary: model sometimes returns a bare string — coerce to object.
+    if "context_summary" in out:
+        out["context_summary"] = _as_object(out["context_summary"])
     # kpi_chart_mapping: normalise each entry, drop those that can't be fixed.
     raw_mapping = out.get("kpi_chart_mapping")
     if isinstance(raw_mapping, list):

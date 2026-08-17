@@ -67,6 +67,8 @@ def build_user_message(brief: BriefLike) -> str:
     lines += [f"  {i}. {key}" for i, key in enumerate(REQUIRED_KEYS, start=1)]
     lines += [
         "",
+        "context_summary must be a JSON OBJECT (not a plain string), e.g. "
+        '{"objective": "monitor loan risk", "primary_users": "branch managers"}.',
         "In kpi_chart_mapping, each entry has: kpi, task_type, chart_type, "
         "alternatives (list), encoding (object).",
         f"Allowed task_type values: {', '.join(TASK_TYPES)}.",
