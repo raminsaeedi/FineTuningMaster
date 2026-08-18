@@ -21,6 +21,12 @@ from typing import Any, List, Mapping, Optional
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
 from src.training.sft_trainer import _as_list, _get
+from src.utils.numerics import (
+    nonfinite_scalar_items,
+    raise_if_nonfinite_parameters,
+    validate_checkpoint_weights_finite,
+)
+from src.utils.precision import resolve_precision
 
 logger = logging.getLogger(__name__)
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -54,6 +60,13 @@ class GaLoreSFTTrainer(BaseTrainer):
         cache_dir = _get(self.model_cfg, "cache_dir")
         galore = _get(self.train_cfg, "galore", {})
         sft = _get(self.train_cfg, "sft", {})
+        precision = resolve_precision(
+            _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
+            torch,
+            fp16=bool(_get(sft, "fp16", False)),
+            bf16=bool(_get(sft, "bf16", False)),
+            logger=logger,
+        )
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             name, trust_remote_code=True, padding_side="right", cache_dir=cache_dir
@@ -61,9 +74,12 @@ class GaLoreSFTTrainer(BaseTrainer):
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         self.model = AutoModelForCausalLM.from_pretrained(
-            name, device_map="auto", trust_remote_code=True, dtype=dtype, cache_dir=cache_dir
+            name,
+            device_map="auto" if torch.cuda.is_available() else None,
+            trust_remote_code=True,
+            dtype=precision.effective_dtype,
+            cache_dir=cache_dir,
         )
         self.model.config.use_cache = False
 
@@ -83,7 +99,8 @@ class GaLoreSFTTrainer(BaseTrainer):
             lr_scheduler_type=str(_get(sft, "lr_scheduler_type", "cosine")),
             warmup_ratio=float(_get(sft, "warmup_ratio", 0.03)),
             weight_decay=float(_get(sft, "weight_decay", 0.0)),
-            bf16=bool(_get(sft, "bf16", torch.cuda.is_available())),
+            fp16=precision.fp16,
+            bf16=precision.bf16,
             logging_steps=int(_get(sft, "logging_steps", 10)),
             save_steps=int(_get(sft, "save_steps", 50)),
             save_total_limit=int(_get(sft, "save_total_limit", 1)),
@@ -107,15 +124,34 @@ class GaLoreSFTTrainer(BaseTrainer):
         logger.info("GaLore training started (optim_args=%s)…", optim_args)
         train_kwargs = {}
         if resume_from_checkpoint:
+            validate_checkpoint_weights_finite(resume_from_checkpoint)
             train_kwargs["resume_from_checkpoint"] = resume_from_checkpoint
         result = trainer.train(**train_kwargs)
         self.metrics = result.metrics or {}
+        bad_metrics = nonfinite_scalar_items(self.metrics)
+        if bad_metrics:
+            raise FloatingPointError(
+                "GaLore training returned non-finite metrics "
+                f"({', '.join(bad_metrics)}); refusing to save the model."
+            )
+        for history_entry in getattr(getattr(trainer, "state", None), "log_history", []) or []:
+            bad_history = nonfinite_scalar_items(history_entry)
+            if bad_history:
+                raise FloatingPointError(
+                    "GaLore training history contains non-finite metrics "
+                    f"({', '.join(bad_history)}); refusing to save the model."
+                )
+        raise_if_nonfinite_parameters(
+            self.model,
+            context="Final GaLore model",
+        )
         state_step = getattr(getattr(trainer, "state", None), "global_step", None)
         self.final_global_step = int(state_step or self.metrics.get("global_step", 0) or 0)
 
         # GaLore has no adapter — save the full model.
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
+        raise_if_nonfinite_parameters(self.model, context="GaLore model being saved")
         self.model.save_pretrained(str(out))
         self.tokenizer.save_pretrained(str(out))
         with (out / "training_metadata.json").open("w", encoding="utf-8") as f:
@@ -123,6 +159,7 @@ class GaLoreSFTTrainer(BaseTrainer):
                 "base_model": name, "trainer": "galore_sft", "full_finetune": True,
                 "galore": {"target_modules": target_modules, "optim_args": optim_args},
                 "seed": self.seed, "train_metrics": self.metrics,
+                "precision": precision.as_metadata(),
             }, f, indent=2, default=str)
         logger.info("GaLore model saved to %s", out)
         return str(out)

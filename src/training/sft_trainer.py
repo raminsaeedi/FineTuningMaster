@@ -29,6 +29,12 @@ from src.models.hf_utils import (
     model_identifier,
     safe_model_access_error,
 )
+from src.utils.numerics import (
+    nonfinite_scalar_items,
+    raise_if_nonfinite_parameters,
+    validate_checkpoint_weights_finite,
+)
+from src.utils.precision import PrecisionPolicy, resolve_precision
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +104,7 @@ class QLoRASFTTrainer(BaseTrainer):
         self.total_parameters = 0
         self.training_started_at = None
         self.training_duration_seconds = None
+        self.precision: PrecisionPolicy | None = None
 
     # ------------------------------------------------------------------
     def _setup(self) -> None:
@@ -112,6 +119,25 @@ class QLoRASFTTrainer(BaseTrainer):
 
         lora_cfg = _get(self.train_cfg, "lora", {})
         quant_cfg = _get(self.train_cfg, "quantization", {})
+        sft_cfg = _get(self.train_cfg, "sft", {})
+
+        # The model profile is a preference, not a hardware guarantee. This
+        # resolves Qwen3's bfloat16 preference to float16 on Tesla P100 and
+        # also enables the matching Trainer scaler/autocast mode.
+        self.precision = resolve_precision(
+            _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
+            torch,
+            fp16=bool(_get(sft_cfg, "fp16", False)),
+            bf16=bool(_get(sft_cfg, "bf16", False)),
+            logger=logger,
+        )
+        logger.info(
+            "Training precision: requested=%s effective=%s fp16=%s bf16=%s",
+            self.precision.requested_dtype,
+            self.precision.effective_dtype_name,
+            self.precision.fp16,
+            self.precision.bf16,
+        )
 
         # ── Tokenizer ────────────────────────────────────────────────────
         logger.info("Loading tokenizer: %s", name)
@@ -135,9 +161,12 @@ class QLoRASFTTrainer(BaseTrainer):
         bnb_config = None
         if bool(_get(quant_cfg, "load_in_4bit", True)):
             logger.info("Configuring 4-bit NF4 quantization (QLoRA)")
-            compute_dtype = getattr(
-                torch, str(_get(quant_cfg, "bnb_4bit_compute_dtype", "float16"))
+            compute_precision = resolve_precision(
+                _get(quant_cfg, "bnb_4bit_compute_dtype", "float16"),
+                torch,
+                logger=logger,
             )
+            compute_dtype = compute_precision.effective_dtype
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type=str(_get(quant_cfg, "bnb_4bit_quant_type", "nf4")),
@@ -151,9 +180,11 @@ class QLoRASFTTrainer(BaseTrainer):
             self.model = AutoModelForCausalLM.from_pretrained(
                 name,
                 quantization_config=bnb_config,
-                device_map="auto",
+                device_map="auto" if torch.cuda.is_available() else None,
                 **load_kwargs,
-                dtype=torch.float16 if not bnb_config else None,
+                # Never leave dtype=None: Transformers may then honor a
+                # bfloat16 model config even when the active GPU cannot run it.
+                dtype=self.precision.effective_dtype,
             )
         except Exception as exc:
             raise safe_model_access_error(name, exc) from exc
@@ -189,9 +220,23 @@ class QLoRASFTTrainer(BaseTrainer):
         resume_from_checkpoint: Optional[str] = None,
     ) -> str:
         """Run SFT and save the adapter to ``output_dir``; return that path."""
+        from transformers import TrainerCallback
         from trl import SFTConfig, SFTTrainer
 
         self._setup()
+        if self.precision is None:
+            # Keeps the public trainer contract safe for lightweight injected
+            # setup implementations used by tests and downstream callers.
+            import torch
+
+            sft_cfg = _get(self.train_cfg, "sft", {})
+            self.precision = resolve_precision(
+                _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
+                torch,
+                fp16=bool(_get(sft_cfg, "fp16", False)),
+                bf16=bool(_get(sft_cfg, "bf16", False)),
+                logger=logger,
+            )
 
         sft = _get(self.train_cfg, "sft", {})
         adapter_dir = Path(output_dir)
@@ -207,8 +252,8 @@ class QLoRASFTTrainer(BaseTrainer):
             optim=str(_get(sft, "optim", "adamw_torch")),
             warmup_ratio=float(_get(sft, "warmup_ratio", 0.1)),
             weight_decay=float(_get(sft, "weight_decay", 0.01)),
-            fp16=bool(_get(sft, "fp16", False)),
-            bf16=bool(_get(sft, "bf16", False)),
+            fp16=self.precision.fp16,
+            bf16=self.precision.bf16,
             logging_steps=int(_get(sft, "logging_steps", 10)),
             save_steps=int(_get(sft, "save_steps", 50)),
             save_total_limit=int(_get(sft, "save_total_limit", 2)),
@@ -223,21 +268,69 @@ class QLoRASFTTrainer(BaseTrainer):
             packing=bool(_get(sft, "packing", False)),
         )
 
+        owner = self
+
+        class FiniteTrainingCallback(TrainerCallback):
+            """Stop before a bad log/checkpoint can become a saved adapter."""
+
+            def on_log(self, args, state, control, logs=None, **kwargs):
+                del args, state, kwargs
+                logs = logs or {}
+                bad = nonfinite_scalar_items(logs)
+                if bad:
+                    raise FloatingPointError(
+                        "Non-finite training metrics detected "
+                        f"({', '.join(bad)}); refusing to continue or save weights."
+                    )
+                return control
+
+            def on_save(self, args, state, control, **kwargs):
+                del args, state
+                model = kwargs.get("model")
+                if model is None:
+                    model = owner.model
+                raise_if_nonfinite_parameters(
+                    model,
+                    trainable_only=True,
+                    context="Training checkpoint",
+                )
+                return control
+
         trainer = SFTTrainer(
             model=self.model,
             processing_class=self.tokenizer,  # replaces `tokenizer=` in recent TRL
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
+            callbacks=[FiniteTrainingCallback()],
         )
 
         logger.info("Training started…")
         self.training_started_at = time.perf_counter()
         train_kwargs = {}
         if resume_from_checkpoint:
+            validate_checkpoint_weights_finite(resume_from_checkpoint)
             train_kwargs["resume_from_checkpoint"] = resume_from_checkpoint
         result = trainer.train(**train_kwargs)
         self.metrics = result.metrics or {}
+        bad_metrics = nonfinite_scalar_items(self.metrics)
+        if bad_metrics:
+            raise FloatingPointError(
+                "Training returned non-finite metrics "
+                f"({', '.join(bad_metrics)}); refusing to save the adapter."
+            )
+        for history_entry in getattr(getattr(trainer, "state", None), "log_history", []) or []:
+            bad_history = nonfinite_scalar_items(history_entry)
+            if bad_history:
+                raise FloatingPointError(
+                    "Training history contains non-finite metrics "
+                    f"({', '.join(bad_history)}); refusing to save the adapter."
+                )
+        raise_if_nonfinite_parameters(
+            self.model,
+            trainable_only=True,
+            context="Final trainable adapter",
+        )
         state_step = getattr(getattr(trainer, "state", None), "global_step", None)
         self.final_global_step = int(state_step or self.metrics.get("global_step", 0) or 0)
         self.training_duration_seconds = round(time.perf_counter() - self.training_started_at, 3)
@@ -249,6 +342,11 @@ class QLoRASFTTrainer(BaseTrainer):
     # ------------------------------------------------------------------
     def _save(self, adapter_dir: Path) -> None:
         """Persist LoRA adapter, tokenizer and training metadata."""
+        raise_if_nonfinite_parameters(
+            self.model,
+            trainable_only=True,
+            context="Adapter being saved",
+        )
         adapter_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Saving LoRA adapter to %s", adapter_dir)
         self.model.save_pretrained(str(adapter_dir))
@@ -298,6 +396,7 @@ class QLoRASFTTrainer(BaseTrainer):
                 "dtype": _get(self.model_cfg, "dtype"),
                 "fp16": _get(sft, "fp16"),
                 "bf16": _get(sft, "bf16"),
+                "effective": self.precision.as_metadata() if self.precision else None,
             },
             "trainable_parameters": self.trainable_parameters,
             "total_parameters": self.total_parameters,

@@ -24,6 +24,8 @@ from src.models.hf_utils import (
     model_identifier,
     safe_model_access_error,
 )
+from src.utils.numerics import raise_if_nonfinite_parameters
+from src.utils.precision import resolve_precision
 
 logger = logging.getLogger(__name__)
 
@@ -56,18 +58,15 @@ class HFCausalModel:
         trust_remote_code = bool(_get(self.cfg, "trust_remote_code", True))
         max_seq_length = int(_get(self.cfg, "max_seq_length", 2048))
 
-        on_gpu = torch.cuda.is_available()
         dtype_str = _get(self.cfg, "dtype") or _get(self.cfg, "torch_dtype", "float16")
-        if not on_gpu:
-            dtype = torch.float32  # CPU generation needs float32
-            device_map = None
-        else:
-            dtype = {
-                "bfloat16": torch.bfloat16,
-                "float32": torch.float32,
-                "float16": torch.float16,
-            }.get(str(dtype_str), torch.float16)
-            device_map = "auto"
+        precision = resolve_precision(dtype_str, torch, logger=logger)
+        logger.info(
+            "Using %s for inference (requested %s)",
+            precision.effective_dtype_name,
+            precision.requested_dtype,
+        )
+        dtype = precision.effective_dtype
+        device_map = "auto" if torch.cuda.is_available() else None
 
         # Tokenizer comes from the adapter dir when present (it was saved there).
         tokenizer_src = adapter_path if adapter_path else name
@@ -102,6 +101,13 @@ class HFCausalModel:
 
             logger.info("Applying PEFT adapter from %s", adapter_path)
             self.model = PeftModel.from_pretrained(self.model, str(adapter_path))
+            # A corrupted adapter can otherwise fail much later inside
+            # ``torch.multinomial`` with a misleading CUDA device-side assert.
+            raise_if_nonfinite_parameters(
+                self.model,
+                name_contains="lora_",
+                context=f"PEFT adapter {adapter_path}",
+            )
 
         self.model.eval()
         return self
