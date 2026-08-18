@@ -26,6 +26,7 @@ from src.core.registry import TRAINERS
 from src.utils.config_hash import hash_config
 from src.models.hf_utils import (
     from_pretrained_kwargs,
+    load_pretrained_with_cache_repair,
     model_identifier,
     safe_model_access_error,
 )
@@ -150,10 +151,15 @@ class QLoRASFTTrainer(BaseTrainer):
             cache_dir=cache_dir,
         )
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
+            self.tokenizer = load_pretrained_with_cache_repair(
+                AutoTokenizer.from_pretrained,
                 name,
-                padding_side="right",  # required for SFT causal LM
-                **load_kwargs,
+                kwargs={
+                    **load_kwargs,
+                    "padding_side": "right",  # required for SFT causal LM
+                },
+                logger=logger,
+                component="training tokenizer",
             )
         except Exception as exc:
             raise safe_model_access_error(name, exc) from exc
@@ -181,14 +187,19 @@ class QLoRASFTTrainer(BaseTrainer):
         # ── Base model ───────────────────────────────────────────────────
         logger.info("Loading model: %s", name)
         try:
-            self.model = AutoModelForCausalLM.from_pretrained(
+            self.model = load_pretrained_with_cache_repair(
+                AutoModelForCausalLM.from_pretrained,
                 name,
-                quantization_config=bnb_config,
-                device_map="auto" if torch.cuda.is_available() else None,
-                **load_kwargs,
-                # Never leave dtype=None: Transformers may then honor a
-                # bfloat16 model config even when the active GPU cannot run it.
-                dtype=self.precision.effective_dtype,
+                kwargs={
+                    **load_kwargs,
+                    "quantization_config": bnb_config,
+                    "device_map": "auto" if torch.cuda.is_available() else None,
+                    # Never leave dtype=None: Transformers may then honor a
+                    # bfloat16 model config even when the active GPU cannot run it.
+                    "dtype": self.precision.effective_dtype,
+                },
+                logger=logger,
+                component="training model",
             )
         except Exception as exc:
             raise safe_model_access_error(name, exc) from exc

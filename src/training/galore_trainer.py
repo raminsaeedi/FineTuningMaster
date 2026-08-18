@@ -20,6 +20,7 @@ from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
+from src.models.hf_utils import load_pretrained_with_cache_repair
 from src.training.sft_trainer import _as_list, _get
 from src.utils.numerics import (
     nonfinite_scalar_items,
@@ -68,18 +69,31 @@ class GaLoreSFTTrainer(BaseTrainer):
             logger=logger,
         )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            name, trust_remote_code=True, padding_side="right", cache_dir=cache_dir
+        self.tokenizer = load_pretrained_with_cache_repair(
+            AutoTokenizer.from_pretrained,
+            name,
+            kwargs={
+                "trust_remote_code": True,
+                "padding_side": "right",
+                "cache_dir": cache_dir,
+            },
+            logger=logger,
+            component="GaLore tokenizer",
         )
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.model = load_pretrained_with_cache_repair(
+            AutoModelForCausalLM.from_pretrained,
             name,
-            device_map="auto" if torch.cuda.is_available() else None,
-            trust_remote_code=True,
-            dtype=precision.effective_dtype,
-            cache_dir=cache_dir,
+            kwargs={
+                "device_map": "auto" if torch.cuda.is_available() else None,
+                "trust_remote_code": True,
+                "dtype": precision.effective_dtype,
+                "cache_dir": cache_dir,
+            },
+            logger=logger,
+            component="GaLore model",
         )
         align_fp16_trainable_parameters(
             self.model,

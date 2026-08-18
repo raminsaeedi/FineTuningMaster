@@ -21,6 +21,7 @@ from typing import Any, Mapping, Optional
 from src.models.hf_utils import (
     chat_template_kwargs,
     from_pretrained_kwargs,
+    load_pretrained_with_cache_repair,
     model_identifier,
     safe_model_access_error,
 )
@@ -77,7 +78,13 @@ class HFCausalModel:
         if adapter_path:
             tokenizer_kwargs.pop("revision", None)
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_src, **tokenizer_kwargs)
+            self.tokenizer = load_pretrained_with_cache_repair(
+                AutoTokenizer.from_pretrained,
+                tokenizer_src,
+                kwargs=tokenizer_kwargs,
+                logger=logger,
+                component="inference tokenizer",
+            )
         except Exception as exc:
             raise safe_model_access_error(name, exc) from exc
         if self.tokenizer.pad_token is None:
@@ -91,7 +98,13 @@ class HFCausalModel:
         )
         model_kwargs.update(device_map=device_map, dtype=dtype)
         try:
-            self.model = AutoModelForCausalLM.from_pretrained(name, **model_kwargs)
+            self.model = load_pretrained_with_cache_repair(
+                AutoModelForCausalLM.from_pretrained,
+                name,
+                kwargs=model_kwargs,
+                logger=logger,
+                component="inference model",
+            )
         except Exception as exc:
             raise safe_model_access_error(name, exc) from exc
 

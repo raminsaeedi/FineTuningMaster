@@ -10,7 +10,11 @@ from pathlib import Path
 import pytest
 
 from src.evaluation.aggregator import collect_rows
-from src.models.hf_utils import chat_template_kwargs, from_pretrained_kwargs
+from src.models.hf_utils import (
+    chat_template_kwargs,
+    from_pretrained_kwargs,
+    load_pretrained_with_cache_repair,
+)
 from src.training.sft_trainer import build_lora_kwargs
 from src.utils.artifacts import experiment_dir, write_run_metadata
 from src.utils.config import load_cfg
@@ -85,6 +89,42 @@ def test_hf_token_is_forwarded_only_to_loader_kwargs(monkeypatch):
     cfg = {"hf_id": "meta-llama/Llama-3.1-8B-Instruct", "revision": None}
     kwargs = from_pretrained_kwargs(cfg)
     assert kwargs["token"] == "hf-test-secret"
+
+
+def test_hf_loader_retries_invalid_cached_json_with_force_download(tmp_path):
+    calls = []
+
+    def loader(name, **kwargs):
+        calls.append((name, kwargs))
+        if len(calls) == 1:
+            raise OSError(
+                f"It looks like the config file at '{tmp_path / 'config.json'}' "
+                "is not a valid JSON file."
+            )
+        return "loaded"
+
+    result = load_pretrained_with_cache_repair(
+        loader,
+        "Qwen/Qwen3-1.7B",
+        kwargs={"cache_dir": str(tmp_path)},
+    )
+
+    assert result == "loaded"
+    assert len(calls) == 2
+    assert calls[1][1]["force_download"] is True
+
+
+def test_hf_loader_does_not_retry_unrelated_access_error():
+    calls = []
+
+    def loader(name, **kwargs):
+        calls.append((name, kwargs))
+        raise OSError("403 Forbidden: gated model access denied")
+
+    with pytest.raises(OSError, match="gated model access denied"):
+        load_pretrained_with_cache_repair(loader, "meta-llama/Llama-3.1-8B")
+
+    assert len(calls) == 1
 
 
 def test_hf_token_never_enters_run_artifacts(tmp_path, monkeypatch):

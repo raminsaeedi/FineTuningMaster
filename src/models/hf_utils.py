@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 
 class ModelAccessError(RuntimeError):
@@ -55,6 +55,62 @@ def from_pretrained_kwargs(
     if token:
         kwargs["token"] = token
     return kwargs
+
+
+_CACHE_CORRUPTION_MARKERS = (
+    "jsondecodeerror",
+    "expecting value",
+    "is not a valid json file",
+    "unexpected end of json input",
+)
+
+
+def is_corrupt_hf_cache_error(exc: BaseException) -> bool:
+    """Identify invalid cached Hub metadata without masking auth failures."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        message = str(current).lower()
+        if any(marker in message for marker in _CACHE_CORRUPTION_MARKERS):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def load_pretrained_with_cache_repair(
+    loader: Callable[..., Any],
+    model_name: str,
+    *,
+    kwargs: Mapping[str, Any] | None = None,
+    logger: Any = None,
+    component: str = "Hugging Face asset",
+) -> Any:
+    """Load a Hub asset once, then force-refresh only on corrupt-cache errors.
+
+    Interrupted downloads can leave an empty or truncated ``config.json`` in
+    the local Hub snapshot. A normal ``from_pretrained`` call trusts that file
+    and fails before it reaches the network. Retry with ``force_download`` for
+    JSON/cache corruption; authentication, permissions, and unrelated model
+    errors still fail immediately.
+    """
+    load_kwargs = dict(kwargs or {})
+    try:
+        return loader(model_name, **load_kwargs)
+    except Exception as exc:
+        if not is_corrupt_hf_cache_error(exc):
+            raise
+
+        if logger is not None:
+            logger.warning(
+                "Corrupt Hugging Face cache detected for %s (%s); "
+                "retrying with force_download=True",
+                model_name,
+                component,
+            )
+        retry_kwargs = dict(load_kwargs)
+        retry_kwargs["force_download"] = True
+        return loader(model_name, **retry_kwargs)
 
 
 def chat_template_kwargs(model_cfg: Mapping[str, Any]) -> dict[str, Any]:

@@ -49,6 +49,7 @@ from src.utils.adapter import resolve_adapter_output_path  # noqa: E402
 from src.models.hf_utils import (  # noqa: E402
     chat_template_kwargs,
     from_pretrained_kwargs,
+    load_pretrained_with_cache_repair,
     model_identifier,
     safe_model_access_error,
 )
@@ -387,7 +388,13 @@ def load_and_format_train_dataset(cfg, debug: bool):
         cache_dir=cfg.model.get("cache_dir"),
     )
     try:
-        tokenizer = AutoTokenizer.from_pretrained(name, **tokenizer_kwargs)
+        tokenizer = load_pretrained_with_cache_repair(
+            AutoTokenizer.from_pretrained,
+            name,
+            kwargs=tokenizer_kwargs,
+            logger=logging.getLogger(__name__),
+            component="training tokenizer",
+        )
     except Exception as exc:
         raise safe_model_access_error(name, exc) from exc
     if tokenizer.pad_token is None:
