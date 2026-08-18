@@ -192,3 +192,36 @@ def resolve_precision(
         fp16=False,
         bf16=False,
     )
+
+
+def align_fp16_trainable_parameters(
+    model: Any,
+    target_dtype: Any,
+    *,
+    logger: Any = None,
+) -> int:
+    """Align BF16 trainable parameters before using an FP16 GradScaler.
+
+    A model profile can request BF16 while an older CUDA GPU, such as Tesla
+    T4/P100, resolves the Trainer to FP16. Some PEFT versions preserve the
+    model-config dtype when creating LoRA parameters, leaving trainable BF16
+    parameters inside an FP16 training run. PyTorch's FP16 GradScaler cannot
+    unscale those BF16 gradients on CUDA. Frozen quantized/base parameters are
+    intentionally untouched.
+    """
+    if str(target_dtype).lower() not in {"float16", "torch.float16"}:
+        return 0
+
+    changed = 0
+    for _, parameter in model.named_parameters():
+        if not parameter.requires_grad or str(parameter.dtype) != "torch.bfloat16":
+            continue
+        parameter.data = parameter.data.to(dtype=target_dtype)
+        changed += 1
+
+    if changed and logger is not None:
+        logger.info(
+            "Aligned %d BF16 trainable parameter tensors to FP16 for GradScaler",
+            changed,
+        )
+    return changed

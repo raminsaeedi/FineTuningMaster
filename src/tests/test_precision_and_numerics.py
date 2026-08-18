@@ -11,7 +11,11 @@ from src.utils.numerics import (
     raise_if_nonfinite_parameters,
     validate_checkpoint_weights_finite,
 )
-from src.utils.precision import cuda_supports_bfloat16, resolve_precision
+from src.utils.precision import (
+    align_fp16_trainable_parameters,
+    cuda_supports_bfloat16,
+    resolve_precision,
+)
 
 
 class _FakeCuda:
@@ -80,6 +84,25 @@ def test_cpu_always_uses_float32():
     assert policy.effective_dtype == "float32"
     assert policy.fp16 is False
     assert policy.bf16 is False
+
+
+def test_fp16_policy_converts_bfloat16_trainable_parameters():
+    torch = pytest.importorskip("torch")
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.lora = torch.nn.Parameter(torch.ones(2, dtype=torch.bfloat16))
+            self.frozen = torch.nn.Parameter(
+                torch.ones(2, dtype=torch.bfloat16), requires_grad=False
+            )
+
+    model = Model()
+    changed = align_fp16_trainable_parameters(model, torch.float16)
+
+    assert changed == 1
+    assert model.lora.dtype == torch.float16
+    assert model.frozen.dtype == torch.bfloat16
 
 
 def test_nonfinite_trainable_weights_are_reported_and_rejected():

@@ -1,12 +1,12 @@
-# Dataset Construction History and Methodology: From nvBench to the Frozen `dashboard_v3` Dataset
+# Dataset Construction History and Methodology: From nvBench to the Frozen `dashboard_v4` Dataset
 
 ## Scope and evidential basis
 
-This document reconstructs the repository’s documented data-construction process from the downloaded nvBench archive to the frozen `dashboard_v3` package. The reconstruction is based on the source manifests and README files, the implementation in `src/data_pipeline/`, the data and enrichment configuration files, the historical staging manifests, validation and leakage reports, and the final artifacts under `data/frozen/dashboard_v3/`. The purpose is to describe the scientific construction logic and its historical progression, rather than to reproduce operational commands or describe files that are unrelated to dataset provenance.
+This document reconstructs the repository’s documented data-construction process from the downloaded nvBench archive, through the source-faithful `dashboard_v3` predecessor, to the current frozen `dashboard_v4` package. The reconstruction is based on the source manifests and README files, the implementation in `src/data_pipeline/`, the v3 and v4 configuration files, the historical staging manifests, generation and repair reports, validation and leakage reports, and the final artifacts under `data/frozen/dashboard_v4/`. The purpose is to describe the scientific construction logic and its historical progression, rather than to reproduce operational commands or describe files that are unrelated to dataset provenance.
 
-The final authoritative artifact is `data/frozen/dashboard_v3/`. Its manifest identifies the source as nvBench, the source version as `nvbench_large_v2`, and its status as `PASS_DASHBOARD_V3_FROZEN_READY_FOR_EXPERIMENTS`. The final package contains 1,281 training records, 264 validation records, 274 held-out test records, and a separate 40-item human-evaluation file. The repository’s `PROJECT_COMMANDS.md`, `src/config/data/dashboard_v3.yaml`, and `data/frozen/dashboard_v3/dataset_card.md` all instruct downstream experiments to use this package and not to regenerate or replace it.
+The current authoritative experiment configuration is `src/config/data/dashboard_v4.yaml`, which names the dataset `dashboard_v4` and points to `data/frozen/dashboard_v4/`. The exact manifest stored in that directory identifies the published revision as `dashboard_v4_1`, its parent as `dashboard_v4`, and its status as `PASS_DASHBOARD_V4_GENERATED_FIELDS_SEMANTICALLY_CLEAN`. The current package contains 2,932 training records, 613 validation records, 274 held-out test records, and a separate 40-item human-evaluation file. Thus, 3,819 records belong to the modeling splits, while 3,859 rows/items are represented when the separate human-evaluation artifact is counted. The v4 package is composed of the unchanged 1,819-record v3 modeling corpus plus exactly 2,000 AI-generated train/validation records; the test and human-evaluation artifacts remain the v3 hold-outs.
 
-The repository contains several older synthetic-data and freezing workflows, including `experiments/scripts/freeze_dataset_v2.py`. That script freezes the older synthetic `dashboard_v2` workflow and is explicitly classified as historical in `PROJECT_COMMANDS.md`; it is not the writer for the final nvBench-derived `dashboard_v3` package. Consequently, the final freeze is reconstructed here from the final manifest, hashes, reports, and freeze inputs. The current tree does not expose a separate, dedicated `dashboard_v3` freeze-writer script, which is an important provenance limitation noted again at the end of this document.
+The name distinction is important. `dashboard_v4` is the operational dataset version and directory name, whereas `dashboard_v4_1` is the exact frozen manifest revision currently present in that directory. The original v4 generator created the 2,000-record augmentation; the subsequent v4.1 semantic-repair workflow revised only six presentation fields in those generated records. The original v3 records, the protected analytical fields, the held-out test file, and the human-evaluation file were preserved. The older `dashboard_v2` synthetic workflow remains historical and is not part of the v4 lineage.
 
 ## 1. Original source data and local source registration
 
@@ -29,6 +29,14 @@ The normalized record preserves source evidence in `brief.extra.provenance`. Thi
 The extraction code is deliberately conservative. It parses aggregate intent, nested aggregates, SELECT projections, GROUP BY terms, filters, ordering, limits, HAVING conditions, time functions, and VQL `BIN` expressions. Simple `AND` filters can be represented; `OR`, subqueries, and unparseable conditions fail closed. A single ORDER BY key is preserved with its direction; multiple or otherwise unrepresentable sorts are rejected. LIMIT/TOP and HAVING are represented separately so that a limit or condition is not accidentally attached to the wrong aggregation scope. Malformed binning and conflicting aggregate interpretations are rejected. SQL GROUP BY fields are preserved as constraints, while aggregate expressions and computed terms are not falsely promoted to physical database columns.
 
 The natural-language text is used for narrow consistency diagnostics, not as authority to rewrite the query. The extractor’s comments document that naive keyword searches produced false positives because words such as “total” can be intensifiers and “number of” can occur with unrelated aggregates. Accordingly, required-dimension, count-threshold, and time-grain checks are narrow. A source field is not invented merely because it occurs in a natural-language request. Physical source fields, projected fields, group/filter/sort/time fields, and database types are retained; aggregate expressions are kept as aggregate evidence rather than inserted into `brief.columns`.
+
+### 2.1 Canonical record contract and validation standard
+
+Every modelable example is a `GoldItem` with the required top-level fields `item_id`, `brief`, and `recommendation`; `split` is optional and may be `train`, `val`, `test`, or null. The brief contract contains `users` as a string, `goals` and `kpis` as string lists, `columns` as a list of string-valued field descriptors, optional string `constraints`, and an extensible `extra` object for provenance, lineage, quality, generation, and repair metadata. The recommendation contract contains the six required top-level concepts used by scoring: `context_summary`, `kpi_chart_mapping`, `layout`, `styling`, `interactions`, and `rationales`. The published JSON schema and Pydantic models allow additional properties at these extension points, but the declared types and analytical vocabularies remain mandatory.
+
+The controlled analytical vocabulary has nine task types: `trend`, `comparison`, `composition`, `distribution`, `correlation`, `ranking`, `deviation`, `part_to_whole`, and `flow`. The schema permits 17 chart types: `line`, `bar`, `stacked_bar`, `grouped_bar`, `area`, `pie`, `donut`, `scatter`, `heatmap`, `histogram`, `box`, `kpi_card`, `table`, `gauge`, `sankey`, `treemap`, and `map`. Each KPI mapping must carry an enumerated `task_type` and `chart_type`; its `kpi`, `alternatives`, and free-form `encoding` remain available for record-specific analytical detail. The v4 generator uses only task-compatible subsets of this vocabulary, so permitted schema values such as `kpi_card`, `gauge`, and `map` are not evidence that those charts occur in the generated v4 augmentation.
+
+The repository applies validation in layers rather than treating JSON parseability as sufficient. Strict JSONL reading rejects malformed JSON and non-object rows. `validate_record` then checks the `GoldItem` Pydantic contract, independently checks raw task/chart enum values, requires non-empty `users`, `goals`, `kpis`, and `columns`, and requires all six recommendation fields to be present and non-empty through `completeness_fraction`. The full-schema metric additionally validates the raw extracted model output with Pydantic, without lenient enum normalization; therefore a near-miss such as `column chart` is invalid even if a later inference parser could map it to `bar`. This same distinction is reported for model evaluation as `required_keys_rate` (presence only), `schema_validity_rate` (full typed contract), and `completeness_score` (present and non-empty required fields).
 
 ## 3. The initial pilots: broad acceptance exposed hidden source problems
 
@@ -86,6 +94,14 @@ The final large-v2 validation report passes structural, semantic, duplicate, lea
 
 The final large-v2 chart distribution is 1,379 bar, 109 line, 242 pie, 13 scatter, and 76 stacked-bar records. The corresponding task distribution in the frozen validation report is 1,379 comparison, 109 trend, 242 part-to-whole, 13 correlation, and 76 composition. The imbalance is a consequence of the surviving Tier-A supply and the source-group, deduplication, database-cap, and leakage constraints. In particular, scatter remained scarce; the pipeline records this scarcity rather than manufacturing additional scatter examples.
 
+### 6.1 Explicit admission and allocation rules for the chosen v3 corpus
+
+The final v3 selection is governed by hard gates and deterministic allocation rules. A record is eligible only when it is in the Tier-A pool, has a quality score of at least 90, has no mandatory failed rule, has a non-empty normalized source goal, and survives exact source-record deduplication, evaluation-leakage exclusion, normalized-goal deduplication, source-group controls, the configured per-database cap of 100, and the character 3-gram near-duplicate gate at Jaccard similarity 0.8. The builder never promotes Tier B or Tier C records merely to fill a requested quota. This is why the final chart distribution is source- and evidence-limited rather than perfectly balanced.
+
+The allocation is applied to the survivable supply, not to the raw candidate count. Every survivable scatter record is considered first because scatter is the scarce class. The remaining target is divided by the deterministic 40/20/20/20 rule across bar, line, pie, and stacked-bar, with bar capped at 50% of the requested total. If a chart pool is smaller than its provisional quota, the deficit is redistributed by a largest-remainder procedure to charts with remaining untried supply. The process stops at the preferred target of 1,819 or, if the unique Tier-A supply is exhausted, at the minimum acceptable target of 1,800; quality rules are never relaxed in either case. The v2 rebuild additionally selects one row per exact `source_record_id`, retains a previously selected valid row when possible, and uses the seeded hash as the deterministic tie-breaker.
+
+The final split is group-safe. Whole `source_group_id` values are assigned with seed 42 using the `nvbench_large_v2_split_v1_group_safe` procedure and nominal validation/test fractions of 0.15/0.15; the observed 70.42%/14.51%/15.06% proportions are accepted because group integrity takes precedence over exact percentages. At most two records from one source group can be retained, and the second record requires both sufficiently different wording and a different analytical semantic signature. The selected records therefore satisfy a hierarchy of constraints: source validity first, then analytical suitability, then group and leakage isolation, then deterministic coverage allocation.
+
 ## 7. Deduplication, leakage control, and split preservation
 
 Deduplication operates at several levels because a single identifier check is not sufficient for this source. The pipeline checks exact item IDs, source-record IDs, source groups, normalized goals, brief fingerprints, and character 3-gram near duplicates. Source groups are formed before split assignment and before chart stratification. The large-dataset policy permits at most two records per source group only when their semantic signatures differ; this preserves limited within-source variation without allowing a source family to dominate a split.
@@ -93,6 +109,8 @@ Deduplication operates at several levels because a single identifier check is no
 Leakage checks compare training, validation, test, human-evaluation, and other evaluation artifacts using item IDs, source-record IDs, source groups, brief fingerprints, and near-duplicate similarity where applicable. The large-v2 split algorithm is deterministic with seed 42 and assigns whole source groups to train, validation, or test. The nominal 70/15/15 proportions are subordinate to group integrity; the actual final proportions are approximately 70.42%, 14.51%, and 15.06%. The final `data/frozen/dashboard_v3/reports/leakage_report.json` reports no train/test, validation/test, train/validation source-group, or human-evaluation overlap. The final validation report also records zero duplicate IDs and zero duplicate brief fingerprints.
 
 The 40 human-evaluation items are selected from the held-out test split using a deterministic, coverage-oriented sampler. They remain separate from the trainable records and are copied into the final frozen package as a CSV with blank review fields before human review. They are not used as enrichment inputs, prompt-selection examples, or hyperparameter-selection data. This distinction is essential: the human-evaluation file is an evaluation instrument, not an additional training split.
+
+The sampler is implemented in `select_human_eval_sample` and uses seed 42 to order test records by `md5("42:humaneval:" + item_id)`. It first includes up to ten scatter records, selecting score-spread representatives when more than ten exist; then it includes both records from one two-record source group and one record from a one-record source group when those groups exist. It next adds the lowest- and highest-scoring test records, one record with each available feature among filters, sorting, grouping, and time grain, and then fills the remaining capacity by round-robin chart coverage across bar, line, pie, and stacked-bar while preferring databases not yet represented. Any remaining slots are filled from the deterministic order without removing the earlier coverage guarantees. The final rows are sorted by `item_id`, and all review columns are required to remain blank at freeze time.
 
 ## 8. LLM enrichment as a constrained presentation layer
 
@@ -114,17 +132,17 @@ The repository also contains `src/data_pipeline/hybrid_dataset.py` and `data/sta
 
 The hybrid package is not, however, the final `dashboard_v3` freeze. The final manifest’s freeze inputs point to `data/staging/enrichment/full_train_val_v1/final/train_accepted_final.jsonl` and `val_accepted_final.jsonl`, together with the un-enriched large-v2 test and human-evaluation artifacts; it does not point to `hybrid_dataset_v1`. The final counts are consequently 1,281 and 264 rather than 1,299 and 267. The repository documents the existence and validation of the hybrid candidate but does not provide a separate narrative explaining the final decision to omit its 21 synthetic records. The evidence-supported conclusion is therefore that the final frozen scope is nvBench-only, while the hybrid package remains a validated but non-authoritative staging branch.
 
-## 10. Final freeze, validation, and provenance
+## 10. Historical `dashboard_v3` freeze, validation, and provenance
 
-The final package was frozen at `2026-08-07T13:37:12.618116+00:00`, according to `data/frozen/dashboard_v3/manifest.json`. The manifest records status `PASS_DASHBOARD_V3_FROZEN_READY_FOR_EXPERIMENTS`, source dataset `nvBench`, source dataset version `nvbench_large_v2`, schema version `GoldItem`, and enrichment specification `phase3-enrichment-v1`. The freeze inputs are the final accepted enriched train and validation JSONL files, `data/staging/dashboard_v3/nvbench_large_v2/test.jsonl`, and the 40-item test-derived human-evaluation CSV.
+This section describes the frozen `dashboard_v3` predecessor, not the current v4 training package. The v3 package was frozen at `2026-08-07T13:37:12.618116+00:00`, according to `data/frozen/dashboard_v3/manifest.json`. The manifest records status `PASS_DASHBOARD_V3_FROZEN_READY_FOR_EXPERIMENTS`, source dataset `nvBench`, source dataset version `nvbench_large_v2`, schema version `GoldItem`, and enrichment specification `phase3-enrichment-v1`. The freeze inputs are the final accepted enriched train and validation JSONL files, `data/staging/dashboard_v3/nvbench_large_v2/test.jsonl`, and the 40-item test-derived human-evaluation CSV.
 
 The manifest explicitly partitions lineage. The source-grounded fields are `brief.goals`, `brief.kpis`, `brief.columns`, `brief.constraints`, `brief.extra.provenance`, and `recommendation.kpi_chart_mapping`. The deterministically derived fields are `brief.extra.task_inference`, `brief.extra.lineage.task_type`, and `brief.extra.lineage.kpi_selection`. The six enrichment fields are `users`, `context_summary`, `layout`, `styling`, `interactions`, and `rationales`, all marked `llm_generated`. The enrichment generation metadata records `deepseek-v4-flash-sovereign`, reasoning effort `xhigh`, temperature 0.0, and `not_gold: true`.
 
 The final validation artifacts establish the following controls. All train, validation, and test records satisfy the JSON/schema and non-empty-field requirements. The train and validation enrichment fields are complete. Duplicate item IDs are absent. Source-backed analytical fields are unchanged by enrichment. Train/test and validation/test leakage is zero, train/validation source-group leakage is zero, and the human-evaluation items do not collide with train or validation. The test file and human-evaluation file were preserved exactly; they were read only for collision and hash verification during the pre-freeze audit. `data/frozen/dashboard_v3/hashes.json` records SHA-256 hashes for the frozen files, while the manifest excludes raw API responses, secrets, `.env` files, caches, temporary generations, and staging artifacts from the final package.
 
-The final validation report summarizes the record-level distributions as comparison 1,379, part-to-whole 242, trend 109, composition 76, and correlation 13. It confirms that only train and validation are trainable; the test file, human-evaluation file, robustness sets, and other evaluation material are excluded by `src/config/data/dashboard_v3.yaml`. The resulting package is therefore not merely a directory of JSONL files but a versioned, hashed, lineage-labelled dataset with an explicit evaluation boundary.
+The final validation report summarizes the record-level distributions as comparison 1,379, part-to-whole 242, trend 109, composition 76, and correlation 13. It confirms that only train and validation are trainable; the test file, human-evaluation file, robustness sets, and other evaluation material are excluded by `src/config/data/dashboard_v3.yaml`. The resulting v3 predecessor package is therefore not merely a directory of JSONL files but a versioned, hashed, lineage-labelled dataset with an explicit evaluation boundary. That boundary is carried forward unchanged into v4.
 
-## 11. Consolidated final composition
+## 11. Historical `dashboard_v3` composition
 
 | Partition or artifact |          Count | Provenance and role                                                                                  |
 | --------------------- | -------------: | ---------------------------------------------------------------------------------------------------- |
@@ -137,7 +155,200 @@ The final validation report summarizes the record-level distributions as compari
 
 The final chart composition is 1,379 bar, 109 line, 242 pie, 13 scatter, and 76 stacked-bar records. The final source-group split is 784 groups in train, 167 in validation, and 167 in test. These counts and group memberships are taken from the final large-v2 manifest and the final frozen validation artifacts, not inferred from the raw object count.
 
-## 12. Scientific limitations and caveats
+## 12. Dashboard_v4 augmentation, semantic repair, and current composition
+
+### 12.1 Release identity and motivation
+
+The operational v4 configuration is `src/config/data/dashboard_v4.yaml`. It keeps the dataset name and experiment identity as `dashboard_v4`, points train, validation, test, and human-evaluation paths to `data/frozen/dashboard_v4/`, and declares `dashboard_v4_1` as the exact frozen manifest revision. The manifest at `data/frozen/dashboard_v4/manifest.json` records the freeze timestamp `2026-08-14T01:30:11.443219+00:00`, parent dataset `dashboard_v4`, schema `GoldItem`, repair version `dashboard_v4_1-semantic-repair-v1`, repair model `gpt-5.6-luna`, and repair mode `codex_agent_context_aware`. This is why the report refers to the current release as the `dashboard_v4` package with a `dashboard_v4_1` manifest revision.
+
+The v4 augmentation was introduced because the source-grounded v3 train/validation pool contained 1,545 records but covered only five task types and five chart types: comparison/bar (1,171), part-to-whole/pie (206), trend/line (92), composition/stacked-bar (65), and correlation/scatter (11). The v3 train/validation pool contained 316 records with explicit filters, 83 grouped records, 275 temporal records, and no multi-KPI records. That distribution was valid for preserving nvBench provenance, but it was narrow for a dashboard-design model. The purpose of v4 was therefore to broaden supervision to additional dashboard tasks, visual encodings, temporal and grouped views, multi-KPI layouts, and operational domains while preserving the same held-out test set for a fair v3-versus-v4 comparison.
+
+### 12.2 Controlled generation of the 2,000-record augmentation
+
+The generation procedure is implemented in `experiments/scripts/generate_dashboard_v4.py`. It reads only the frozen v3 train and validation files as construction context; it does not read the v3 test file or the 40 human-evaluation items to generate records. The run used generation specification `dashboard_v4-generation-v1`, model `gpt-5.6-luna`, mode `codex_agent`, seed 42, batch size 40, and 50 batches. It attempted 2,915 candidates, accepted exactly 2,000, and rejected 915. All 915 rejections were near-duplicate rejections under the character 3-gram similarity threshold of 0.8. The accepted records were assigned 1,651 to train and 349 to validation. Each generated record is marked `source=ai_generated`, carries a unique `generation_group_id`, records `not_gold=true`, and is explicitly separated from the nvBench source lineage.
+
+The generator used nine target task families. The target allocation was 300 correlation records, 300 comparison records, 250 trend records, 250 distribution records, 200 ranking records, 200 part-to-whole records, 200 composition records, 150 flow records, and 150 deviation records. The resulting records cover 14 chart types: 351 table, 275 bar, 223 area, 163 heatmap, 137 scatter, 134 line, 127 box, 123 histogram, 105 grouped-bar, 93 stacked-bar, 76 donut, 69 sankey, 68 treemap, and 56 pie. The generator also covered 20 operational domains, with the exact generated-domain counts shown below.
+
+| Generated domain           |   Records |
+| -------------------------- | --------: |
+| Education                  |       118 |
+| Agriculture                |       116 |
+| Insurance Claims           |       116 |
+| Scientific Research        |       114 |
+| Manufacturing              |       109 |
+| Healthcare Operations      |       108 |
+| Public Safety              |       108 |
+| Energy and Utilities       |       106 |
+| Aviation Operations        |       105 |
+| Hospitality                |        99 |
+| Human Resources            |        99 |
+| SaaS Product Analytics     |        99 |
+| E-Commerce                 |        94 |
+| Finance and Banking        |        93 |
+| Media and Streaming        |        93 |
+| Environmental Monitoring   |        92 |
+| Government Services        |        92 |
+| Telecommunications         |        83 |
+| Cybersecurity Operations   |        79 |
+| Logistics and Supply Chain |        77 |
+| **Total**                  | **2,000** |
+
+The generated feature profile confirms that the augmentation changed the scope of the supervision rather than merely increasing row count. Of the 2,000 generated records, 1,215 contain explicit filters, 1,373 use grouping, 1,229 contain temporal information, and 842 contain multiple KPI mappings. Their aggregation counts are COUNT 410, MIN 331, SUM 382, AVG 457, and MAX 420. In comparison, the v3 train/validation base profile contained 316 filtered records, 83 grouped records, 275 temporal records, and zero multi-KPI records. The corresponding base aggregation counts were COUNT 1,074, SUM 104, AVG 154, MAX 23, MIN 18, and 172 records without an aggregation value.
+
+### 12.2.1 Generation catalog and deterministic sampling standard
+
+The generator is not an unconstrained random text sampler. Its specification is versioned as `dashboard_v4-generation-v1`, its generated-record quality rules as `dashboard_v4_quality_v1`, and its generated split algorithm as `dashboard_v4_group_train_val_v1`. The generation run uses model `gpt-5.6-luna`, mode `codex_agent`, seed 42, batch size 40, and 50 batches. The generator’s domain catalog contains 20 operational domains. Each `Domain` template supplies an audience catalog, typed measures with labels/fields/kinds, typed dimensions with allowed values, a time field and label, refresh frequencies, and a domain palette. The exact domain definitions remain executable source in `experiments/scripts/generate_dashboard_v4.py`; the resulting domain counts are reported above rather than inferred from names in the generated text.
+
+The scenario catalog contains 20 decision lenses, 10 review contexts, 20 operating states, 10 planning windows, six time grains (`day`, `week`, `month`, `quarter`, `year`, `weekday`), six themes (`minimal`, `light`, `high_contrast`, `clinical`, `editorial`, `dark`), and seven layout patterns (`single_focus`, `top_kpi_plus_detail`, `two_column_grid`, `left_summary_right_detail`, `small_multiples`, `comparison_strip`, `flow_overview_with_detail`). Twelve deterministic feature profiles rotate the presence or absence of filters, grouping, sorting, temporal encoding, limits, and a second KPI. In profile order, the boolean columns `(filter, group, sort, time, limit, multi)` are: `(1,0,1,0,0,0)`, `(1,1,0,1,0,0)`, `(0,1,1,1,0,1)`, `(1,1,1,0,1,0)`, `(0,0,1,1,1,1)`, `(1,1,0,1,1,1)`, `(0,1,1,0,0,0)`, `(1,0,0,1,0,1)`, `(1,1,1,1,0,0)`, `(0,0,0,0,1,0)`, `(1,1,1,1,1,1)`, and `(0,1,0,0,0,1)`.
+
+The task schedule consumes the exact target allocation without intentionally repeating the same task consecutively. At each position it chooses the task with the largest remaining proportion relative to its target, then uses remaining count and task name as deterministic tie-breakers. Domain, measure, and dimension selection use modular strides: domain index `(record_index × 7 + task_index × 7) mod 20`, measure index `(record_index × 3 + offset) mod number_of_measures`, and dimension index `(record_index × 5 + offset) mod number_of_dimensions`. Trend records cycle through day/week/month/quarter/year; other tasks use the six-grain schedule. Aggregations are selected by measure kind: distribution uses `COUNT`; rate measures cycle through `AVG`, `MIN`, `MAX`; currency/volume measures cycle through `SUM`, `AVG`, `SUM`, `MAX`; duration/score measures cycle through `AVG`, `MIN`, `MAX`, `AVG`; other measures cycle through `COUNT`, `SUM`, `AVG`. Number formats are also kind-specific: compact currency, one-decimal percentages, duration units, one-decimal scores, or whole-number/compact quantities.
+
+The controlled task-to-chart rule is inherited from `src/data_pipeline/synth_generator.py` and is used as a validity gate, not as an empirical chart-effectiveness claim:
+
+| Task type     | Primary chart | Allowed alternatives |
+| ------------- | ------------- | -------------------- |
+| trend         | line          | area                 |
+| comparison    | bar           | grouped_bar, table   |
+| composition   | stacked_bar   | area                 |
+| part_to_whole | donut         | pie, treemap         |
+| distribution  | histogram     | box                  |
+| correlation   | scatter       | heatmap              |
+| ranking       | bar           | table                |
+| deviation     | bar           | table                |
+| flow          | sankey        | table                |
+
+The generated brief is built from the selected domain, audience, measures, dimensions, scenario state, planning window, frequency, profile, and deterministic constraints. The recommendation then records one or two KPI mappings, typed x/y or source/target/value encodings, filters, sorting, limits, grouping, time grain, layout blocks, styling, interactions, and rationales. Multi-KPI records use the second mapping as a companion view and are counted as one JSONL record even though they contribute multiple mapping instances to mapping-level distribution reports.
+
+### 12.2.2 Candidate acceptance, rejection, and duplicate standard
+
+Generation reads only `dashboard_v3/train.jsonl` and `dashboard_v3/val.jsonl` as context. It does not read v3 test or human-evaluation content while proposing candidates. A candidate must carry `source=ai_generated`, `dataset_version=dashboard_v4`, non-empty brief fields, a constraint string of at least 40 characters, and a valid mapping. The mapping task/chart values must be in the controlled enums and in the task-specific allowed set above; each KPI must be listed in the brief; x/y, filter, and sort fields must resolve to known columns or permitted aggregate expressions; positive limits, numeric scatter/heatmap axes, temporal line/area axes, categorical part-to-whole axes with at most eight categories, categorical stacked-bar series, numeric distribution axes, and complete flow source/target/value encodings are required. Generated context, layout, styling, interactions, and rationales must be non-empty, layout must contain blocks, styling must state accessibility, and every mapping must be mentioned by task and chart in the rationale.
+
+The admission gate rejects a candidate when any schema or quality rule fails. It checks item IDs, brief fingerprints, and normalized goals against the v3 train/validation base and previously accepted generated records; it checks exact record hashes and semantic scenario signatures among accepted generated records. It then compares character 3-gram Jaccard similarity against the base and accepted briefs; a score of at least 0.8 is rejected as a near duplicate. The run attempted 2,915 candidates, accepted 2,000, rejected 915, and all 915 rejections were recorded as near-duplicate rejections. A batch safety limit aborts the build if a batch exceeds `batch_target × 8 + 100` attempts, preventing an apparently successful target from being reached through uncontrolled rejection behavior.
+
+### 12.2.3 Generated identifiers, splits, lineage, and freeze gates
+
+For each accepted candidate, the generator clears `item_id` and `split`, serializes the complete record canonically with sorted keys and compact separators, hashes it with SHA-256, and uses the first 24 hexadecimal characters as `v4_ai_<digest>`. The same ID is written into the brief. The generation group is `dashboard_v4:scenario:<index:05d>`. The generated split is calculated from `md5("42:dashboard_v4:" + generation_group_id)`: the integer digest modulo 10,000 is divided by 10,000, and values below 0.83 are assigned to train; the rest are assigned to validation. This produced 1,651 generated train and 349 generated validation records. No generated record can be assigned to test or human evaluation.
+
+The initial v4 freeze is atomic: it writes a temporary directory, appends generated train/validation records after unchanged v3 train/validation bytes, copies v3 test and human-evaluation bytes without transformation, verifies v3 prefixes and held-out byte identity, validates all JSONL records, checks duplicate IDs/records/briefs/goals, and publishes only after every check passes. SHA-256 hashes are then written for the JSONL, CSV, schema, manifest, dataset card, and report artifacts. The later v4.1 revision preserved this same publication boundary.
+
+### 12.3 Semantic repair of generated presentation fields
+
+The initial v4 generated records were structurally usable but were not accepted as semantically clean presentation annotations. The before-repair audit reports issues in all 2,000 generated records. The most frequent problems were missing or unanchored context constraints, KPI/context mismatches, unsupported context fields, generic layout templates, under-described layout blocks, missing styling semantics, generic filler, and interactions without a purpose; each of those categories affected 2,000 records. Additional issues included generic user templates in 1,819 records, generic palettes in 1,906 records, sort/task mismatches in 779 records, unjustified status colors in 564 records, interactions referring to nonexistent columns in 250 records, and chart-principle mismatches in 876 records. These findings explain why a generation-only release would have overstated the semantic quality of the v4 records.
+
+The repair procedure is implemented in `experiments/scripts/repair_dashboard_v4_semantics.py`. It repaired exactly six fields: `users`, `context_summary`, `layout`, `styling`, `interactions`, and `rationales`. The `users` field was repaired in 1,819 records, and each of the other five fields was repaired in all 2,000 records. The procedure protected `goals`, `kpis`, `columns`, `constraints`, `task_type`, `chart_type`, and `encoding`; these analytical and structural fields were not rewritten during the repair. The repair was anchored to each record’s own brief and encoding, required interaction fields to exist in the record, required chart principles to match the selected chart, prohibited unsupported outcome claims, and required styling to state accessibility and semantic color policy.
+
+The post-repair semantic audit reports 2,000 records valid under the repaired fields and zero records with remaining issues. The repair report separately records `already_valid=0`, `repaired=2,000`, and `rejected_or_regenerated=0`, meaning every generated record required the repair workflow even though every record passed the final audit. The final v4.1 validation report records zero schema-invalid records, zero semantic-invalid records, zero duplicate IDs, zero duplicate records, zero duplicate normalized goals, and zero duplicate briefs. The leakage report records zero generated overlap with test or human evaluation, while the manifest verifies that the original v3 train and validation prefixes are unchanged and that the test and human-evaluation files remain byte-identical to their parent files.
+
+### 12.3.1 Repair audit and semantic acceptance standard
+
+The repair audit is stricter than the base JSON schema. It first calls the normal record validator, then checks semantic anchoring field by field. `users` must be a sufficiently specific role rather than a generic “responsible for” template. `context_summary` may contain only `objective`, `kpis`, `available_columns`, `analysis_scope`, and `constraints`; its objective, KPI list, available columns, and constraints must agree with the brief, while `analysis_scope` must describe the actual mapping encodings, filters, sort, limit, time, and flow fields. `layout` must have one block per KPI mapping, preserve KPI/chart order, describe each block’s purpose and focus fields, and state hierarchy and reading order. `styling` must state typography, contrast, semantic color policy, accessibility, and a record-specific basis; generic palettes are rejected, and red/green status semantics are allowed only for deviation tasks.
+
+Interactions are limited to the approved types `tooltip`, `filter`, `sort`, `legend_toggle`, `hover_highlight`, `time_range_select`, `zoom`, `brush`, `drill_down`, and `cross_filter`. Every interaction needs a purpose and fields that exist in the record. Time selection requires a time field; legend or hover interactions require a grouping field; drill-down is restricted to flow; cross-filter requires multiple mappings; and sorting is restricted to comparison, ranking, or deviation. Rationales must avoid generic filler and unsupported outcome claims such as “the data shows,” “increased,” “causes,” or “is correlated.” Each mapping rationale must mention its actual task, chart, and KPI, and its principle must contain chart-specific evidence such as a common time axis for line, magnitude comparison for bar, share/segment for pie or donut, numeric association for scatter, bins for histograms, quartiles/median for box plots, or links/source for sankey.
+
+The repair script replaces only a presentation field that the before-audit flagged. It derives the replacement from the record’s existing brief, columns, task, chart, encoding, and constraints; it does not regenerate analytical content. It records `original_issue_codes`, `repaired_fields`, the repair model/mode/version, and the protected structural field list (`goals`, `kpis`, `columns`, `constraints`, `task_type`, `chart_type`, `encoding`). The strict after-audit requires all six recommendation fields and all semantic predicates to pass. Thus, “semantic clean” in the manifest means clean under this explicit repository audit, not independently human-verified design quality.
+
+### 12.4 Current split, lineage, and counts
+
+The current split is an augmentation of train and validation only. The modeling denominator is 3,819 records, excluding the separate human-evaluation file. Train contains 2,932 records, of which 1,281 are preserved v3 nvBench records and 1,651 are generated v4 records. Validation contains 613 records, of which 264 are preserved v3 records and 349 are generated v4 records. Test contains 274 preserved nvBench records and no generated records. The 40 human-evaluation rows are a separate deterministic sample from the held-out test and are not trainable. Consequently, the final train/validation input contains 3,545 records, and the package contains 3,859 items when the human-evaluation artifact is counted separately.
+
+| Partition or artifact     | Current count |    Preserved v3 | Generated v4/v4.1 | Share of modeling splits |
+| ------------------------- | ------------: | --------------: | ----------------: | -----------------------: |
+| Train                     |         2,932 |           1,281 |             1,651 |                    76.8% |
+| Validation                |           613 |             264 |               349 |                    16.1% |
+| Held-out test             |           274 |             274 |                 0 |                     7.2% |
+| **Modeling total**        |     **3,819** |       **1,819** |         **2,000** |               **100.0%** |
+| Human-evaluation file     |            40 | 40 test-derived |                 0 |        separate artifact |
+| **Train plus validation** |     **3,545** |       **1,545** |         **2,000** |                **92.8%** |
+
+The exact record-level task distribution across the current modeling splits is shown below. Each record is counted once using its primary mapping, so the totals equal the number of JSONL records. The generated column reports only the 2,000 added records; the train, validation, test, and total columns report the complete v4/v4.1 package. The zeros in the test column are expected because the held-out test is preserved v3 data.
+
+| Task type     | Generated v4 |     Train | Validation |    Test | Modeling total |
+| ------------- | -----------: | --------: | ---------: | ------: | -------------: |
+| comparison    |          300 |     1,203 |        268 |     208 |          1,679 |
+| part_to_whole |          200 |       333 |         73 |      36 |            442 |
+| trend         |          250 |       285 |         57 |      17 |            359 |
+| correlation   |          300 |       264 |         47 |       2 |            313 |
+| composition   |          200 |       224 |         41 |      11 |            276 |
+| distribution  |          250 |       207 |         43 |       0 |            250 |
+| ranking       |          200 |       167 |         33 |       0 |            200 |
+| deviation     |          150 |       125 |         25 |       0 |            150 |
+| flow          |          150 |       124 |         26 |       0 |            150 |
+| **Total**     |    **2,000** | **2,932** |    **613** | **274** |      **3,819** |
+
+Because 842 generated records contain multiple KPI mappings, the published `reports/distribution_report.json` also exposes mapping-level distributions. Those totals are 2,842 generated mappings, 3,635 train mappings, and 752 validation mappings; they are larger than record counts by design and should not be mistaken for additional JSONL records. The record-level table above is used for split and dataset-size accounting.
+
+For completeness, the mapping-level task distribution is:
+
+| Task type          | Generated mappings | Train mappings | Validation mappings |
+| ------------------ | -----------------: | -------------: | ------------------: |
+| comparison         |                993 |          1,789 |                 375 |
+| trend              |                399 |            402 |                  89 |
+| composition        |                200 |            224 |                  41 |
+| part_to_whole      |                200 |            333 |                  73 |
+| correlation        |                300 |            264 |                  47 |
+| distribution       |                250 |            207 |                  43 |
+| ranking            |                200 |            167 |                  33 |
+| deviation          |                150 |            125 |                  25 |
+| flow               |                150 |            124 |                  26 |
+| **Total mappings** |          **2,842** |      **3,635** |             **752** |
+
+The corresponding mapping-level chart distribution is:
+
+| Chart type         | Generated mappings | Train mappings | Validation mappings |
+| ------------------ | -----------------: | -------------: | ------------------: |
+| bar                |                638 |          1,495 |                 314 |
+| grouped_bar        |                435 |            367 |                  68 |
+| area               |                299 |            251 |                  48 |
+| line               |                207 |            242 |                  57 |
+| scatter            |                137 |            125 |                  23 |
+| stacked_bar        |                 93 |            133 |                  25 |
+| table              |                351 |            285 |                  66 |
+| heatmap            |                163 |            139 |                  24 |
+| box                |                127 |            109 |                  18 |
+| treemap            |                 68 |             53 |                  15 |
+| histogram          |                123 |             98 |                  25 |
+| sankey             |                 69 |             58 |                  11 |
+| pie                |                 56 |            217 |                  45 |
+| donut              |                 76 |             63 |                  13 |
+| **Total mappings** |          **2,842** |      **3,635** |             **752** |
+
+The exact record-level chart distribution is correspondingly broader than v3. The generated column comes from the v4 generation report, and the remaining columns are recomputed from the frozen v4.1 JSONL files.
+
+| Chart type  | Generated v4 |     Train | Validation |    Test | Modeling total |
+| ----------- | -----------: | --------: | ---------: | ------: | -------------: |
+| bar         |          275 |     1,194 |        252 |     208 |          1,654 |
+| table       |          351 |       285 |         66 |       0 |            351 |
+| pie         |           56 |       217 |         45 |      36 |            298 |
+| line        |          134 |       188 |         38 |      17 |            243 |
+| area        |          223 |       188 |         35 |       0 |            223 |
+| heatmap     |          163 |       139 |         24 |       0 |            163 |
+| stacked_bar |           93 |       133 |         25 |      11 |            169 |
+| scatter     |          137 |       125 |         23 |       2 |            150 |
+| box         |          127 |       109 |         18 |       0 |            127 |
+| histogram   |          123 |        98 |         25 |       0 |            123 |
+| grouped_bar |          105 |        82 |         23 |       0 |            105 |
+| donut       |           76 |        63 |         13 |       0 |             76 |
+| sankey      |           69 |        58 |         11 |       0 |             69 |
+| treemap     |           68 |        53 |         15 |       0 |             68 |
+| **Total**   |    **2,000** | **2,932** |    **613** | **274** |      **3,819** |
+
+The v4.1 generated lineage is mixed by design. The 1,819 preserved modeling records retain `source=nvbench` and their original source provenance, while the 2,000 added records retain `source=ai_generated`, parent lineage to `dashboard_v4`, generator metadata, repair metadata, and `not_gold=true`. The generated records are not new nvBench observations, human gold, or expert gold. The v4 configuration also excludes `test.jsonl`, the human-evaluation CSV, robustness variants under `data/eval/robustness_v4/`, and other evaluation files from training.
+
+### 12.5 Current integrity and evaluation boundary
+
+The v4.1 package is published atomically and accompanied by `manifest.json`, `hashes.json`, `dataset_card.md`, and reports for repair, semantic audits, validation, duplicates, leakage, and distributions. The manifest reports `original_dashboard_v3=preserved_unchanged`, `parent_dashboard_v4=preserved_as_immutable_parent`, and `generated=ai_generated_semantic_repair`. The SHA-256 hash file covers the published JSONL, CSV, schema, manifest, dataset card, and report artifacts. The current package therefore supports reproducible file-level verification even though the generated records are not source-grounded nvBench gold.
+
+The held-out boundary is unchanged from v3. The generator and repair workflows operate only on train/validation material; the test file and human-evaluation file are copied from the parent release and are never used as generation or repair context. The test remains an in-domain, source-group-disjoint nvBench evaluation set. It does not evaluate the newly introduced generated-only task types such as distribution, ranking, deviation, or flow, because those task types do not occur in the preserved v3 test file. Any claim that v4 improves generalization to those new task families therefore requires an additional external or human-evaluated benchmark.
+
+### 12.5.1 Human-evaluation study standard and current status
+
+The frozen 40-row CSV is an input-item list, not a completed human-evaluation result. The planned final study uses only those canonical IDs and the corresponding briefs from `test.jsonl`; train and validation are not sampled. The builder requires predictions for all four fixed methods—A prompt-only, B RAG, C QLoRA, and D QLoRA+RAG—from the same dataset, model, seed, and compatible held-out test set. It records prediction hashes, run IDs, configuration and dataset/knowledge-base hashes, item-list and test-file hashes, rubric hash, assignment settings, and expected counts; it refuses to combine incompatible runs or overwrite an existing study.
+
+The final design is 40 items × 4 methods = 160 output-rating units, with three distinct raters per unit, for 480 ratings. Six raters receive a balanced 80 ratings each through a seeded least-loaded assignment. The rater-facing interface shows only the brief and anonymous recommendation; method, model, seed, automatic metrics, and gold/reference recommendations are hidden even though the internal study package retains method labels for later analysis. The fixed six 1–5 Likert dimensions are `chart_appropriateness`, `layout_quality`, `styling_accessibility`, `interaction_design`, `rationale_quality`, and `overall_usefulness`.
+
+Completion is a hard gate: every expected unit must have exactly the planned number of distinct raters, every rating must contain all six dimensions as integer values from 1 to 5, and duplicate ratings, unknown items/methods/units, invalid scores, and missing units cause final analysis to fail. The planned analysis reports ordinal Krippendorff’s alpha per dimension, method means and standard deviations, a separate composite mean, paired Friedman tests, Wilcoxon signed-rank tests with Holm correction, paired rank-biserial and Cohen’s `d_z` effects with bootstrap confidence intervals, per-item scores, and chart acceptability based on `chart_appropriateness >= 4` with majority aggregation. The repository currently contains the infrastructure and the 40-item list but records no completed human ratings; therefore no human-evaluated quality or usefulness claim is yet supported by observed ratings.
+
+## 13. Scientific limitations and caveats
 
 First, the upstream source is an archive of the `main` branch without an upstream commit pin. The archive digest is a strong local integrity identifier, but it does not provide the same reproducibility guarantee as a commit hash tied to a released upstream version. The raw source manifest and archive digest should therefore accompany any external reproduction.
 
@@ -145,28 +356,34 @@ Second, source fidelity is not equivalent to semantic truth. The pipeline preser
 
 Third, several judgments depend on database metadata and deterministic heuristics. Identifier detection uses primary/foreign-key information, uniqueness and distinctness thresholds, name patterns, and result profiles. Axis typing can fall back to heuristics when database metadata is unavailable, although final reports record the provenance of such decisions. Quality tiers and scores are therefore rule-based operational definitions of suitability, not universal measures of chart quality.
 
-Fourth, the final test set is in-domain and source-group-disjoint, not an external benchmark. The separate literature-based or real-brief evaluation artifacts are maintained outside the trainable package. The final chart distribution is strongly bar-dominated and contains only 13 scatter records because the quality, source-group, deduplication, database, and leakage constraints limited the available supply. Aggregate performance results should account for this class imbalance and scarcity.
+Fourth, the current test set is in-domain and source-group-disjoint, not an external benchmark. It is deliberately the unchanged v3 test, so it contains only the original five source chart families and has 208 bar, 36 pie, 17 line, 11 stacked-bar, and two scatter records. The complete v4 modeling corpus is broader, with 14 chart types and 1,654 bar records, but generated-only charts and tasks are absent from the held-out test. Aggregate performance results should therefore report the test composition and should not be interpreted as a direct evaluation of every newly introduced v4 task family.
 
-Fifth, the six presentation fields are LLM-generated design annotations. Automated validators constrain them, and a 30-record R1 enrichment review passed its acceptance gate, but these fields are not nvBench gold, independent human gold, or expert gold. The final package should not be described as human-annotated dashboard-design ground truth. In particular, the small R1 enrichment audit does not validate every possible user description, layout choice, styling choice, interaction, or rationale in the 1,545 enriched records.
+Fifth, the v4 package contains two different kinds of generated content. The 1,545 preserved v3 train/validation records have the six Phase-3 presentation fields marked as LLM-generated and were covered by the historical 30-record R1 enrichment gate. The 2,000 v4 records have AI-generated analytical specifications and presentation fields, followed by a v4.1 semantic repair of six presentation fields. The v4.1 automated audit is complete and reports zero remaining issues, but it is not independent human annotation. Neither the generated structural fields nor the repaired presentation fields are nvBench gold, human gold, or expert gold, and the package must not be described as human-annotated dashboard-design ground truth.
 
-Sixth, the repository records an AI-assisted source-rule repair process but not a complete audit trail for it. The three records documented in `pre_repair_verification.md` were independently checked, and the resulting rule changes are summarized. The report also states that the referenced AI audit files were absent and that the provenance of the closest source-quality R1 template could not be established. A complete historical reconstruction of every AI suggestion and every human source-quality decision is therefore not possible from the current repository.
+Sixth, the v4 semantic repair is reproducible at the file and rule level but remains model-assisted. The repair report records the repaired fields, protected fields, model, repair mode, before/after issue counts, and validation checks, while the published hashes verify the output files. However, the repair model itself supplied the corrected text and layout-like values, and there is no independent human review of all 2,000 repaired records. A complete claim of expert-level semantic validity would therefore exceed the repository evidence.
 
 Seventh, the hybrid staging package demonstrates a possible multi-source construction but is not the final freeze input. The repository does not explain in a dedicated final-decision report why the validated 18 train and three validation synthetic records were omitted from `dashboard_v3`. The final manifest is unambiguous about the selected inputs, so the omission is established; its motivation is not.
 
 Finally, the later quality-pool rebuild reports 21,244 technically valid records, whereas the first strict v3 candidate report records 20,986. The repository preserves both histories but does not provide a complete row-level reconciliation for the 258-record difference. This should be reported as a rebuild boundary in a thesis rather than presented as a fully traceable per-record transition unless the missing reconciliation is recovered.
 
-## 13. Primary repository evidence
+## 14. Primary repository evidence
 
-| Construction question                                              | Primary repository evidence                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What was downloaded and what did it contain?                       | `data/raw_external/nvbench/source_manifest.json`; `data/raw_external/nvbench/extracted/nvBench-main/README.md`                                                                                                                                       |
-| How were raw records and database evidence extracted?              | `src/data_pipeline/builders/nvbench_builder.py`; `src/data_pipeline/nvbench_source.py`; `src/data_pipeline/nvbench_extract.py`; `src/data_pipeline/nvbench_cache.py`; `src/data_pipeline/nvbench_profile.py`                                         |
-| How were identifiers, KPIs, charts, and constraints assessed?      | `src/data_pipeline/nvbench_identifier.py`; `src/data_pipeline/nvbench_quality.py`; `src/config/data/nvbench_quality_rules.yaml`; `src/config/data/nvbench_mapping.yaml`                                                                              |
-| What did the early pilots reveal?                                  | `data/staging/dashboard_v3/nvbench_pilot_v1/`; `nvbench_pilot_v2/`; `nvbench_pilot_v3/`; their `manifest.json`, `validation_report.md`, and `reports/before_after_*.md` files                                                                        |
-| How did quality tiering change selection?                          | `data/staging/dashboard_v3/nvbench_pilot_v4/`; `nvbench_pilot_v5/`; `nvbench_pilot_v6/`; their manifests, quality reports, validation reports, and comparison reports                                                                                |
-| How was the large corpus selected and repaired?                    | `src/data_pipeline/nvbench_large_v1.py`; `experiments/scripts/run_nvbench_large_v1.py`; `experiments/scripts/build_nvbench_large_v2.py`; `data/staging/dashboard_v3/nvbench_quality_pool_final_v2/`; `data/staging/dashboard_v3/nvbench_large_v2/`   |
-| How was enrichment constrained and audited?                        | `src/data_pipeline/enrichment.py`; `src/data_pipeline/enrichment_full.py`; `src/data_pipeline/enrichment_provider.py`; `data/staging/enrichment/sample_10/`; `pilot_30/`; `full_train_val_v1/`                                                       |
-| How were freezing, lineage, leakage, and final counts established? | `src/config/data/dashboard_v3.yaml`; `data/frozen/dashboard_v3/manifest.json`; `dataset_card.md`; `validation_report.md`; `reports/pre_freeze_completeness_audit.md`; `reports/validation_report.json`; `reports/leakage_report.json`; `hashes.json` |
-| Which project-level instructions identify the final authority?     | `PROJECT_COMMANDS.md`; `README.md`; `docs/project/SUPERVISOR_FULL_GPU_RUNBOOK.md`                                                                                                                                                                    |
+| Construction question                                                  | Primary repository evidence                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What was downloaded and what did it contain?                           | `data/raw_external/nvbench/source_manifest.json`; `data/raw_external/nvbench/extracted/nvBench-main/README.md`                                                                                                                                     |
+| How were raw records and database evidence extracted?                  | `src/data_pipeline/builders/nvbench_builder.py`; `src/data_pipeline/nvbench_source.py`; `src/data_pipeline/nvbench_extract.py`; `src/data_pipeline/nvbench_cache.py`; `src/data_pipeline/nvbench_profile.py`                                       |
+| How were identifiers, KPIs, charts, and constraints assessed?          | `src/data_pipeline/nvbench_identifier.py`; `src/data_pipeline/nvbench_quality.py`; `src/config/data/nvbench_quality_rules.yaml`; `src/config/data/nvbench_mapping.yaml`                                                                            |
+| What did the early pilots reveal?                                      | `data/staging/dashboard_v3/nvbench_pilot_v1/`; `nvbench_pilot_v2/`; `nvbench_pilot_v3/`; their `manifest.json`, `validation_report.md`, and `reports/before_after_*.md` files                                                                      |
+| How did quality tiering change selection?                              | `data/staging/dashboard_v3/nvbench_pilot_v4/`; `nvbench_pilot_v5/`; `nvbench_pilot_v6/`; their manifests, quality reports, validation reports, and comparison reports                                                                              |
+| How was the large corpus selected and repaired?                        | `src/data_pipeline/nvbench_large_v1.py`; `experiments/scripts/run_nvbench_large_v1.py`; `experiments/scripts/build_nvbench_large_v2.py`; `data/staging/dashboard_v3/nvbench_quality_pool_final_v2/`; `data/staging/dashboard_v3/nvbench_large_v2/` |
+| How was enrichment constrained and audited?                            | `src/data_pipeline/enrichment.py`; `src/data_pipeline/enrichment_full.py`; `src/data_pipeline/enrichment_provider.py`; `data/staging/enrichment/sample_10/`; `pilot_30/`; `full_train_val_v1/`                                                     |
+| What is the canonical `GoldItem` and model-output contract?            | `src/core/schemas.py`; `data/frozen/dashboard_v4/schema.json`; `src/core/constants.py`; `src/data_pipeline/frozen_validation.py`; `src/evaluation/metrics/schema_compliance.py`                                                                    |
+| Which rules decide Tier-A admission, allocation, and human-eval items? | `src/data_pipeline/nvbench_large_v1.py`; `src/data_pipeline/nvbench_large_v2.py`; `experiments/scripts/run_nvbench_large_v1.py`; `data/staging/dashboard_v3/nvbench_large_v2/reports/`                                                             |
+| How was v4 generated and why were new tasks/charts added?              | `experiments/scripts/generate_dashboard_v4.py`; `src/config/data/dashboard_v4.yaml`; `data/staging/dashboard_v4/run_20260814T010356Z/reports/generation_report.json`                                                                               |
+| What exact generation acceptance and split rules were applied?         | `experiments/scripts/generate_dashboard_v4.py`; `data/staging/dashboard_v4/run_20260814T010356Z/reports/generation_report.json`; `data/frozen/dashboard_v4/manifest.json`                                                                          |
+| How were generated semantic fields repaired and verified?              | `experiments/scripts/repair_dashboard_v4_semantics.py`; `data/frozen/dashboard_v4/reports/repair_report.json`; `semantic_audit_before.json`; `semantic_audit_after.json`; `validation_report.json`                                                 |
+| What is the planned human-evaluation standard and what is complete?    | `docs/evaluation/human_eval_plan.md`; `docs/evaluation/evaluation_protocol.md`; `src/evaluation/human/assignment.py`; `src/evaluation/human/pipeline.py`; `data/frozen/dashboard_v4/human_eval_test_items_40.csv`                                  |
+| How were v4 freezing, lineage, leakage, and counts established?        | `data/frozen/dashboard_v4/manifest.json`; `dataset_card.md`; `reports/distribution_report.json`; `reports/leakage_report.json`; `reports/duplicate_report.json`; `hashes.json`; `src/config/data/dashboard_v4.yaml`                                |
+| Which project-level instructions identify the current authority?       | `PROJECT_COMMANDS.md`; `README.md`; `docs/project/SUPERVISOR_FULL_GPU_RUNBOOK.md`; `src/config/data/dashboard_v4.yaml`                                                                                                                             |
 
-Taken together, these artifacts support the following methodological interpretation: the project did not move directly from raw nvBench rows to model-ready examples. It first created a source-faithful, constraint-preserving representation; used progressively stricter parsing and database evidence to identify technically invalid or semantically unsuitable records; separated high-confidence dashboard candidates from diagnostic material through quality tiers; selected a group-safe, deduplicated, leakage-controlled large corpus; added a narrowly bounded LLM presentation layer without changing analytical evidence; and finally froze a hashed nvBench-only package whose trainable and held-out partitions are explicitly separated.
+Taken together, these artifacts support the following methodological interpretation: the project did not move directly from raw nvBench rows to model-ready examples. It first created a source-faithful, constraint-preserving representation; used progressively stricter parsing and database evidence to identify technically invalid or semantically unsuitable records; separated high-confidence dashboard candidates from diagnostic material through quality tiers; selected a group-safe, deduplicated, leakage-controlled v3 corpus; added a bounded Phase-3 presentation layer; then augmented only train/validation with 2,000 source-conditioned AI records; repaired their presentation fields without changing protected analytical structure; and finally published a hashed v4 package with an unchanged v3-derived evaluation boundary. The current package is therefore best described as a mixed-lineage dashboard-design dataset: nvBench-derived records remain source-grounded, while the 2,000-record augmentation remains explicitly AI-generated and not gold.

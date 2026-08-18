@@ -34,7 +34,11 @@ from src.utils.numerics import (
     raise_if_nonfinite_parameters,
     validate_checkpoint_weights_finite,
 )
-from src.utils.precision import PrecisionPolicy, resolve_precision
+from src.utils.precision import (
+    PrecisionPolicy,
+    align_fp16_trainable_parameters,
+    resolve_precision,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +208,11 @@ class QLoRASFTTrainer(BaseTrainer):
             **build_lora_kwargs(lora_cfg),
         )
         self.model = get_peft_model(self.model, lora_config)
+        align_fp16_trainable_parameters(
+            self.model,
+            self.precision.effective_dtype,
+            logger=logger,
+        )
 
         trainable, total = self.model.get_nb_trainable_parameters()
         self.trainable_parameters = int(trainable)

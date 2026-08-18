@@ -26,7 +26,7 @@ from src.utils.numerics import (
     raise_if_nonfinite_parameters,
     validate_checkpoint_weights_finite,
 )
-from src.utils.precision import resolve_precision
+from src.utils.precision import align_fp16_trainable_parameters, resolve_precision
 
 logger = logging.getLogger(__name__)
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -80,6 +80,11 @@ class GaLoreSFTTrainer(BaseTrainer):
             trust_remote_code=True,
             dtype=precision.effective_dtype,
             cache_dir=cache_dir,
+        )
+        align_fp16_trainable_parameters(
+            self.model,
+            precision.effective_dtype,
+            logger=logger,
         )
         self.model.config.use_cache = False
 
