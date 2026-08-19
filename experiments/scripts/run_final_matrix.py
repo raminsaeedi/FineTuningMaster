@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -112,8 +113,13 @@ def _resolved(raw: str | Path) -> Path:
 
 
 def _hydra_path(path: str | Path) -> str:
-    value = str(path)
-    return value.replace("\\", "/")
+    value = str(path).replace("\\", "/")
+    # Hydra treats the colon in a Windows drive letter as override syntax.
+    # Quote paths that contain Hydra-significant characters so external
+    # Windows paths and directories with spaces remain valid overrides.
+    if any(char in value for char in " \t,:[]{}=#"):
+        return json.dumps(value)
+    return value
 
 
 def profile_run_dir(
@@ -269,7 +275,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--input-model-weights", default=None,
                    help="Existing adapter directory for C/D inference")
     p.add_argument("--kb-chunks-path", default=None,
-                   help="Knowledge-base chunks file for methods B/D")
+                   help="Knowledge-base chunks file for methods B/D (default: $FTM_KB_CHUNKS_PATH)")
     p.add_argument("--smoke-source", default=None,
                    help="Validation JSONL used to build the smoke slice")
     p.add_argument("--force", action="store_true")
@@ -279,7 +285,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--n-eval-items", type=int, default=2)
     p.add_argument("--n-train-items", type=int, default=2)
     p.add_argument("--max-steps", type=int, default=1)
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if not args.kb_chunks_path:
+        args.kb_chunks_path = os.environ.get("FTM_KB_CHUNKS_PATH") or None
+    return args
 
 
 def _selected_models(args: argparse.Namespace, matrix: dict) -> list[str]:
@@ -362,7 +371,7 @@ def _print_runtime_profile(models: list[str]) -> None:
     print(f"  GPU          : {gpu}")
     print(f"  total VRAM   : {total if total is not None else 'n/a'} bytes")
     print(f"  free VRAM    : {free if free is not None else 'n/a'} bytes")
-    print("  dtype        : model config (Qwen3/Llama profiles use bfloat16)")
+    print("  dtype        : auto (bf16 AMP on Ampere/Ada; fp16 AMP + fp32 LoRA on V100/P100)")
     print("  quantization : QLoRA 4-bit NF4 for C/D")
     print("  device_map   : auto")
 
@@ -553,15 +562,22 @@ def main(argv: list[str] | None = None) -> None:
     models = _selected_models(args, matrix)
     methods = _selected_methods(args)
     seeds = _selected_seeds(args, matrix)
-    output_root_arg = args.output_root or (
+    # Direct runner calls also honor the machine-specific HPC environment;
+    # explicit CLI paths remain highest priority.
+    output_root_arg = args.output_root or os.environ.get("FTM_OUTPUT_DATA_PATH") or (
         "experiments/outputs/smoke" if args.profile == "smoke"
         else matrix.get("output_root", "experiments/outputs/final")
     )
     output_root = _resolved(output_root_arg)
-    output_model_root_arg = args.output_model_path or output_root_arg
+    output_model_root_arg = (
+        args.output_model_path
+        or os.environ.get("FTM_OUTPUT_MODEL_PATH")
+        or output_root_arg
+    )
     output_model_root = _resolved(output_model_root_arg)
     results_dir = _resolved(
         args.results_dir
+        or os.environ.get("FTM_RESULTS_PATH")
         or (_PROJECT_ROOT / "experiments" / "results" / args.profile / dataset)
     )
     explicit_input_adapter = (

@@ -103,6 +103,17 @@ one command installs the whole environment into `./.venv`:
 
 Full remote instructions: [RUN_PROFESSOR.md](RUN_PROFESSOR.md).
 
+For Slurm machines with scratch storage, use the dynamic HPC setup instead:
+
+```bash
+SCRATCH_ROOT=/path/to/your/scratch bash setup_hpc.sh
+source /path/to/your/scratch/hpc_env.sh
+sbatch experiments/slurm/job_final_matrix.sh
+```
+
+All caches, adapters, checkpoints, logs and result packages then stay outside
+the repository. Override `SCRATCH_ROOT` (or use `paths.env`) for each machine.
+
 **2. Build the dataset** (deterministic splits from the gold data):
 
 ```bash

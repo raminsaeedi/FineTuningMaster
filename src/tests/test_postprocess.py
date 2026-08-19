@@ -51,3 +51,19 @@ def test_context_summary_object_passes_through_unchanged():
     parsed, err = parse_json_safe(raw)
     assert err is None, err
     assert parsed.context_summary == {"objective": "monitor risk", "n_kpis": 3}
+
+
+def test_object_fields_and_interaction_string_are_coerced():
+    raw = json.dumps({
+        "context_summary": {},
+        "kpi_chart_mapping": [],
+        "layout": "single-page executive layout",
+        "styling": "light and compact",
+        "interactions": "hover tooltips",
+        "rationales": [],
+    })
+    parsed, err = parse_json_safe(raw)
+    assert err is None, err
+    assert parsed.layout == {"description": "single-page executive layout"}
+    assert parsed.styling == {"description": "light and compact"}
+    assert parsed.interactions == ["hover tooltips"]

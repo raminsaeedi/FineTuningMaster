@@ -10,6 +10,8 @@ not require the training stack — inference can run in a base-only environment.
 
 CPU note: when no CUDA device is present (the local inference setup) the model
 is loaded in float32 on CPU, because float16 generation is unreliable on CPU.
+On GPU the load dtype is clamped to the weakest visible device so a bfloat16
+profile remains safe on V100/P100 and mixed-GPU allocations.
 """
 
 from __future__ import annotations
@@ -26,7 +28,6 @@ from src.models.hf_utils import (
     safe_model_access_error,
 )
 from src.utils.numerics import raise_if_nonfinite_parameters
-from src.utils.precision import resolve_precision
 
 logger = logging.getLogger(__name__)
 
@@ -59,15 +60,23 @@ class HFCausalModel:
         trust_remote_code = bool(_get(self.cfg, "trust_remote_code", True))
         max_seq_length = int(_get(self.cfg, "max_seq_length", 2048))
 
-        dtype_str = _get(self.cfg, "dtype") or _get(self.cfg, "torch_dtype", "float16")
-        precision = resolve_precision(dtype_str, torch, logger=logger)
-        logger.info(
-            "Using %s for inference (requested %s)",
-            precision.effective_dtype_name,
-            precision.requested_dtype,
-        )
-        dtype = precision.effective_dtype
-        device_map = "auto" if torch.cuda.is_available() else None
+        preferred = _get(self.cfg, "dtype") or _get(self.cfg, "torch_dtype", "float16")
+        if torch.cuda.is_available():
+            from src.utils.gpu_precision import resolve_inference_dtype
+
+            dtype_str = resolve_inference_dtype(str(preferred) if preferred else None)
+            dtype = {
+                "bfloat16": torch.bfloat16,
+                "float32": torch.float32,
+                "float16": torch.float16,
+            }.get(str(dtype_str), torch.float16)
+            device_map = "auto"
+            logger.info("Using %s for inference (requested %s)", dtype_str, preferred)
+        else:
+            dtype_str = "float32"
+            dtype = torch.float32
+            device_map = None
+            logger.info("Using float32 for CPU inference (requested %s)", preferred)
 
         # Tokenizer comes from the adapter dir when present (it was saved there).
         tokenizer_src = adapter_path if adapter_path else name

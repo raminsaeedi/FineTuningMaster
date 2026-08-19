@@ -23,7 +23,14 @@ from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
+from src.training.stability import AbortOnNonFiniteCallback
 from src.utils.config_hash import hash_config
+from src.utils.gpu_precision import (
+    align_trainable_parameters,
+    assert_fp16_amp_safe,
+    lora_param_dtype_name,
+    resolve_training_precision,
+)
 from src.models.hf_utils import (
     from_pretrained_kwargs,
     load_pretrained_with_cache_repair,
@@ -34,11 +41,6 @@ from src.utils.numerics import (
     nonfinite_scalar_items,
     raise_if_nonfinite_parameters,
     validate_checkpoint_weights_finite,
-)
-from src.utils.precision import (
-    PrecisionPolicy,
-    align_fp16_trainable_parameters,
-    resolve_precision,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,7 +111,7 @@ class QLoRASFTTrainer(BaseTrainer):
         self.total_parameters = 0
         self.training_started_at = None
         self.training_duration_seconds = None
-        self.precision: PrecisionPolicy | None = None
+        self.precision = None
 
     # ------------------------------------------------------------------
     def _setup(self) -> None:
@@ -126,23 +128,10 @@ class QLoRASFTTrainer(BaseTrainer):
         quant_cfg = _get(self.train_cfg, "quantization", {})
         sft_cfg = _get(self.train_cfg, "sft", {})
 
-        # The model profile is a preference, not a hardware guarantee. This
-        # resolves Qwen3's bfloat16 preference to float16 on Tesla P100 and
-        # also enables the matching Trainer scaler/autocast mode.
-        self.precision = resolve_precision(
-            _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
-            torch,
-            fp16=bool(_get(sft_cfg, "fp16", False)),
-            bf16=bool(_get(sft_cfg, "bf16", False)),
-            logger=logger,
-        )
-        logger.info(
-            "Training precision: requested=%s effective=%s fp16=%s bf16=%s",
-            self.precision.requested_dtype,
-            self.precision.effective_dtype_name,
-            self.precision.fp16,
-            self.precision.bf16,
-        )
+        # Resolve from the weakest visible GPU. Configured model dtype is only
+        # a preference; mixed jobs must use one safe precision intersection.
+        self.precision = resolve_training_precision(sft_cfg)
+        logger.info("Training precision: %s", self.precision.reason)
 
         # ── Tokenizer ────────────────────────────────────────────────────
         logger.info("Loading tokenizer: %s", name)
@@ -170,13 +159,12 @@ class QLoRASFTTrainer(BaseTrainer):
         # ── Quantization config ──────────────────────────────────────────
         bnb_config = None
         if bool(_get(quant_cfg, "load_in_4bit", True)):
-            logger.info("Configuring 4-bit NF4 quantization (QLoRA)")
-            compute_precision = resolve_precision(
-                _get(quant_cfg, "bnb_4bit_compute_dtype", "float16"),
-                torch,
-                logger=logger,
+            compute_name = self.precision.compute_dtype
+            logger.info(
+                "Configuring 4-bit NF4 quantization (QLoRA, compute_dtype=%s)",
+                compute_name,
             )
-            compute_dtype = compute_precision.effective_dtype
+            compute_dtype = getattr(torch, compute_name)
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type=str(_get(quant_cfg, "bnb_4bit_quant_type", "nf4")),
@@ -187,6 +175,9 @@ class QLoRASFTTrainer(BaseTrainer):
         # ── Base model ───────────────────────────────────────────────────
         logger.info("Loading model: %s", name)
         try:
+            # Never leave dtype unset: Transformers may honor a bfloat16 model
+            # config even when the visible GPU only supports fp16.
+            load_dtype = getattr(torch, self.precision.compute_dtype)
             self.model = load_pretrained_with_cache_repair(
                 AutoModelForCausalLM.from_pretrained,
                 name,
@@ -194,9 +185,7 @@ class QLoRASFTTrainer(BaseTrainer):
                     **load_kwargs,
                     "quantization_config": bnb_config,
                     "device_map": "auto" if torch.cuda.is_available() else None,
-                    # Never leave dtype=None: Transformers may then honor a
-                    # bfloat16 model config even when the active GPU cannot run it.
-                    "dtype": self.precision.effective_dtype,
+                    "dtype": load_dtype,
                 },
                 logger=logger,
                 component="training model",
@@ -205,6 +194,7 @@ class QLoRASFTTrainer(BaseTrainer):
             raise safe_model_access_error(name, exc) from exc
         self.model.config.use_cache = False
         self.model.config.pretraining_tp = 1
+        self.model.config.torch_dtype = load_dtype
         logger.info("Model loaded — %s parameters", f"{self.model.num_parameters():,}")
 
         # ── Prepare for k-bit training ───────────────────────────────────
@@ -219,11 +209,7 @@ class QLoRASFTTrainer(BaseTrainer):
             **build_lora_kwargs(lora_cfg),
         )
         self.model = get_peft_model(self.model, lora_config)
-        align_fp16_trainable_parameters(
-            self.model,
-            self.precision.effective_dtype,
-            logger=logger,
-        )
+        align_trainable_parameters(self.model, self.precision)
 
         trainable, total = self.model.get_nb_trainable_parameters()
         self.trainable_parameters = int(trainable)
@@ -240,7 +226,6 @@ class QLoRASFTTrainer(BaseTrainer):
         resume_from_checkpoint: Optional[str] = None,
     ) -> str:
         """Run SFT and save the adapter to ``output_dir``; return that path."""
-        from transformers import TrainerCallback
         from trl import SFTConfig, SFTTrainer
 
         self._setup()
@@ -250,17 +235,12 @@ class QLoRASFTTrainer(BaseTrainer):
             import torch
 
             sft_cfg = _get(self.train_cfg, "sft", {})
-            self.precision = resolve_precision(
-                _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
-                torch,
-                fp16=bool(_get(sft_cfg, "fp16", False)),
-                bf16=bool(_get(sft_cfg, "bf16", False)),
-                logger=logger,
-            )
+            self.precision = resolve_training_precision(sft_cfg)
 
         sft = _get(self.train_cfg, "sft", {})
         adapter_dir = Path(output_dir)
         checkpoint_dir = adapter_dir.parent / "checkpoints"
+        max_seq_length = int(_get(self.model_cfg, "max_seq_length", 2048))
 
         training_args = SFTConfig(
             output_dir=str(checkpoint_dir),
@@ -272,11 +252,13 @@ class QLoRASFTTrainer(BaseTrainer):
             optim=str(_get(sft, "optim", "adamw_torch")),
             warmup_ratio=float(_get(sft, "warmup_ratio", 0.1)),
             weight_decay=float(_get(sft, "weight_decay", 0.01)),
-            fp16=self.precision.fp16,
-            bf16=self.precision.bf16,
+            fp16=self.precision.amp_fp16,
+            bf16=self.precision.amp_bf16,
+            max_length=max_seq_length,
+            max_grad_norm=float(_get(sft, "max_grad_norm", 1.0)),
             logging_steps=int(_get(sft, "logging_steps", 10)),
             save_steps=int(_get(sft, "save_steps", 50)),
-            save_total_limit=int(_get(sft, "save_total_limit", 2)),
+            save_total_limit=int(_get(sft, "save_total_limit", 4)),
             eval_strategy=str(_get(sft, "eval_strategy", "no")),
             report_to=str(_get(sft, "report_to", "none")),
             max_steps=int(_get(sft, "max_steps", -1)),
@@ -290,7 +272,7 @@ class QLoRASFTTrainer(BaseTrainer):
 
         owner = self
 
-        class FiniteTrainingCallback(TrainerCallback):
+        class FiniteTrainingCallback:
             """Stop before a bad log/checkpoint can become a saved adapter."""
 
             def on_log(self, args, state, control, logs=None, **kwargs):
@@ -322,7 +304,17 @@ class QLoRASFTTrainer(BaseTrainer):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
-            callbacks=[FiniteTrainingCallback()],
+            callbacks=[FiniteTrainingCallback(), AbortOnNonFiniteCallback()],
+        )
+        trainer_model = getattr(trainer, "model", self.model)
+        align_trainable_parameters(trainer_model, self.precision)
+        assert_fp16_amp_safe(trainer_model, self.precision)
+        logger.info(
+            "AMP: fp16=%s bf16=%s LoRA=%s (%s)",
+            self.precision.amp_fp16,
+            self.precision.amp_bf16,
+            lora_param_dtype_name(self.precision),
+            self.precision.reason,
         )
 
         logger.info("Training started…")
@@ -413,9 +405,13 @@ class QLoRASFTTrainer(BaseTrainer):
             "warmup_ratio": _get(sft, "warmup_ratio"),
             "max_seq_length": _get(self.model_cfg, "max_seq_length"),
             "precision": {
-                "dtype": _get(self.model_cfg, "dtype"),
-                "fp16": _get(sft, "fp16"),
-                "bf16": _get(sft, "bf16"),
+                "mode": None if self.precision is None else self.precision.mode,
+                "dtype": None if self.precision is None else self.precision.inference_dtype,
+                "fp16": None if self.precision is None else self.precision.amp_fp16,
+                "bf16": None if self.precision is None else self.precision.amp_bf16,
+                "compute_dtype": None if self.precision is None else self.precision.compute_dtype,
+                "reason": None if self.precision is None else self.precision.reason,
+                "devices": None if self.precision is None else list(self.precision.devices),
                 "effective": self.precision.as_metadata() if self.precision else None,
             },
             "trainable_parameters": self.trainable_parameters,

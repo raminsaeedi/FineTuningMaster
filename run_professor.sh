@@ -100,6 +100,20 @@ source "$PROJECT_ROOT/scripts/lib/paths.sh"
 load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
 apply_cache_paths "$PROJECT_ROOT"
 
+# Optional generated HPC environment. Location comes from the machine's
+# paths.env or caller; repository never assumes a cluster mount.
+FTM_ENV_FILE="${FTM_ENV_FILE:-${HPC_ENV_FILE:-}}"
+if [[ -z "$FTM_ENV_FILE" && -n "${SCRATCH_ROOT:-}" ]]; then
+  FTM_ENV_FILE="$SCRATCH_ROOT/hpc_env.sh"
+fi
+if [[ -n "$FTM_ENV_FILE" && -f "$FTM_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$FTM_ENV_FILE"
+  apply_cache_paths "$PROJECT_ROOT"
+fi
+VENV_PATH="${VENV_PATH:-${FTM_VENV_DIR:-}}"
+KB_CHUNKS_PATH="${KB_CHUNKS_PATH:-${FTM_KB_CHUNKS_PATH:-data/knowledge_base/chunks.jsonl}}"
+
 # GPU selection. device_map=auto then shards across exactly these devices, so
 # one GPU per job (or a subset for a big model) is a single flag.
 if [[ -n "$GPUS" ]]; then
@@ -167,13 +181,17 @@ fi
 say "rag knowledge base"
 # Read-only manifest verification; cheap enough to run in --dry-run too.
 kb_ok=0
-if "$PY" - <<'PYKB'
+if "$PY" - "$KB_CHUNKS_PATH" <<'PYKB'
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd()))
 try:
     from src.data_pipeline.kb_builder import verify_kb
-    ok, _ = verify_kb(Path("data/knowledge_base"))
+    chunks = Path(sys.argv[1])
+    if chunks.parent.resolve() == Path("data/knowledge_base").resolve():
+        ok, _ = verify_kb(Path("data/knowledge_base"))
+    else:
+        ok = chunks.is_file() and chunks.stat().st_size > 0
 except Exception:
     ok = False
 raise SystemExit(0 if ok else 1)
@@ -182,7 +200,7 @@ then kb_ok=1; fi
 if [[ "$kb_ok" == 1 ]]; then
   info "existing knowledge base verified against its manifest (skipping rebuild)"
 else
-  run "$PY" experiments/scripts/build_kb.py
+  run "$PY" experiments/scripts/build_kb.py --out "$KB_CHUNKS_PATH"
 fi
 
 # ---------------------------------------------------------------------------
@@ -196,7 +214,9 @@ if [[ "$CPU_OK" == 1 ]]; then
   info "GPU checks downgraded to warnings (--cpu-ok)"
 fi
 declare -a PREFLIGHT=("$PY" experiments/scripts/check_experiment_release.py
-                      --profile "$preflight_profile" --dataset "$DATASET")
+                      --profile "$preflight_profile" --dataset "$DATASET"
+                      --output-root "${OUTPUT_DATA_PATH:-$PROJECT_ROOT/experiments/outputs/final}"
+                      --kb-chunks-path "$KB_CHUNKS_PATH")
 if [[ -n "$MODEL" ]]; then PREFLIGHT+=(--model "$MODEL"); else PREFLIGHT+=(--all-models); fi
 run "${PREFLIGHT[@]}"
 
@@ -220,8 +240,8 @@ experiment_rc=0
 printf '  $ %s\n' "${EXPERIMENT[*]}"
 "${EXPERIMENT[@]}" || experiment_rc=$?
 
-OUTPUT_ROOT="${OUTPUT_DATA_PATH:-$PROJECT_ROOT/experiments/outputs/final}"
-RESULTS_ROOT="${RESULTS_PATH:-$PROJECT_ROOT/experiments/results/final/$DATASET}"
+OUTPUT_ROOT="${OUTPUT_DATA_PATH:-${FTM_OUTPUT_DATA_PATH:-$PROJECT_ROOT/experiments/outputs/final}}"
+RESULTS_ROOT="${RESULTS_PATH:-${FTM_RESULTS_PATH:-$PROJECT_ROOT/experiments/results/final/$DATASET}}"
 SUMMARY="$OUTPUT_ROOT/$DATASET/matrix_summary.json"
 
 # ---------------------------------------------------------------------------

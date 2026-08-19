@@ -98,32 +98,33 @@ def _normalise_mapping(m: Any) -> Optional[dict]:
     return out
 
 
-def _as_object(raw: Any, string_key: str = "summary") -> Dict[str, Any]:
-    """Coerce a possibly-string field into a dict.
+def _as_object(value: Any, string_key: str) -> Any:
+    """Coerce near-miss object fields before Pydantic validation.
 
-    The 0.5B model sometimes returns a plain string (e.g. the brief's user
-    description) where the schema expects an object. If it happens to be a
-    JSON object encoded as a string, parse it; otherwise wrap it under
-    ``string_key`` so no information is lost.
+    Untuned models often emit a prose string for ``context_summary`` / ``layout``
+    / ``styling``. Wrap those as a one-key object so schema validation can proceed
+    and schema-compliance still distinguishes "has content" from empty.
     """
-    if isinstance(raw, dict):
-        return raw
-    if isinstance(raw, str):
-        s = raw.strip()
-        if s.startswith("{"):
-            parsed = _try_parse(s)
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("{"):
+            parsed = _try_parse(text)
             if isinstance(parsed, dict):
                 return parsed
-        return {string_key: raw}
-    return {}
+        return {string_key: text} if text else {}
+    return value
 
 
 def _normalise_output(obj: Dict[str, Any]) -> Dict[str, Any]:
     """Apply lenient normalisation before Pydantic validation."""
     out = dict(obj)
-    # context_summary: model sometimes returns a bare string — coerce to object.
-    if "context_summary" in out:
-        out["context_summary"] = _as_object(out["context_summary"])
+    out["context_summary"] = _as_object(out.get("context_summary"), "summary")
+    out["layout"] = _as_object(out.get("layout"), "description")
+    out["styling"] = _as_object(out.get("styling"), "description")
     # kpi_chart_mapping: normalise each entry, drop those that can't be fixed.
     raw_mapping = out.get("kpi_chart_mapping")
     if isinstance(raw_mapping, list):
@@ -134,6 +135,9 @@ def _normalise_output(obj: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(raw_ix, dict):
         # Model returned a single dict instead of a list — wrap it.
         out["interactions"] = [raw_ix]
+    elif isinstance(raw_ix, str):
+        text = raw_ix.strip()
+        out["interactions"] = [text] if text else []
     # rationales: accept list-of-dicts or list-of-strings uniformly.
     raw_rat = out.get("rationales")
     if isinstance(raw_rat, list):

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Union
 
-from src.core.constants import CHART_TYPES, REQUIRED_KEYS, TASK_TYPES
+from src.core.constants import CHART_TYPES, TASK_TYPES
 from src.core.schemas import DashboardBrief
 
 BriefLike = Union[DashboardBrief, Dict[str, Any]]
@@ -21,7 +21,9 @@ SYSTEM_PROMPT = (
     "Given a dashboard brief, you generate structured, professional design "
     "recommendations.\n"
     "Always respond with a single valid JSON object following the exact schema "
-    "provided."
+    "provided.\n"
+    "Do not wrap the JSON in markdown fences. Do not add commentary outside the "
+    "JSON object."
 )
 
 
@@ -62,13 +64,27 @@ def build_user_message(brief: BriefLike) -> str:
         f"**Data columns:** {_fmt_columns(b.get('columns', []))}",
         f"**Constraints:** {b.get('constraints') or 'None'}",
         "",
-        "Respond ONLY with a valid JSON object containing exactly these keys:",
-    ]
-    lines += [f"  {i}. {key}" for i, key in enumerate(REQUIRED_KEYS, start=1)]
-    lines += [
+        "Respond ONLY with a valid JSON object containing exactly these keys "
+        "with these types:",
+        "  1. context_summary  (object / JSON dictionary, never a plain string)",
+        "  2. kpi_chart_mapping (array of objects)",
+        "  3. layout           (object / JSON dictionary, never a plain string)",
+        "  4. styling          (object / JSON dictionary, never a plain string)",
+        "  5. interactions     (array)",
+        "  6. rationales       (array of objects)",
         "",
-        "context_summary must be a JSON OBJECT (not a plain string), e.g. "
-        '{"objective": "monitor loan risk", "primary_users": "branch managers"}.',
+        "Example shape (values are illustrative):",
+        '{',
+        '  "context_summary": {"audience": "executives", "focus": "revenue trend"},',
+        '  "kpi_chart_mapping": [{"kpi": "Revenue", "task_type": "trend", '
+        '"chart_type": "line", "alternatives": ["area"], "encoding": {}}],',
+        '  "layout": {"structure": "single_page", "sections": ["kpi_row", "trend"]},',
+        '  "styling": {"theme": "light", "density": "comfortable"},',
+        '  "interactions": ["filter_by_region", "hover_tooltip"],',
+        '  "rationales": [{"claim": "Line chart shows change over time", '
+        '"principle": "task-chart fit"}]',
+        '}',
+        "",
         "In kpi_chart_mapping, each entry has: kpi, task_type, chart_type, "
         "alternatives (list), encoding (object).",
         f"Allowed task_type values: {', '.join(TASK_TYPES)}.",

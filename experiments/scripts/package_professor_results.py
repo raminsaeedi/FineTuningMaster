@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -41,11 +42,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="Default: professor_results_<dataset>.zip")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
+    scratch_outputs = os.environ.get("FTM_OUTPUT_DATA_PATH")
+    scratch_results = os.environ.get("FTM_RESULTS_PATH")
+    scratch_packages = os.environ.get("FTM_PACKAGES_PATH")
     # V3 and V4 evidence never lands in the same archive: every default path is
     # keyed on the dataset.
-    args.outputs_root = args.outputs_root or f"experiments/outputs/{args.profile}/{args.dataset}"
-    args.results_dir = args.results_dir or f"experiments/results/{args.profile}/{args.dataset}"
-    args.out = args.out or f"professor_results_{args.dataset}.zip"
+    args.outputs_root = args.outputs_root or (
+        f"{scratch_outputs}/{args.dataset}"
+        if scratch_outputs
+        else f"experiments/outputs/{args.profile}/{args.dataset}"
+    )
+    args.results_dir = args.results_dir or (
+        scratch_results
+        if scratch_results
+        else f"experiments/results/{args.profile}/{args.dataset}"
+    )
+    if args.out is None:
+        args.out = (
+            str(Path(scratch_packages) / f"professor_results_{args.dataset}.zip")
+            if scratch_packages
+            else f"professor_results_{args.dataset}.zip"
+        )
     return args
 
 

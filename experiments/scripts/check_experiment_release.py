@@ -329,7 +329,9 @@ def check_counts(report: Report, dataset: str) -> None:
         )
 
 
-def check_knowledge_base(report: Report) -> None:
+def check_knowledge_base(
+    report: Report, kb_chunks_path: Optional[str] = None
+) -> None:
     kb_dir = _PROJECT_ROOT / "data" / "knowledge_base"
     guidelines = sorted((kb_dir / "guidelines").glob("*.md")) if kb_dir.exists() else []
     if not guidelines:
@@ -341,31 +343,48 @@ def check_knowledge_base(report: Report) -> None:
         return
     report.ok("rag guidelines", f"{len(guidelines)} documents")
 
-    chunks = kb_dir / "chunks.jsonl"
+    raw = kb_chunks_path or os.environ.get("FTM_KB_CHUNKS_PATH") or ""
+    if raw:
+        chunks = Path(raw)
+        if not chunks.is_absolute():
+            chunks = _PROJECT_ROOT / chunks
+    else:
+        chunks = kb_dir / "chunks.jsonl"
     if not chunks.exists():
         report.fail(
             "rag knowledge base",
-            "chunks.jsonl not built -> python experiments/scripts/build_kb.py",
+            f"chunks.jsonl not built at {chunks} -> "
+            "bash setup_hpc.sh OR python experiments/scripts/build_kb.py",
         )
         return
 
-    try:
-        from src.data_pipeline.kb_builder import verify_kb
+    # Full manifest verification only works for the in-repo layout. Scratch
+    # builds retain the same guideline source but place generated chunks aside.
+    if chunks.parent.resolve() == kb_dir.resolve():
+        try:
+            from src.data_pipeline.kb_builder import verify_kb
 
-        ok, problems = verify_kb(kb_dir)
-        if ok:
-            report.ok("rag knowledge base", f"{count_lines(chunks)} chunks verified")
-        else:
-            report.fail(
+            ok, problems = verify_kb(kb_dir)
+            if ok:
+                report.ok("rag knowledge base", f"{count_lines(chunks)} chunks verified")
+            else:
+                report.fail(
+                    "rag knowledge base",
+                    f"{'; '.join(problems)} -> python experiments/scripts/build_kb.py",
+                )
+            return
+        except ImportError:
+            report.warn(
                 "rag knowledge base",
-                f"{'; '.join(problems)} -> python experiments/scripts/build_kb.py",
+                f"{count_lines(chunks)} chunks present (no manifest verification available)",
             )
-    except ImportError:
-        # Verification helper not available: fall back to presence only.
-        report.warn(
-            "rag knowledge base",
-            f"{count_lines(chunks)} chunks present (no manifest verification available)",
-        )
+            return
+
+    n = count_lines(chunks)
+    if n <= 0:
+        report.fail("rag knowledge base", f"empty chunks file: {chunks}")
+    else:
+        report.ok("rag knowledge base", f"{n} chunks at {chunks}")
 
 
 def _model_keys(profile: str, model_override: Optional[str], all_models: bool) -> list[str]:
@@ -624,6 +643,11 @@ def parse_args() -> argparse.Namespace:
                    help="Check all four final model profiles")
     p.add_argument("--output-root", default=None,
                    help="Output root to test for writability")
+    p.add_argument(
+        "--kb-chunks-path",
+        default=None,
+        help="RAG chunks.jsonl path (default: $FTM_KB_CHUNKS_PATH or data/knowledge_base/chunks.jsonl)",
+    )
     return p.parse_args()
 
 
@@ -637,7 +661,7 @@ def main() -> None:
 
     print(f"  dataset: {args.dataset}")
     final_profile = args.profile == "final"
-    output_root = args.output_root or (
+    output_root = args.output_root or os.environ.get("FTM_OUTPUT_DATA_PATH") or (
         "experiments/outputs/final" if final_profile else "experiments/outputs/smoke"
     )
 
@@ -655,7 +679,8 @@ def main() -> None:
         ("dataset sha256", lambda: check_hashes(report, state.get("records"), args.dataset)),
         ("split counts", lambda: check_counts(report, args.dataset)),
         ("robustness splits", lambda: check_robustness_splits(report, args.dataset)),
-        ("knowledge base", lambda: check_knowledge_base(report)),
+        ("knowledge base", lambda: check_knowledge_base(
+            report, kb_chunks_path=args.kb_chunks_path)),
         ("experiment configs", lambda: state.update(profiles=check_configs(
             report, args.model, profile=args.profile, all_models=args.all_models,
             dataset=args.dataset))),

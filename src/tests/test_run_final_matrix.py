@@ -173,6 +173,13 @@ def test_commands_carry_the_seed_and_extra_overrides():
     assert "seed=43" in run
 
 
+def test_hydra_path_quotes_external_windows_paths():
+    assert matrix_runner._hydra_path(r"C:\Users\Researcher\run outputs") == (
+        '"C:/Users/Researcher/run outputs"'
+    )
+    assert matrix_runner._hydra_path("/mnt/scratch/runs") == "/mnt/scratch/runs"
+
+
 # --- dataset isolation -----------------------------------------------------
 
 def _completed_run(path: Path, dataset: str) -> Path:

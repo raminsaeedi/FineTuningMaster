@@ -45,6 +45,20 @@ load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
 apply_cache_paths "$PROJECT_ROOT"
 [[ -z "${PATHS_FILE_RESOLVED:-}" ]] || echo "[launcher] paths file: $PATHS_FILE_RESOLVED"
 
+# Optional generated HPC environment. Its location is supplied by the
+# machine-specific paths file or the caller; no cluster path is hard-coded.
+FTM_ENV_FILE="${FTM_ENV_FILE:-${HPC_ENV_FILE:-}}"
+if [[ -z "$FTM_ENV_FILE" && -n "${SCRATCH_ROOT:-}" ]]; then
+  FTM_ENV_FILE="$SCRATCH_ROOT/hpc_env.sh"
+fi
+if [[ -n "$FTM_ENV_FILE" && -f "$FTM_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$FTM_ENV_FILE"
+  apply_cache_paths "$PROJECT_ROOT"
+  echo "[launcher] HPC environment: $FTM_ENV_FILE"
+fi
+VENV_PATH="${VENV_PATH:-${FTM_VENV_DIR:-}}"
+
 # One-place configuration. Command-line values win over these defaults.
 PROFILE="${PROFILE:-smoke}"                         # smoke | final
 MODE="${MODE:-full}"                               # full | inference | train
@@ -69,16 +83,16 @@ PARAPHRASED_DATA_PATH="${PARAPHRASED_DATA_PATH:-}"     # empty = dataset default
 MISSING_INFO_DATA_PATH="${MISSING_INFO_DATA_PATH:-}"   # empty = dataset default
 NO_PARAPHRASED=0
 NO_MISSING_INFO=0
-KB_CHUNKS_PATH="${KB_CHUNKS_PATH:-data/knowledge_base/chunks.jsonl}"
+KB_CHUNKS_PATH="${KB_CHUNKS_PATH:-${FTM_KB_CHUNKS_PATH:-data/knowledge_base/chunks.jsonl}}"
 
 BASE_MODEL_PATH="${BASE_MODEL_PATH:-}"             # local base-model directory
 MODEL_ID="${MODEL_ID:-}"                           # Hugging Face ID or local directory
 INPUT_MODEL_WEIGHTS="${INPUT_MODEL_WEIGHTS:-}"     # existing PEFT adapter directory
-CACHE_PATH="${CACHE_PATH:-}"                       # Hugging Face cache directory
+CACHE_PATH="${CACHE_PATH:-${FTM_CACHE_PATH:-}}"    # Hugging Face cache directory
 
-OUTPUT_DATA_PATH="${OUTPUT_DATA_PATH:-}"
-OUTPUT_MODEL_PATH="${OUTPUT_MODEL_PATH:-}"
-RESULTS_PATH="${RESULTS_PATH:-}"
+OUTPUT_DATA_PATH="${OUTPUT_DATA_PATH:-${FTM_OUTPUT_DATA_PATH:-}}"
+OUTPUT_MODEL_PATH="${OUTPUT_MODEL_PATH:-${FTM_OUTPUT_MODEL_PATH:-}}"
+RESULTS_PATH="${RESULTS_PATH:-${FTM_RESULTS_PATH:-}}"
 
 PYTHON_BIN="${PYTHON_BIN:-}"   # empty = resolve the Poetry environment below
 TRAIN_EXPERIMENT="${TRAIN_EXPERIMENT:-E03_qwen0_5b_ft}"
@@ -180,8 +194,15 @@ resolve_path() {
 }
 
 hydra_path() {
-  local value="$1"
-  printf '%s' "${value//\\//}"
+  local value="${1//\\//}"
+  # Hydra treats the colon in a Windows drive letter as override syntax.
+  # Quote paths with Hydra-significant characters, including spaces.
+  if [[ "$value" =~ [[:space:]:,\[\]\{\}=#] ]]; then
+    value="${value//\"/\\\"}"
+    printf '"%s"' "$value"
+  else
+    printf '%s' "$value"
+  fi
 }
 
 require_file() {

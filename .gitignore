@@ -43,6 +43,7 @@ data/staging/
 # Extracted database caches are large and reproducible via
 # `python experiments/scripts/prepare_nvbench_cache.py`; never versioned.
 data/cache_external/
+data/Data from HPC/
 
 # ── External raw datasets (large, user-provisioned, immutable) ──
 # Ignore all raw archives and extracted external files, but keep the small
@@ -68,6 +69,8 @@ experiments/outputs/
 experiments/results/
 # Generated SLURM job scripts, task lists and job logs.
 experiments/slurm/jobs/
+slurm-*.out
+slurm-*.err
 
 # ── Jupyter ──────────────────────────────────────────────────
 .ipynb_checkpoints/

@@ -31,4 +31,5 @@ sft:
   lr_scheduler_type: cosine
   warmup_ratio: 0.1
   weight_decay: 0.01
+  precision: auto
   gradient_checkpointing: true

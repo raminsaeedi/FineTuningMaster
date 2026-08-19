@@ -22,12 +22,13 @@ from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
 from src.models.hf_utils import load_pretrained_with_cache_repair
 from src.training.sft_trainer import _as_list, _get
+from src.training.stability import AbortOnNonFiniteCallback
+from src.utils.gpu_precision import resolve_training_precision
 from src.utils.numerics import (
     nonfinite_scalar_items,
     raise_if_nonfinite_parameters,
     validate_checkpoint_weights_finite,
 )
-from src.utils.precision import align_fp16_trainable_parameters, resolve_precision
 
 logger = logging.getLogger(__name__)
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -61,13 +62,8 @@ class GaLoreSFTTrainer(BaseTrainer):
         cache_dir = _get(self.model_cfg, "cache_dir")
         galore = _get(self.train_cfg, "galore", {})
         sft = _get(self.train_cfg, "sft", {})
-        precision = resolve_precision(
-            _get(self.model_cfg, "dtype") or _get(self.model_cfg, "torch_dtype", "float16"),
-            torch,
-            fp16=bool(_get(sft, "fp16", False)),
-            bf16=bool(_get(sft, "bf16", False)),
-            logger=logger,
-        )
+        precision = resolve_training_precision(sft)
+        logger.info("Resolved GaLore precision: %s", precision.reason)
 
         self.tokenizer = load_pretrained_with_cache_repair(
             AutoTokenizer.from_pretrained,
@@ -89,16 +85,11 @@ class GaLoreSFTTrainer(BaseTrainer):
             kwargs={
                 "device_map": "auto" if torch.cuda.is_available() else None,
                 "trust_remote_code": True,
-                "dtype": precision.effective_dtype,
+                "dtype": getattr(torch, precision.inference_dtype),
                 "cache_dir": cache_dir,
             },
             logger=logger,
             component="GaLore model",
-        )
-        align_fp16_trainable_parameters(
-            self.model,
-            precision.effective_dtype,
-            logger=logger,
         )
         self.model.config.use_cache = False
 
@@ -118,8 +109,9 @@ class GaLoreSFTTrainer(BaseTrainer):
             lr_scheduler_type=str(_get(sft, "lr_scheduler_type", "cosine")),
             warmup_ratio=float(_get(sft, "warmup_ratio", 0.03)),
             weight_decay=float(_get(sft, "weight_decay", 0.0)),
-            fp16=precision.fp16,
-            bf16=precision.bf16,
+            fp16=precision.amp_fp16,
+            bf16=precision.amp_bf16,
+            max_length=int(_get(self.model_cfg, "max_seq_length", 2048)),
             logging_steps=int(_get(sft, "logging_steps", 10)),
             save_steps=int(_get(sft, "save_steps", 50)),
             save_total_limit=int(_get(sft, "save_total_limit", 1)),
@@ -139,6 +131,7 @@ class GaLoreSFTTrainer(BaseTrainer):
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             args=training_args,
+            callbacks=[AbortOnNonFiniteCallback()],
         )
         logger.info("GaLore training started (optim_args=%s)…", optim_args)
         train_kwargs = {}
