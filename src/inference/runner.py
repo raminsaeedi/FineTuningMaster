@@ -24,6 +24,18 @@ from src.utils.io import read_jsonl
 
 logger = logging.getLogger(__name__)
 
+_FATAL_CUDA_ERRORS = (
+    "device-side assert triggered",
+    "an illegal memory access was encountered",
+    "unspecified launch failure",
+)
+
+
+def _is_fatal_cuda_error(exc: Exception) -> bool:
+    """Return whether CUDA context cannot safely process another item."""
+    message = str(exc).lower()
+    return any(marker in message for marker in _FATAL_CUDA_ERRORS)
+
 
 class InferenceRunner:
     """Run a method over a list of briefs, caching results to ``out_path``."""
@@ -138,7 +150,7 @@ class InferenceRunner:
                         f.flush()
                         status = "ok" if result.parse_error is None else result.parse_error
                         print(f"  [{i:>3}/{n}] {brief.item_id} {status} ({result.latency_ms:.0f} ms)")
-                    except Exception as exc:  # one bad item must not abort the run
+                    except Exception as exc:  # recoverable item errors do not abort the run
                         # Record it instead of dropping it: otherwise n_predictions
                         # silently differs across methods and a crashing method looks
                         # artificially better. See errors*.jsonl next to predictions.
@@ -146,6 +158,8 @@ class InferenceRunner:
                         self._record_error(brief, variant, exc)
                         n_errors += 1
                         print(f"  [{i:>3}/{n}] {brief.item_id} ERROR: {exc}")
+                        if _is_fatal_cuda_error(exc):
+                            raise
         finally:
             self.method.teardown()
 

@@ -27,9 +27,18 @@ class Latency(BaseMetric):
     name = "latency"
 
     def compute(self, results, references=None) -> dict:
-        values = sorted(float(r.latency_ms) for r in results if r.latency_ms is not None)
+        expected_ids = {str(ref.get("item_id", "")) for ref in (references or [])}
+        measured_results = [r for r in results if not expected_ids or r.item_id in expected_ids]
+        values = sorted(float(r.latency_ms) for r in measured_results if r.latency_ms is not None)
+        n_requested = len(references) if references else len(measured_results)
+        coverage = 100.0 * len(values) / n_requested if n_requested else None
         if not values:
-            return {"avg_latency_ms": None, "p50_latency_ms": None, "p95_latency_ms": None, "n": 0}
+            return {
+                "avg_latency_ms": None, "p50_latency_ms": None, "p95_latency_ms": None,
+                "avg_latency_s": None, "p50_latency_s": None, "p95_latency_s": None,
+                "n": 0, "n_measured": 0, "n_requested": n_requested,
+                "coverage_rate": coverage,
+            }
         avg = sum(values) / len(values)
         p50 = _percentile(values, 0.50)
         p95 = _percentile(values, 0.95)
@@ -38,5 +47,10 @@ class Latency(BaseMetric):
             "p50_latency_ms": round(p50, 1),
             "p95_latency_ms": round(p95, 1),
             "avg_latency_s": round(avg / 1000.0, 3),
+            "p50_latency_s": round(p50 / 1000.0, 3),
+            "p95_latency_s": round(p95 / 1000.0, 3),
             "n": len(values),
+            "n_measured": len(values),
+            "n_requested": n_requested,
+            "coverage_rate": round(coverage, 2) if coverage is not None else None,
         }

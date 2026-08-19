@@ -27,6 +27,7 @@ from src.core.constants import REQUIRED_KEYS
 from src.core.interfaces import BaseMetric
 from src.core.registry import METRICS
 from src.core.schemas import DesignOutput
+from src.evaluation.metrics.base import align_results
 from src.inference.postprocess import extract_json_dict
 
 
@@ -64,7 +65,8 @@ class SchemaCompliance(BaseMetric):
     name = "schema_compliance"
 
     def compute(self, results, references=None) -> dict:
-        n = len(results)
+        aligned = align_results(results, references or [])
+        n = len(aligned)
         if n == 0:
             return {
                 "json_parse_rate": None,
@@ -72,7 +74,7 @@ class SchemaCompliance(BaseMetric):
                 "schema_validity_rate": None,
                 "completeness_score": None,
                 "field_coverage": {},
-                "n": 0,
+                "n": 0, "n_predictions": 0, "n_missing_predictions": 0,
             }
 
         parsed_ok = 0
@@ -81,7 +83,9 @@ class SchemaCompliance(BaseMetric):
         completeness_sum = 0.0
         key_present = {k: 0 for k in REQUIRED_KEYS}
 
-        for r in results:
+        for _, r in aligned:
+            if r is None:
+                continue
             obj = extract_json_dict(r.raw_text)
             if obj is None:
                 continue
@@ -104,4 +108,6 @@ class SchemaCompliance(BaseMetric):
             "completeness_score": round(completeness_sum / n, 4),
             "field_coverage": {k: round(100.0 * c / n, 2) for k, c in key_present.items()},
             "n": n,
+            "n_predictions": sum(r is not None for _, r in aligned),
+            "n_missing_predictions": sum(r is None for _, r in aligned),
         }

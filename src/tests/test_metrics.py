@@ -1,8 +1,14 @@
 """Metric computation on small synthetic predictions (masterplan schema)."""
 
+from pathlib import Path
+
+import yaml
+
 from src.core.schemas import DesignOutput, GenerationResult
 from src.evaluation.metrics.macro_f1 import NONE_LABEL, MacroF1ChartType
+from src.evaluation.metrics.latency import Latency
 from src.evaluation.metrics.schema_compliance import SchemaCompliance
+from src.evaluation.metrics.structured_exact_match import StructuredExactMatch
 from src.evaluation.metrics.topk_accuracy import TopKAccuracy
 
 
@@ -83,6 +89,17 @@ def test_top1_counts_parse_failures_as_wrong():
     assert out["top_1_accuracy"] == 50.0  # 1 correct out of 2 items (failure = wrong)
 
 
+def test_top1_counts_a_completely_missing_prediction_as_wrong():
+    good = _result("a", [{"kpi": "k", "task_type": "trend", "chart_type": "line"}])
+    refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
+
+    out = TopKAccuracy().compute([good], refs)
+
+    assert out["n"] == 2
+    assert out["n_missing_predictions"] == 1
+    assert out["top_1_accuracy"] == 50.0
+
+
 def test_top3_invalid_when_no_alternatives():
     # No item emits alternatives -> top-3 is degenerate and reported invalid.
     results = [
@@ -128,6 +145,21 @@ def test_completeness_ignores_empty_containers():
     assert out["completeness_score"] == 0.5
 
 
+def test_schema_rates_include_a_completely_missing_prediction():
+    valid = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
+             '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+             '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
+             '"rationales": [{"claim": "c"}]}')
+    result = _result("a", [], valid)
+    refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
+
+    out = SchemaCompliance().compute([result], refs)
+
+    assert out["n"] == 2
+    assert out["n_missing_predictions"] == 1
+    assert out["schema_validity_rate"] == 50.0
+
+
 def test_per_class_f1_and_confusion_matrix():
     # gold: a->line, b->line, c->bar ; pred: a->line, b->bar, c->(parse fail).
     good_a = _result("a", [{"kpi": "k", "task_type": "trend", "chart_type": "line"}])
@@ -154,3 +186,81 @@ def test_per_class_f1_and_confusion_matrix():
     assert matrix[li][li] == 1   # a: line -> line
     assert matrix[li][bi] == 1   # b: line -> bar
     assert matrix[bi][ni] == 1   # c: bar  -> (none)
+
+
+def test_macro_f1_includes_a_completely_missing_prediction():
+    good = _result("a", [{"kpi": "k", "task_type": "trend", "chart_type": "line"}])
+    refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
+
+    out = MacroF1ChartType().compute([good], refs)
+
+    assert out["n"] == 2
+    assert out["per_class_f1"][NONE_LABEL]["support"] == 0
+    labels = out["confusion_matrix"]["labels"]
+    matrix = out["confusion_matrix"]["matrix"]
+    assert matrix[labels.index("bar")][labels.index(NONE_LABEL)] == 1
+
+
+def test_latency_reports_measurement_coverage_without_inventing_missing_times():
+    result = _result("a", [])
+    result.latency_ms = 1200.0
+    refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
+
+    out = Latency().compute([result], refs)
+
+    assert out["avg_latency_ms"] == 1200.0
+    assert out["n_measured"] == 1
+    assert out["n_requested"] == 2
+    assert out["coverage_rate"] == 50.0
+
+
+def test_structured_exact_match_uses_full_reference_cohort_and_strict_fields():
+    parsed = DesignOutput(
+        context_summary={"db_id": "db_a"},
+        kpi_chart_mapping=[{
+            "kpi": "SUM(value)", "task_type": "comparison", "chart_type": "bar",
+            "encoding": {"aggregate": "SUM"},
+        }],
+    )
+    result = GenerationResult(
+        item_id="a", method_name="m", model_name="x", raw_text="{}", parsed=parsed
+    )
+    refs = [
+        {"item_id": "a", "recommendation": {
+            "context_summary": {"db_id": "db_a"},
+            "kpi_chart_mapping": [{
+                "kpi": "SUM(value)", "task_type": "comparison", "chart_type": "bar",
+                "encoding": {"aggregate": "SUM"},
+            }],
+        }},
+        {"item_id": "b", "recommendation": {
+            "context_summary": {"db_id": "db_b"},
+            "kpi_chart_mapping": [{
+                "kpi": "COUNT(value)", "task_type": "ranking", "chart_type": "bar",
+                "encoding": {"aggregate": "COUNT"},
+            }],
+        }},
+    ]
+
+    out = StructuredExactMatch().compute([result], refs)
+
+    assert out["n"] == 2 and out["prediction_coverage_rate"] == 50.0
+    assert out["exact_task_classification"] == 50.0
+    assert out["exact_kpi_selection"] == 50.0
+    assert out["exact_mapping_count"] == 50.0
+    assert out["exact_encoding"] == 50.0
+    assert out["exact_aggregate"] == 50.0
+    assert out["hidden_context_diagnostics"]["db_id"] == {
+        "presence_rate": 50.0,
+        "exact_match_rate": 50.0,
+        "n_applicable": 2,
+        "visible_in_prompt": False,
+    }
+
+
+def test_full_eval_profile_enables_structured_exact_match():
+    profile = yaml.safe_load(
+        (Path(__file__).parents[1] / "config" / "eval" / "full.yaml").read_text()
+    )
+
+    assert "structured_exact_match" in profile["metrics"]

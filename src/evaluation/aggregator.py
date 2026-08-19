@@ -121,6 +121,13 @@ _SUMMARY_METRICS = {
     "completeness_score": "metrics.schema_compliance.completeness_score",
     "top_1_accuracy": "metrics.top_k_accuracy.top_1_accuracy",
     "macro_f1": "metrics.macro_f1.macro_f1",
+    "exact_task_classification": (
+        "metrics.structured_exact_match.exact_task_classification"
+    ),
+    "exact_kpi_selection": "metrics.structured_exact_match.exact_kpi_selection",
+    "exact_mapping_count": "metrics.structured_exact_match.exact_mapping_count",
+    "exact_encoding": "metrics.structured_exact_match.exact_encoding",
+    "exact_aggregate": "metrics.structured_exact_match.exact_aggregate",
     "avg_latency_ms": "metrics.latency.avg_latency_ms",
     "paraphrase_accuracy": "metrics.robustness.paraphrase_accuracy",
     "paraphrase_consistency": "metrics.robustness.paraphrase_consistency",

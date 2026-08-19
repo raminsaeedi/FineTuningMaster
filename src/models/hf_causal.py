@@ -169,6 +169,8 @@ class HFCausalModel:
             top_p=gen_kwargs.get("top_p", 0.9),
             do_sample=gen_kwargs.get("do_sample", True),
             repetition_penalty=gen_kwargs.get("repetition_penalty", 1.15),
+            remove_invalid_values=gen_kwargs.get("remove_invalid_values", True),
+            renormalize_logits=gen_kwargs.get("renormalize_logits", True),
             pad_token_id=self.tokenizer.eos_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
         )

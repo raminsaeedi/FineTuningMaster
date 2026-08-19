@@ -52,6 +52,13 @@ def _metrics(seed: int, *, robustness: bool = True) -> dict:
             },
             "macro_f1": {"macro_f1": 0.5, "n": 2},
             "latency": {"avg_latency_ms": 10.0, "n": 2},
+            "structured_exact_match": {
+                "exact_task_classification": 75.0,
+                "exact_kpi_selection": 80.0,
+                "exact_mapping_count": 85.0,
+                "exact_encoding": 90.0,
+                "exact_aggregate": 95.0,
+            },
         },
     }
     if robustness:
@@ -209,6 +216,9 @@ def test_multi_seed_summary_keeps_raw_seeds_and_groups_by_dataset(tmp_path):
     assert current["mean"] == pytest.approx(50.0)
     assert pd.isna(current["ci_low"])
     assert pd.isna(current["ci_high"])
+
+    exact = summary[summary["metric"] == "exact_task_classification"].iloc[0]
+    assert exact["mean"] == pytest.approx(75.0)
 
 
 def test_aggregation_records_run_provenance_and_na_robustness(tmp_path):

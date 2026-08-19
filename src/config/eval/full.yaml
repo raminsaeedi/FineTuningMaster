@@ -2,6 +2,7 @@
 # prediction files are present.
 metrics:
   - schema_compliance
+  - structured_exact_match
   - top_k_accuracy
   - macro_f1
   - latency

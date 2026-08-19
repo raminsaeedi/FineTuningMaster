@@ -8,7 +8,7 @@ from the typed ``kpi_chart_mapping`` and join predictions to references by id.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.core.schemas import GenerationResult
 
@@ -52,3 +52,14 @@ def reference_charts(reference: dict) -> List[str]:
 def index_references(references: List[dict]) -> Dict[str, dict]:
     """Map references by item_id for order-independent joins."""
     return {r.get("item_id", ""): r for r in references}
+
+
+def align_results(
+    results: List[GenerationResult], references: List[dict]
+) -> List[Tuple[dict, Optional[GenerationResult]]]:
+    """Join every expected reference to its prediction, preserving missing rows."""
+    if not references:
+        return [({}, result) for result in results]
+    by_id = {result.item_id: result for result in results}
+    return [(reference, by_id.get(str(reference.get("item_id", ""))))
+            for reference in references]

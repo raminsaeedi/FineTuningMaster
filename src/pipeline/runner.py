@@ -32,6 +32,22 @@ VARIANTS = {
 }
 
 
+def _coverage(results: Optional[List[GenerationResult]], expected_ids: List[str]) -> dict:
+    predicted_ids = {result.item_id for result in (results or [])}
+    expected_set = set(expected_ids)
+    missing_ids = [item_id for item_id in expected_ids if item_id not in predicted_ids]
+    n_requested = len(expected_ids)
+    return {
+        "n_requested": n_requested,
+        "n_predictions": len(predicted_ids & expected_set),
+        "n_missing": len(missing_ids),
+        "prediction_coverage_rate": round(
+            100.0 * (n_requested - len(missing_ids)) / n_requested, 2
+        ) if n_requested else None,
+        "missing_item_ids": missing_ids,
+    }
+
+
 def _resolve(path_str: str, project_root: Path) -> Path:
     p = Path(path_str)
     return p if p.is_absolute() else project_root / p
@@ -109,6 +125,27 @@ class ExperimentRunner:
                 f"No predictions at {self.exp_dir / 'predictions.jsonl'}. Run inference first."
             )
 
+        expected_ids = [reference["item_id"] for reference in references]
+        coverage = _coverage(results, expected_ids)
+        missing_ids = coverage["missing_item_ids"]
+        n_requested = coverage["n_requested"]
+
+        variant_results: dict[str, Optional[List[GenerationResult]]] = {}
+        variant_coverage: dict[str, dict] = {}
+        for variant, config_key in VARIANTS.items():
+            configured_path = self.data_cfg.get(config_key)
+            if not configured_path:
+                continue
+            source_path = _resolve(str(configured_path), self.project_root)
+            if not source_path.exists():
+                raise FileNotFoundError(
+                    f"Configured {variant} evaluation data not found: {source_path}"
+                )
+            expected_variant_ids = [item.item_id for item in load_gold_items(source_path)]
+            loaded = self._load_predictions(f"predictions_{variant}.jsonl")
+            variant_results[variant] = loaded
+            variant_coverage[variant] = _coverage(loaded, expected_variant_ids)
+
         metric_names = list(self.cfg.eval.get("metrics", []))
         metrics: dict = {}
         for name in metric_names:
@@ -117,8 +154,8 @@ class ExperimentRunner:
 
         metrics["robustness"] = compute_robustness(
             results,
-            self._load_predictions("predictions_paraphrased.jsonl"),
-            self._load_predictions("predictions_missing_info.jsonl"),
+            variant_results.get("paraphrased"),
+            variant_results.get("missing_info"),
             references=references,
         )
 
@@ -128,12 +165,43 @@ class ExperimentRunner:
             "model": str(self.cfg.model.get("name", "")),
             "seed": int(self.cfg.get("seed", 42)),
             "n_predictions": len(results),
+            "n_requested": n_requested,
+            "coverage": coverage,
+            "variant_coverage": variant_coverage,
             "metrics": metrics,
         }
         write_json(payload, self.exp_dir / "metrics_auto.json")
         # Additive Phase-1 reporting artifacts (do not mutate metrics_auto.json /
         # predictions.jsonl): a layered metrics.json and a per-item scored file.
-        write_per_run_reports(self.exp_dir, payload, results, references)
+        report_results = list(results)
+        report_results.extend(
+            GenerationResult(
+                item_id=item_id,
+                method_name=str(self.cfg.method.name),
+                model_name=str(self.cfg.model.get("name", "")),
+                raw_text="",
+                parse_error="missing_prediction",
+                seed=int(self.cfg.get("seed", 42)),
+            )
+            for item_id in missing_ids
+        )
+        write_per_run_reports(self.exp_dir, payload, report_results, references)
+        incomplete = []
+        if missing_ids:
+            incomplete.append(f"original: {len(missing_ids)} of {n_requested}")
+        incomplete.extend(
+            f"{variant}: {values['n_missing']} of {values['n_requested']}"
+            for variant, values in variant_coverage.items()
+            if values["n_missing"]
+        )
+        if incomplete:
+            detail = "; ".join(incomplete)
+            if len(incomplete) == 1 and incomplete[0].startswith("original:"):
+                detail = incomplete[0].removeprefix("original: ")
+            raise RuntimeError(
+                f"{detail} expected predictions are missing; coverage-aware metrics were "
+                "written, but the run remains incomplete."
+            )
         return payload
 
     def run(self) -> dict:

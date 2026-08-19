@@ -147,7 +147,7 @@ def test_config_plus_weights_is_a_trained_adapter(tmp_path, weights):
     assert matrix_runner.adapter_is_trained(path) is True
 
 
-def test_run_is_complete_is_keyed_on_metrics_auto(tmp_path):
+def test_run_is_complete_requires_consistent_coverage(tmp_path):
     run = tmp_path / "E01_qwen0_5b_prompt_42"
     run.mkdir()
     assert matrix_runner.run_is_complete(run) is False
@@ -157,7 +157,45 @@ def test_run_is_complete_is_keyed_on_metrics_auto(tmp_path):
     assert matrix_runner.run_is_complete(run) is False
 
     (run / "metrics_auto.json").write_text('{"n_predictions": 1}', encoding="utf-8")
+    assert matrix_runner.run_is_complete(run) is False
+
+    (run / "metrics_auto.json").write_text(
+        '{"coverage": {"n_requested": 2, "n_predictions": 1, "n_missing": 0}, '
+        '"variant_coverage": {}}',
+        encoding="utf-8",
+    )
+    assert matrix_runner.run_is_complete(run) is False
+
+    (run / "metrics_auto.json").write_text(
+        '{"coverage": {"n_requested": 1, "n_predictions": 1, "n_missing": 0}, '
+        '"variant_coverage": {}}',
+        encoding="utf-8",
+    )
     assert matrix_runner.run_is_complete(run) is True
+
+
+def test_run_is_not_complete_when_metrics_report_missing_predictions(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "metrics_auto.json").write_text(
+        '{"n_requested": 2, "n_predictions": 1, '
+        '"coverage": {"n_requested": 2, "n_predictions": 1, "n_missing": 1}}',
+        encoding="utf-8",
+    )
+
+    assert matrix_runner.run_is_complete(run) is False
+
+
+def test_run_is_not_complete_when_a_robustness_variant_is_missing(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "metrics_auto.json").write_text(
+        '{"coverage": {"n_missing": 0}, "variant_coverage": '
+        '{"paraphrased": {"n_missing": 1}}}',
+        encoding="utf-8",
+    )
+
+    assert matrix_runner.run_is_complete(run) is False
 
 
 # --- command construction --------------------------------------------------
@@ -184,7 +222,11 @@ def test_hydra_path_quotes_external_windows_paths():
 
 def _completed_run(path: Path, dataset: str) -> Path:
     path.mkdir(parents=True, exist_ok=True)
-    (path / "metrics_auto.json").write_text('{"n_predictions": 2}', encoding="utf-8")
+    (path / "metrics_auto.json").write_text(
+        '{"coverage": {"n_requested": 2, "n_predictions": 2, "n_missing": 0}, '
+        '"variant_coverage": {}}',
+        encoding="utf-8",
+    )
     (path / "manifest.json").write_text(
         '{"profile": "final", "model_key": "qwen3_8b", "method_key": "A", "seed": 42, '
         f'"status": "completed", "dataset_version": "{dataset}"}}',

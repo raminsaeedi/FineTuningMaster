@@ -102,7 +102,34 @@ def adapter_is_trained(path: Path) -> bool:
 
 
 def run_is_complete(path: Path) -> bool:
-    return (path / "metrics_auto.json").exists()
+    metrics_path = path / "metrics_auto.json"
+    if not metrics_path.exists():
+        return False
+    try:
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+
+    def complete(values: object) -> bool:
+        if not isinstance(values, dict):
+            return False
+        requested = values.get("n_requested")
+        predicted = values.get("n_predictions")
+        missing = values.get("n_missing")
+        return (
+            isinstance(requested, int)
+            and isinstance(predicted, int)
+            and requested > 0
+            and predicted == requested
+            and missing == 0
+        )
+
+    if not complete(payload.get("coverage")):
+        return False
+    variants = payload.get("variant_coverage")
+    return isinstance(variants, dict) and all(
+        complete(values) for values in variants.values()
+    )
 
 
 # ---------------------------------------------------------------------------

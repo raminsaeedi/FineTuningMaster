@@ -11,9 +11,11 @@ from src.evaluation.metrics import (  # noqa: F401  (register on import)
     llm_judge,
     macro_f1,
     schema_compliance,
+    structured_exact_match,
     topk_accuracy,
 )
 
 __all__ = [
-    "schema_compliance", "topk_accuracy", "macro_f1", "latency", "grounding", "llm_judge",
+    "schema_compliance", "structured_exact_match", "topk_accuracy", "macro_f1",
+    "latency", "grounding", "llm_judge",
 ]

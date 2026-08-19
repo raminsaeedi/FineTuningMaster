@@ -26,7 +26,7 @@ from src.core.interfaces import BaseMetric
 from src.core.registry import METRICS
 from src.core.schemas import ChartType
 from src.evaluation.metrics.base import (
-    index_references,
+    align_results,
     predicted_alternatives,
     predicted_charts,
     reference_charts,
@@ -45,26 +45,26 @@ class TopKAccuracy(BaseMetric):
     name = "top_k_accuracy"
 
     def compute(self, results, references) -> dict:
-        ref_by_id = index_references(references or [])
-
         n = 0                      # items with a gold reference (top-1 denominator)
         n_predicted = 0            # items that produced a usable primary chart
+        n_missing_predictions = 0
         top1 = 0
         top3_global_hits = 0       # gold primary in the model's (<=3) distinct recs
         per_kpi_hits = per_kpi_total = 0
         n_with_alternatives = 0    # items emitting >= 1 raw alternative (diagnostic)
         n_with_3_recs = 0          # items emitting 3 distinct ordered recs
         top3_supported_hits = 0    # top-3 hits restricted to the 3-rec subset
-        for r in results:
-            ref = ref_by_id.get(r.item_id)
-            if ref is None:
-                continue
+        for ref, r in align_results(results, references or []):
             refs = reference_charts(ref)
             if not refs:
                 continue
             # Every item with a reference is scored; a parse failure / empty
             # prediction simply has no charts and so counts as wrong.
             n += 1
+            if r is None:
+                n_missing_predictions += 1
+                per_kpi_total += len(refs)
+                continue
             primary = refs[0]
             preds = predicted_charts(r)
             if not preds:
@@ -93,15 +93,16 @@ class TopKAccuracy(BaseMetric):
                     top3_supported_hits += 1
 
             # Per-KPI aligned accuracy.
-            for gold_c, pred_c in zip(refs, preds):
+            for index, gold_c in enumerate(refs):
                 per_kpi_total += 1
-                per_kpi_hits += int(gold_c == pred_c)
+                per_kpi_hits += int(index < len(preds) and gold_c == preds[index])
 
         if n == 0:
             return {"top_1_accuracy": None, "top_3_valid": False, "top_3_accuracy": None,
                     "top_3_accuracy_supported": None, "top_3_support_rate": None,
                     "per_kpi_top_1_accuracy": None, "n": 0, "n_predicted": 0,
-                    "n_parse_failures": 0, "n_with_alternatives": 0, "n_with_3_recs": 0}
+                    "n_parse_failures": 0, "n_missing_predictions": 0,
+                    "n_with_alternatives": 0, "n_with_3_recs": 0}
 
         top3_support_rate = n_with_3_recs / n
         top3_valid = top3_support_rate >= TOP3_MIN_SUPPORT
@@ -121,6 +122,7 @@ class TopKAccuracy(BaseMetric):
             "n": n,                                   # items with a reference (denominator)
             "n_predicted": n_predicted,               # items with a usable prediction
             "n_parse_failures": n - n_predicted,      # counted as wrong in top-1
+            "n_missing_predictions": n_missing_predictions,
             "n_with_alternatives": n_with_alternatives,
             "n_with_3_recs": n_with_3_recs,
         }
