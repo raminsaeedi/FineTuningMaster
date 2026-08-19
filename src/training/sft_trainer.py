@@ -23,7 +23,7 @@ from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
-from src.training.stability import AbortOnNonFiniteCallback
+from src.training.stability import AbortOnNonFiniteCallback, TrainerCallbackCompat
 from src.utils.config_hash import hash_config
 from src.utils.gpu_precision import (
     align_trainable_parameters,
@@ -272,7 +272,7 @@ class QLoRASFTTrainer(BaseTrainer):
 
         owner = self
 
-        class FiniteTrainingCallback:
+        class FiniteTrainingCallback(TrainerCallbackCompat):
             """Stop before a bad log/checkpoint can become a saved adapter."""
 
             def on_log(self, args, state, control, logs=None, **kwargs):

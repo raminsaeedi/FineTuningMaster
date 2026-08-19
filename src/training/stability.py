@@ -54,12 +54,24 @@ def _trainable_params_finite(model: Any) -> bool:
 
 # Keep import-time cost low. Transformers is large and importing it here pulls
 # optional native packages (pandas/pyarrow) into CPU-only tests. Trainer
-# callback dispatch is duck-typed, so a tiny local base is sufficient.
-class _TrainerCallback:
-    pass
+# callback dispatch is duck-typed, so this compatibility base supplies the
+# no-op lifecycle hooks that newer Transformers versions may dispatch.
+class TrainerCallbackCompat:
+    """Duck-typed TrainerCallback compatible with changing event surfaces."""
+
+    def __getattr__(self, name):  # noqa: ANN001
+        if not name.startswith("on_"):
+            raise AttributeError(name)
+
+        def _noop(*args, **kwargs):  # noqa: ANN001
+            if "control" in kwargs:
+                return kwargs["control"]
+            return args[2] if len(args) >= 3 else None
+
+        return _noop
 
 
-class AbortOnNonFiniteCallback(_TrainerCallback):
+class AbortOnNonFiniteCallback(TrainerCallbackCompat):
     """Abort the run on NaN/Inf logs or poisoned LoRA weights."""
 
     def on_log(self, args, state, control, logs=None, **kwargs):  # noqa: ANN001

@@ -169,6 +169,15 @@ def test_abort_callback_raises_on_nan_grad():
         cb.on_log(None, state, None, logs={"grad_norm": float("nan"), "loss": 10.8})
 
 
+def test_abort_callback_supports_transformers_lifecycle_hooks():
+    from src.training.stability import AbortOnNonFiniteCallback
+
+    cb = AbortOnNonFiniteCallback()
+    control = object()
+
+    assert cb.on_init_end(None, None, control) is control
+
+
 def test_trainer_applies_fp16_amp_and_max_length_on_p100(tmp_path, monkeypatch):
     from src.training.sft_trainer import QLoRASFTTrainer
     from src.utils import gpu_precision
@@ -227,8 +236,11 @@ def test_trainer_applies_fp16_amp_and_max_length_on_p100(tmp_path, monkeypatch):
     assert args["fp16"] is True
     assert args["bf16"] is False
     assert args["max_length"] == 4096
-    callback_types = [type(cb).__name__ for cb in (captured["callbacks"] or [])]
+    callbacks = captured["callbacks"] or []
+    callback_types = [type(cb).__name__ for cb in callbacks]
     assert "AbortOnNonFiniteCallback" in callback_types
+    control = object()
+    assert all(cb.on_init_end(None, None, control) is control for cb in callbacks)
 
 
 def test_trainer_applies_bf16_on_a100(tmp_path, monkeypatch):
