@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 
@@ -63,19 +65,66 @@ _CACHE_CORRUPTION_MARKERS = (
     "is not a valid json file",
     "unexpected end of json input",
 )
+_CACHE_PATH_PATTERN = re.compile(r"\bat ['\"](?P<path>[^'\"]+)['\"]", re.IGNORECASE)
 
 
-def is_corrupt_hf_cache_error(exc: BaseException) -> bool:
-    """Identify invalid cached Hub metadata without masking auth failures."""
+def _exception_chain(exc: BaseException):
     seen: set[int] = set()
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
+        yield current
+        current = current.__cause__ or current.__context__
+
+
+def is_corrupt_hf_cache_error(exc: BaseException) -> bool:
+    """Identify invalid cached Hub metadata without masking auth failures."""
+    for current in _exception_chain(exc):
         message = str(current).lower()
         if any(marker in message for marker in _CACHE_CORRUPTION_MARKERS):
             return True
-        current = current.__cause__ or current.__context__
     return False
+
+
+def _corrupt_cache_paths(exc: BaseException) -> list[Path]:
+    """Extract safe Hugging Face snapshot JSON paths from a cache error."""
+    paths: list[Path] = []
+    for current in _exception_chain(exc):
+        for match in _CACHE_PATH_PATTERN.finditer(str(current)):
+            path = Path(match.group("path"))
+            if (
+                path.is_absolute()
+                and path.suffix.lower() == ".json"
+                and path.parent.parent.name.lower() == "snapshots"
+                and path.parent.parent.parent.name.lower().startswith("models--")
+                and path not in paths
+            ):
+                paths.append(path)
+    return paths
+
+
+def _remove_corrupt_cache_file(path: Path) -> list[Path]:
+    """Remove one corrupt snapshot file and its exact content-addressed blob."""
+    targets = [path]
+    if path.is_symlink():
+        resolved = path.resolve(strict=False)
+        if (
+            resolved != path
+            and resolved.parent.name.lower() == "blobs"
+            and resolved.parent.parent.name.lower().startswith("models--")
+        ):
+            targets.append(resolved)
+
+    removed: list[Path] = []
+    for target in targets:
+        if not (target.is_symlink() or target.exists()):
+            continue
+        try:
+            target.unlink()
+        except OSError:
+            continue
+        removed.append(target)
+    return removed
 
 
 def load_pretrained_with_cache_repair(
@@ -101,7 +150,16 @@ def load_pretrained_with_cache_repair(
         if not is_corrupt_hf_cache_error(exc):
             raise
 
+        removed_paths: list[Path] = []
+        for cache_path in _corrupt_cache_paths(exc):
+            removed_paths.extend(_remove_corrupt_cache_file(cache_path))
+
         if logger is not None:
+            if removed_paths:
+                logger.warning(
+                    "Removed corrupt Hugging Face cache file(s): %s",
+                    ", ".join(str(path) for path in removed_paths),
+                )
             logger.warning(
                 "Corrupt Hugging Face cache detected for %s (%s); "
                 "retrying with force_download=True",

@@ -114,6 +114,39 @@ def test_hf_loader_retries_invalid_cached_json_with_force_download(tmp_path):
     assert calls[1][1]["force_download"] is True
 
 
+def test_hf_loader_removes_corrupt_snapshot_file_before_retry(tmp_path):
+    snapshot_file = (
+        tmp_path
+        / "models--Qwen--Qwen3-1.7B"
+        / "snapshots"
+        / "revision"
+        / "config.json"
+    )
+    snapshot_file.parent.mkdir(parents=True)
+    snapshot_file.write_text("", encoding="utf-8")
+    calls = []
+
+    def loader(name, **kwargs):
+        calls.append((name, kwargs))
+        if len(calls) == 1:
+            raise OSError(
+                f"It looks like the config file at '{snapshot_file}' "
+                "is not a valid JSON file."
+            )
+        assert not snapshot_file.exists()
+        return "loaded"
+
+    result = load_pretrained_with_cache_repair(
+        loader,
+        "Qwen/Qwen3-1.7B",
+        kwargs={"cache_dir": str(tmp_path)},
+    )
+
+    assert result == "loaded"
+    assert len(calls) == 2
+    assert calls[1][1]["force_download"] is True
+
+
 def test_hf_loader_does_not_retry_unrelated_access_error():
     calls = []
 
