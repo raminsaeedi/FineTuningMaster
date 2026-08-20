@@ -192,7 +192,7 @@ Ein früherer C-Tiny-Lauf endete mit `FAILED(1)`, und D wurde deshalb korrekt mi
 
 `exact_encoding` und `exact_aggregate` lagen in historischen Läufen bei null. Vor einem finalen Lauf muss geprüft werden, ob Prompt, Schema und Metrik dieselbe Aggregat- und Encoding-Semantik verlangen. Die Metriken dürfen nicht stillschweigend abgeschwächt werden, sollten aber als sehr strenge exakte Übereinstimmung dokumentiert werden.
 
-Robustheitsvarianten für Paraphrase und Missing Information, der unabhängige L1-Scorer, Real-Briefs, L3-Realism und blinde Human Ratings sind für eine Thesis-Aussage noch auszuführen oder ausdrücklich als nicht im Claim-Scope zu deklarieren. Streamlit-Human-Evaluation soll erst mit vollständigen, kompatiblen Outputs gestartet werden; sonst würden Rater überwiegend Parserfehler bewerten.
+Robustheitsvarianten für Paraphrase und Missing Information, der unabhängige `benchmark_v1`-Lauf, Real-Briefs, L3-Realism und blinde Human Ratings sind für eine Thesis-Aussage noch auszuführen oder ausdrücklich als nicht im Claim-Scope zu deklarieren. Die Offline-L1-Scorer-Funktion ist im Code vorhanden, wurde aber nicht automatisch in den Tiny-Run integriert. Ein historischer v1-L1-Bericht und ein Benchmark-Smoke-Bericht sind daher nicht mit einem finalen v4-L1-Ergebnis gleichzusetzen. Streamlit-Human-Evaluation soll erst mit vollständigen, kompatiblen Outputs gestartet werden; sonst würden Rater überwiegend Parserfehler bewerten.
 
 ### 7.3 Challenge: Sind `layout` und `styling` im Dataset vorhanden?
 
@@ -211,6 +211,96 @@ Der Output entsprach damit stark dem leeren Strukturbeispiel aus `src/core/promp
 Diese Challenge wird durch vier getrennte Methoden kontrolliert. Erstens prüft ein Dataset-Preflight vor dem Training die Anzahl und Nicht-Leerheit von `layout` und `styling` pro Split. Zweitens vergleicht ein Raw-Output-Audit `raw_text`, geparstes JSON, `parse_error`, Prompt-Tokens und Budget, damit unterschieden wird, ob Information im Modelloutput fehlt oder erst beim Parsing verloren geht. Drittens muss der Prompt ein knappes, befülltes Minimalbeispiel für `layout`, `styling`, `encoding` und `rationales` zeigen und leere Platzhalter ausdrücklich verbieten, ohne das Kontextbudget erneut zu überlasten. Viertens soll die Validierung für diese Pflichtbereiche nicht nur syntaktisches JSON akzeptieren: leere Objekte müssen als Inhaltsfehler markiert werden und in `completeness` sowie in der Fehlerdiagnose sichtbar bleiben.
 
 Die vierte Methode ist teilweise bereits durch das Completeness-Gate vorhanden. Die Promptänderung und ein expliziter Non-Empty-Contract sind als nächster Minimalfix zu verifizieren. Erst danach darf beurteilt werden, ob das 0,5B-Modell die geforderten Layout- und Styling-Inhalte zuverlässig erzeugen kann. Nicht-leere Dataset-Felder beweisen außerdem noch nicht, dass jede Annotation semantisch optimal ist; ihre inhaltliche Qualität bleibt eine separate Dataset- und Human-Evaluation-Frage.
+
+### 7.4 Challenge: Top-3 ist nicht „dreimal ausführen"
+
+Eine zwischenzeitliche Bezeichnung als „Tab3“ war eine sprachliche Verwechslung. Gemeint ist die `Top-3`-Metrik der Chart-Auswahl. Top-3 bedeutet nicht, dass das Modell drei komplette Experimentierruns ausführt. Top-3 ist nur dann definiert, wenn ein einzelner Modelloutput drei verschiedene, geordnete Chart-Empfehlungen enthält.
+
+Die Pipeline behandelt Top-3 bewusst konservativ. Der globale Wert wird nur berichtet, wenn mindestens 80% der bewerteten Items drei verschiedene Empfehlungen enthalten. Andernfalls werden `synthetic_top3.value = null` und `valid = false` ausgegeben. Das ist kein Laufzeitfehler, sondern verhindert eine irreführende Metrik. Im aktuellen Dashboard-v4-Testgold gibt es außerdem keine drei unabhängigen, menschlich validierten Alternativen pro Item. Top-3 ist deshalb nur interne Diagnostik und kein primärer Thesis-KPI.
+
+Top-3 darf nicht durch drei Wiederholungen, künstliche Alternativen oder Wiederverwendung desselben Charts repariert werden. Für die Arbeit wird entweder `not valid` mit Support-Rate berichtet oder die Metrik aus den primären Vergleichstabellen ausgeschlossen. Der interne Code darf für Diagnosezwecke erhalten bleiben. Top-1 und Top-3 müssen getrennt bleiben: Ein Top-1-Treffer ist kein Top-3-Nachweis.
+
+### 7.5 Challenge: Diagnostischer L1-Score für Qwen3-1.7B-Tiny
+
+Der Qwen3-1.7B-Tiny-Ordner
+`experiments/outputs/laptop_tiny_v4_qwen3_1_7b/dashboard_v4_tiny/qwen3_1_7b`
+enthält vier Methoden A–D mit jeweils 50 Vorhersagen und Seed 42. Die L1-Auswertung wurde offline ausgeführt. Sie verwendet die gespeicherten `predictions.jsonl`-Dateien, das Tiny-Testgold `data/frozen/dashboard_v4_tiny/test.jsonl` und die literaturbasierte Tabelle `data/eval/l1_chart_effectiveness_v1.csv`. Es findet dabei keine neue Modellinferenz statt.
+
+Der Score prüft pro KPI nur die primäre Chart-Auswahl. Liegt der Chart in der für den Task-Typ akzeptablen Literaturmenge, zählt der KPI als korrekt. Parse-Fehler oder fehlende primäre Charts zählen als falsch. Task-Typen ohne L1-Abdeckung werden ausgeschlossen, aber in der Coverage ausgewiesen.
+
+Die erhaltenen Werte waren:
+
+| Methode | Abdeckung | Abgedeckte KPIs | Korrekt | L1-Accuracy auf abgedeckten KPIs |
+|---|---:|---:|---:|---:|
+| A | 40/50 = 0,80 | 40 | 37 | 0,925 = 92,5% |
+| B | 40/50 = 0,80 | 40 | 37 | 0,925 = 92,5% |
+| C | 40/50 = 0,80 | 40 | 29 | 0,725 = 72,5% |
+| D | 40/50 = 0,80 | 40 | 34 | 0,850 = 85,0% |
+
+Die zehn nicht abgedeckten KPI-Einträge bestanden aus `composition` (3) und `part_to_whole` (7). Die Werte sind intern konsistent: `covered_accuracy` ist `covered_correct / n_covered`, also beispielsweise `37 / 40`, nicht `37 / 50`. Kleine Untergruppen sind instabil; im Tiny-Test kamen beispielsweise nur zwei `correlation`-Einträge vor.
+
+Diese Zahlen sind **diagnostische L1-Werte für `dashboard_v4_tiny`**, keine endgültige unabhängige Thesis-Evidenz. Das Tiny-Testgold besitzt weiterhin synthetische Task-Label-Lineage. Die akzeptablen Chart-Mengen stammen zwar aus einer unabhängigen Literaturtabelle, aber die Task-Zuordnung ist nicht vollständig unabhängig vom Generator. Der Score darf daher als technischer Vergleich der Chart-Auswahl bezeichnet werden, nicht als Beweis für allgemeine Dashboard-Qualität.
+
+Der Score bewertet weder Layout noch Styling, Interaktionen, Rationales, JSON-Vollständigkeit oder Human Usefulness. Das erklärt, warum ein Modell einen hohen diagnostischen L1-Wert und gleichzeitig ein schlechtes Completeness- oder Schema-Ergebnis haben kann. Im gleichen Qwen3-1.7B-Tiny-Lauf lagen die Schema-Raten bei A/B bei 100%, bei C bei 84% und bei D bei 88%; die Completeness-Werte lagen bei 0,5167, 0,5433, 0,4000 und 0,4733. Die L1-Zahl hebt diese Probleme nicht auf.
+
+Der vorhandene historische CLI-Wrapper `experiments/scripts/eval_l1_independent.py` verwendet fest eingetragene v1-Pfade und ist deshalb nicht direkt für diesen Qwen3-Ordner zuständig. Die aktuelle Tiny-Zahl wurde durch direkten Offline-Aufruf von `src/evaluation/l1_independent.py::score_l1` mit den oben genannten drei Eingaben berechnet. Für einen wissenschaftlich unabhängigen finalen L1-Lauf muss stattdessen `benchmark_v1` verwendet werden:
+
+```powershell
+python experiments/scripts/eval_benchmark.py `
+  --predictions-root experiments/outputs/benchmark_v1 `
+  --benchmark data/eval/benchmark_v1.jsonl
+```
+
+Dieser Benchmark benötigt vorher einen separaten A–D-Inferenzlauf. Seine Ergebnisse gehören nach `experiments/results/benchmark_v1_eval.md` und `experiments/results/benchmark_v1_eval.json`. Coverage muss immer zusammen mit Accuracy berichtet werden.
+
+### 7.6 Challenge: L1 und Human Evaluation erscheinen nicht automatisch im Tiny-Run
+
+Die normale `metrics.json`-Datei des Tiny-Runs enthält die Statusfelder, aber nicht automatisch einen finalen unabhängigen L1-Score oder Human Ratings. Im Qwen3-1.7B-Lauf standen `l1_human_effectiveness` und `L4_human` deshalb auf `pending`. Das ist beabsichtigt: Der Tiny-Run prüft primär Pipeline-, Format- und Reproduzierbarkeitseigenschaften.
+
+Die Human Evaluation ist eine getrennte, blinde Studie. Für das finale Dashboard-v4-Design sind vorgesehen:
+
+- 40 feste Testitems aus `data/frozen/dashboard_v4/human_eval_test_items_40.csv`,
+- vier Methoden A–D auf demselben Modell, Dataset und Seed,
+- drei unabhängige Ratings pro Output,
+- sechs Rater,
+- insgesamt 480 Rating-Einheiten,
+- sechs Likert-Dimensionen von 1 bis 5: Chart-Eignung, Layout, Styling/Accessibility, Interaktionen, Rationale und allgemeine Nützlichkeit.
+
+Die Studie wird nach erfolgreichem Format-Gate erstellt:
+
+```powershell
+python experiments/scripts/build_human_eval.py `
+  --dataset dashboard_v4 `
+  --model <model_key> `
+  --seed 42 `
+  --n-items 40 `
+  --n-raters 6 `
+  --ratings-per-output 3
+```
+
+Die blinde Streamlit-App wird mit folgendem Befehl gestartet:
+
+```powershell
+python experiments/scripts/run_human_eval.py `
+  --study-dir experiments/results/human_eval/dashboard_v4/<model_key>/seed_42
+```
+
+Nach vollständiger Bewertung werden die Qualitäts- und Übereinstimmungsstatistiken berechnet:
+
+```powershell
+python experiments/scripts/compute_irr.py `
+  --study-dir experiments/results/human_eval/dashboard_v4/<model_key>/seed_42
+```
+
+Die Resultate liegen dann unter `experiments/results/human_eval/dashboard_v4/<model_key>/seed_42/analysis/`. Erwartet werden unter anderem Krippendorff-Alpha, Mittelwerte und Standardabweichungen, Friedman- und Wilcoxon-Tests mit Holm-Korrektur, Effektgrößen, Bootstrap-Konfidenzintervalle und `per_item_scores.csv`. Ein kleinerer Tiny-Versuch darf als `pilot` markiert werden und darf nicht ungekennzeichnet mit der finalen Studie zusammengelegt werden.
+
+Die Trennung ist wissenschaftlich notwendig. Menschen sollen nicht überwiegend kaputte JSON-Antworten bewerten. Automatische Metriken werden der Rater-Gruppe nicht gezeigt, damit Methodennamen, Modellnamen, Seeds und automatische Scores keine Bewertung verzerren. Human Ratings sind die zentrale Evidenz für Usefulness und allgemeine Dashboard-Qualität; L1 kann diese Rolle nicht ersetzen.
+
+### 7.7 Challenge: Modellgröße und Coding-Agent sind verschiedene Fragen
+
+Das 0,5B-Modell kann die leeren oder unvollständigen Layout- und Styling-Felder durch begrenzte Modellkapazität verstärken. Der Qwen3-1.7B-Lauf zeigt jedoch, dass eine größere Quelle allein das Problem nicht automatisch löst: JSON-Parsing war zwar bei A–D 100%, aber C/D blieben bei Schema und Completeness unter den Gates. Prompt-Vertrag, Non-Empty-Validierung, Training und Modellkapazität müssen daher getrennt betrachtet werden.
+
+Ein starker Coding-Agent kann den technischen Fix rational umsetzen: Prompt mit befülltem Beispiel, striktere semantische Validierung, Regressionstest mit dem bisherigen Fehleroutput, 10–20-Item-Pilot und anschließenden Tiny-Run. Der Agent kann Code prüfen und Tests ausführen. Er kann aber keine Human Usefulness garantieren und keine unabhängige wissenschaftliche Evidenz ersetzen. Modellwahl des Coding-Agents ist kein Forschungsfaktor; entscheidend sind reproduzierbare Änderungen, Tests, Run-Hashes und unabhängige Bewertung. Für diese Reparatur ist kein großer Architekturumbau erforderlich.
 
 ## 8. Was die neue Pipeline tatsächlich ermöglicht
 
