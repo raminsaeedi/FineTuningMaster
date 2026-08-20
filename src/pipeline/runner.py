@@ -64,7 +64,9 @@ class ExperimentRunner:
     def _load_test_items(self):
         test_file = _resolve(str(self.data_cfg.get("test_file")), self.project_root)
         items = load_gold_items(test_file)
-        max_samples = self.data_cfg.get("max_samples")
+        max_samples = self.data_cfg.get("eval_max_samples")
+        if max_samples is None:
+            max_samples = self.data_cfg.get("max_samples")
         if max_samples:
             items = items[: int(max_samples)]
         return items

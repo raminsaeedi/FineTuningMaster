@@ -63,6 +63,7 @@ def _shared_overrides(args: argparse.Namespace) -> list[str]:
     return [
         f"model.max_seq_length={args.max_seq_length}",
         f"method.generate.max_new_tokens={args.max_new_tokens}",
+        f"data.eval_max_samples={args.eval_items}",
         "method.generate.do_sample=false",
         f"training.sft.num_train_epochs={args.train_epochs}",
         f"training.sft.per_device_train_batch_size={args.batch_size}",
@@ -86,6 +87,10 @@ def _verify_run(
     method: str,
     seed: int,
     expected_items: int,
+    min_json_parse_rate: float = 95.0,
+    min_schema_validity_rate: float = 90.0,
+    min_required_keys_rate: float = 95.0,
+    min_completeness_score: float = 0.8,
 ) -> list[str]:
     run_dir = _run_dir(output_root, dataset, model, method, seed)
     required = (
@@ -125,6 +130,22 @@ def _verify_run(
     for name, variant in variants.items():
         if variant.get("n_missing"):
             problems.append(f"{dataset}/{method}: {name} has missing predictions")
+    schema = (metrics.get("metrics") or {}).get("schema_compliance") or {}
+    format_gates = (
+        ("json_parse_rate", min_json_parse_rate, "%"),
+        ("schema_validity_rate", min_schema_validity_rate, "%"),
+        ("required_keys_rate", min_required_keys_rate, "%"),
+        ("completeness_score", min_completeness_score, ""),
+    )
+    for metric_name, minimum, unit in format_gates:
+        value = schema.get(metric_name)
+        if not isinstance(value, (int, float)):
+            problems.append(f"{dataset}/{method}: missing numeric {metric_name}")
+        elif value < minimum:
+            problems.append(
+                f"{dataset}/{method}: {metric_name} {value:.2f}{unit} below "
+                f"acceptance gate {minimum:.2f}{unit}"
+            )
     return problems
 
 
@@ -147,10 +168,37 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--results-dir", default="experiments/results/kaggle_tiny_v4")
     parser.add_argument("--max-seq-length", type=int, default=1024)
     parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument(
+        "--eval-items",
+        type=int,
+        default=50,
+        choices=range(1, 51),
+        metavar="1..50",
+        help="Evaluation cap only; training still uses all 100 tiny train items.",
+    )
     parser.add_argument("--train-epochs", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--gradient-accumulation", type=int, default=8)
     parser.add_argument("--save-steps", type=int, default=50)
+    parser.add_argument(
+        "--min-json-parse-rate",
+        type=float,
+        default=95.0,
+        help="Project-defined smoke release gate; not a statistical thesis threshold.",
+    )
+    parser.add_argument(
+        "--min-schema-validity-rate",
+        type=float,
+        default=90.0,
+        help="Project-defined smoke release gate; not a statistical thesis threshold.",
+    )
+    parser.add_argument("--min-required-keys-rate", type=float, default=95.0)
+    parser.add_argument(
+        "--min-completeness-score",
+        type=float,
+        default=0.8,
+        help="Mean non-empty top-level field fraction (0..1).",
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -214,7 +262,11 @@ def main() -> None:
                 model=args.model,
                 method=method,
                 seed=args.seed,
-                expected_items=50,
+                expected_items=args.eval_items,
+                min_json_parse_rate=args.min_json_parse_rate,
+                min_schema_validity_rate=args.min_schema_validity_rate,
+                min_required_keys_rate=args.min_required_keys_rate,
+                min_completeness_score=args.min_completeness_score,
             ))
 
     if not args.skip_sports:
@@ -226,7 +278,11 @@ def main() -> None:
                     model=args.model,
                     method=method,
                     seed=args.seed,
-                    expected_items=50,
+                    expected_items=args.eval_items,
+                    min_json_parse_rate=args.min_json_parse_rate,
+                    min_schema_validity_rate=args.min_schema_validity_rate,
+                    min_required_keys_rate=args.min_required_keys_rate,
+                    min_completeness_score=args.min_completeness_score,
                 )
                 if not existing_problems:
                     print(f"[SKIP] SPORTS_V4_TINY {method} already complete")
@@ -258,7 +314,11 @@ def main() -> None:
                     model=args.model,
                     method=method,
                     seed=args.seed,
-                    expected_items=50,
+                    expected_items=args.eval_items,
+                    min_json_parse_rate=args.min_json_parse_rate,
+                    min_schema_validity_rate=args.min_schema_validity_rate,
+                    min_required_keys_rate=args.min_required_keys_rate,
+                    min_completeness_score=args.min_completeness_score,
                 ))
 
     summary = {
@@ -267,9 +327,17 @@ def main() -> None:
         "sports_dataset": SPORTS_DATASET,
         "model": args.model,
         "seed": args.seed,
+        "eval_items": args.eval_items,
         "methods": args.methods,
         "sports_methods": [] if args.skip_sports else args.sports_methods,
         "dry_run": args.dry_run,
+        "format_acceptance_gate": {
+            "json_parse_rate_min": args.min_json_parse_rate,
+            "schema_validity_rate_min": args.min_schema_validity_rate,
+            "required_keys_rate_min": args.min_required_keys_rate,
+            "completeness_score_min": args.min_completeness_score,
+            "role": "project-defined smoke release criterion, not a thesis result",
+        },
         "failures": failures,
     }
     if not args.dry_run:

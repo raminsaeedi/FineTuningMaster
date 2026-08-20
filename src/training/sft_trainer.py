@@ -260,6 +260,10 @@ class QLoRASFTTrainer(BaseTrainer):
             save_steps=int(_get(sft, "save_steps", 50)),
             save_total_limit=int(_get(sft, "save_total_limit", 4)),
             eval_strategy=str(_get(sft, "eval_strategy", "no")),
+            save_strategy=str(_get(sft, "save_strategy", "steps")),
+            load_best_model_at_end=bool(_get(sft, "load_best_model_at_end", False)),
+            metric_for_best_model=str(_get(sft, "metric_for_best_model", "eval_loss")),
+            greater_is_better=bool(_get(sft, "greater_is_better", False)),
             report_to=str(_get(sft, "report_to", "none")),
             max_steps=int(_get(sft, "max_steps", -1)),
             seed=self.seed,
@@ -331,13 +335,18 @@ class QLoRASFTTrainer(BaseTrainer):
                 "Training returned non-finite metrics "
                 f"({', '.join(bad_metrics)}); refusing to save the adapter."
             )
-        for history_entry in getattr(getattr(trainer, "state", None), "log_history", []) or []:
+        log_history = getattr(getattr(trainer, "state", None), "log_history", []) or []
+        for history_entry in log_history:
             bad_history = nonfinite_scalar_items(history_entry)
             if bad_history:
                 raise FloatingPointError(
                     "Training history contains non-finite metrics "
                     f"({', '.join(bad_history)}); refusing to save the adapter."
                 )
+        self.eval_history = [entry for entry in log_history if "eval_loss" in entry]
+        trainer_state = getattr(trainer, "state", None)
+        self.best_eval_metric = getattr(trainer_state, "best_metric", None)
+        self.best_checkpoint = getattr(trainer_state, "best_model_checkpoint", None)
         raise_if_nonfinite_parameters(
             self.model,
             trainable_only=True,
@@ -420,6 +429,13 @@ class QLoRASFTTrainer(BaseTrainer):
             "experiment_id": _get(self.cfg, "experiment_id"),
             "experiment_name": _get(self.cfg, "experiment_name"),
             "train_metrics": getattr(self, "metrics", {}),
+            "validation": {
+                "eval_strategy": _get(sft, "eval_strategy", "no"),
+                "metric_for_best_model": _get(sft, "metric_for_best_model", "eval_loss"),
+                "best_metric": getattr(self, "best_eval_metric", None),
+                "best_checkpoint": getattr(self, "best_checkpoint", None),
+                "history": getattr(self, "eval_history", []),
+            },
         }
         with (adapter_dir / "training_metadata.json").open("w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, default=str)

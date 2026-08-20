@@ -33,7 +33,11 @@ sft:
   logging_steps: 10
   save_steps: 50
   save_total_limit: 4
-  eval_strategy: "no"
+  eval_strategy: epoch
+  save_strategy: epoch
+  load_best_model_at_end: true
+  metric_for_best_model: eval_loss
+  greater_is_better: false
   report_to: "none"
   gradient_checkpointing: true
   dataloader_pin_memory: false

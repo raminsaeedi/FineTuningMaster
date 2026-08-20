@@ -35,3 +35,4 @@ not_for_training:
   - data/eval/real_briefs_v1.jsonl
 
 max_samples: null # cap items (useful for smoke tests)
+eval_max_samples: null # inference/evaluation-only cap; does not shorten training

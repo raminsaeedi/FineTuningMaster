@@ -20,3 +20,4 @@ not_for_training:
   - data/frozen/dashboard_v4_tiny/human_eval_sports_test_items_50.csv
 
 max_samples: null
+eval_max_samples: null

@@ -374,8 +374,8 @@ def _apply_debug(cfg) -> None:
     cfg.data.max_samples = 10
 
 
-def load_and_format_train_dataset(cfg, debug: bool):
-    """Load the processed train split and format it into a 'text' column.
+def load_and_format_train_dataset(cfg, debug: bool, file_key: str = "train_file"):
+    """Load one configured train/validation split into a ``text`` column.
 
     Done BEFORE any CUDA call (Windows DLL load-order safety).
     """
@@ -400,19 +400,21 @@ def load_and_format_train_dataset(cfg, debug: bool):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    train_file = cfg.data.get("train_file")
-    train_path = Path(train_file)
-    if not train_path.is_absolute():
-        train_path = _PROJECT_ROOT / train_path
-    if not train_path.exists():
+    data_file = cfg.data.get(file_key)
+    if not data_file:
+        raise ValueError(f"data.{file_key} is required when loading this split")
+    data_path = Path(data_file)
+    if not data_path.is_absolute():
+        data_path = _PROJECT_ROOT / data_path
+    if not data_path.exists():
         raise FileNotFoundError(
-            f"Training data not found: {train_path}. Run `python scripts/build_data.py` first."
+            f"Configured data not found: {data_path}. Run the dataset build first."
         )
 
-    items = load_gold_items(train_path)
-    if debug:
+    items = load_gold_items(data_path)
+    if debug and file_key == "train_file":
         items = items[:10]
-    max_samples = cfg.data.get("max_samples")
+    max_samples = cfg.data.get("max_samples") if file_key == "train_file" else None
     if max_samples:
         items = items[: int(max_samples)]
 
@@ -467,6 +469,13 @@ def main() -> None:
     logger.info("Loading and formatting training data…")
     train_dataset = load_and_format_train_dataset(cfg, debug=args.debug)
     logger.info("Training examples: %d", len(train_dataset))
+    eval_strategy = str(cfg.training.sft.get("eval_strategy", "no"))
+    eval_dataset = None
+    if eval_strategy != "no":
+        eval_dataset = load_and_format_train_dataset(
+            cfg, debug=False, file_key="val_file"
+        )
+        logger.info("Validation examples: %d", len(eval_dataset))
 
     write_run_metadata(exp_dir, cfg)
     resumed = resume_checkpoint is not None
@@ -487,12 +496,12 @@ def main() -> None:
     if resume_checkpoint:
         trainer.train(
             train_dataset,
-            None,
+            eval_dataset,
             str(adapter_dir),
             resume_from_checkpoint=str(resume_checkpoint),
         )
     else:
-        trainer.train(train_dataset, None, str(adapter_dir))
+        trainer.train(train_dataset, eval_dataset, str(adapter_dir))
     final_global_step = int(getattr(trainer, "final_global_step", 0) or 0)
     update_resume_manifest(
         exp_dir,
