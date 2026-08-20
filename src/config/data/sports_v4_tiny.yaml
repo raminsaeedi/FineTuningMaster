@@ -1,0 +1,20 @@
+# Evaluation-only cross-domain condition for dashboard_v4_tiny training.
+# Method C/D intentionally load an adapter trained on dashboard_v4_tiny.
+name: sports_v4_tiny
+dataset_version: sports_v4_tiny
+adapter_dataset_version: dashboard_v4_tiny
+evaluation_only: true
+frozen_dir: data/frozen/dashboard_v4_tiny
+
+train_file: null
+val_file: null
+test_file: data/frozen/dashboard_v4_tiny/sports_test.jsonl
+paraphrased_file: null
+missing_info_file: null
+human_eval_file: data/frozen/dashboard_v4_tiny/human_eval_sports_test_items_50.csv
+
+not_for_training:
+  - data/frozen/dashboard_v4_tiny/sports_test.jsonl
+  - data/frozen/dashboard_v4_tiny/human_eval_sports_test_items_50.csv
+
+max_samples: null

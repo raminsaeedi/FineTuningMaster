@@ -1,0 +1,65 @@
+{
+  "dataset_version": "dashboard_v4_tiny_1",
+  "parent_dataset_version": "dashboard_v4_1",
+  "status": "PASS_DASHBOARD_V4_TINY_READY_FOR_KAGGLE_SMOKE",
+  "purpose": "development-only reproducible small-GPU pipeline validation",
+  "not_for_thesis_final_results": true,
+  "parent_frozen_dir": "data/frozen/dashboard_v4",
+  "selection": {
+    "seed": 20260820,
+    "algorithm": "random stratification by chart type; sorted item ids before sampling",
+    "minimum_per_available_chart_type": 3,
+    "sports_database_ids": [
+      "baseball_1",
+      "game_1",
+      "game_injury",
+      "match_season",
+      "soccer_1",
+      "soccer_2",
+      "sports_competition",
+      "university_basketball"
+    ]
+  },
+  "counts": {
+    "train": 100,
+    "val": 50,
+    "test": 50,
+    "sports_test": 50
+  },
+  "checks": {
+    "all_jsonl_records_schema_valid": true,
+    "duplicate_item_ids_zero": true,
+    "duplicate_brief_fingerprints_zero": true,
+    "train_val_vs_evaluation_item_id_overlap_zero": true,
+    "train_val_vs_evaluation_fingerprint_overlap_zero": true,
+    "test_vs_sports_item_id_overlap_zero": true,
+    "test_vs_sports_fingerprint_overlap_zero": true,
+    "all_records_preserved_from_parent_except_split_label": true,
+    "sports_test_uses_only_allowlisted_sports_databases": true,
+    "train_val_contains_no_allowlisted_sports_examples": true,
+    "train_size_is_100": true,
+    "val_size_is_50": true,
+    "test_size_is_50": true,
+    "sports_test_size_is_50": true
+  },
+  "lineage": {
+    "parent_dataset_unchanged": true,
+    "records_copied_without_llm_generation": true,
+    "sports_split_relabel_only": true,
+    "sports_test_is_cross_domain_diagnostic_not_canonical_parent_test": true
+  },
+  "not_for_training": [
+    "test.jsonl",
+    "sports_test.jsonl",
+    "human_eval_test_items_50.csv",
+    "human_eval_sports_test_items_50.csv"
+  ],
+  "reports": {
+    "sampling": "reports/sampling_report.json",
+    "validation": "reports/validation_report.json",
+    "leakage": "reports/leakage_report.json",
+    "distribution": "reports/distribution_report.json"
+  },
+  "hashes_file": "hashes.json",
+  "line_endings": "LF"
+}

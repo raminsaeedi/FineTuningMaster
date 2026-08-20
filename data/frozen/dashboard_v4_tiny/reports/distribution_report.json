@@ -1,0 +1,103 @@
+{
+  "status": "PASS",
+  "chart_types": {
+    "train": {
+      "area": 9,
+      "bar": 25,
+      "box": 4,
+      "donut": 3,
+      "grouped_bar": 7,
+      "heatmap": 6,
+      "histogram": 5,
+      "line": 8,
+      "pie": 10,
+      "sankey": 3,
+      "scatter": 5,
+      "stacked_bar": 3,
+      "table": 9,
+      "treemap": 3
+    },
+    "val": {
+      "area": 3,
+      "bar": 5,
+      "box": 4,
+      "donut": 3,
+      "grouped_bar": 4,
+      "heatmap": 3,
+      "histogram": 4,
+      "line": 3,
+      "pie": 3,
+      "sankey": 3,
+      "scatter": 3,
+      "stacked_bar": 4,
+      "table": 4,
+      "treemap": 4
+    },
+    "test": {
+      "bar": 30,
+      "line": 8,
+      "pie": 7,
+      "scatter": 2,
+      "stacked_bar": 3
+    },
+    "sports_test": {
+      "bar": 28,
+      "line": 8,
+      "pie": 9,
+      "stacked_bar": 5
+    }
+  },
+  "task_types": {
+    "train": {
+      "comparison": 30,
+      "composition": 9,
+      "correlation": 11,
+      "deviation": 6,
+      "distribution": 9,
+      "flow": 4,
+      "part_to_whole": 16,
+      "ranking": 4,
+      "trend": 11
+    },
+    "val": {
+      "comparison": 9,
+      "composition": 6,
+      "correlation": 6,
+      "distribution": 8,
+      "flow": 3,
+      "part_to_whole": 10,
+      "ranking": 4,
+      "trend": 4
+    },
+    "test": {
+      "comparison": 30,
+      "composition": 3,
+      "correlation": 2,
+      "part_to_whole": 7,
+      "trend": 8
+    },
+    "sports_test": {
+      "comparison": 28,
+      "composition": 5,
+      "part_to_whole": 9,
+      "trend": 8
+    }
+  },
+  "sports_database_ids": {
+    "baseball_1": 8,
+    "game_1": 1,
+    "game_injury": 8,
+    "match_season": 6,
+    "soccer_2": 7,
+    "sports_competition": 6,
+    "university_basketball": 14
+  },
+  "parent_test_chart_types": {
+    "bar": 208,
+    "line": 17,
+    "pie": 36,
+    "scatter": 2,
+    "stacked_bar": 11
+  },
+  "note": "The canonical parent test has five chart types only. Sports candidates contain bar, line, pie, and stacked_bar; no allowlisted sports scatter record exists."
+}

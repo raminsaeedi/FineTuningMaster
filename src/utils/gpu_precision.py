@@ -149,7 +149,7 @@ def choose_precision(
     weakest = min(devices, key=lambda device: (device.major, device.minor))
     hw_mode, amp_fp16, amp_bf16, compute_dtype, inference_dtype = _from_weakest(weakest.major)
     reason = (
-        f"weakest GPU {weakest.name} SM {weakest.major}.{weakest.minor} → {hw_mode}"
+        f"weakest GPU {weakest.name} SM {weakest.major}.{weakest.minor} => {hw_mode}"
     )
 
     if mode_in in {"", "auto"}:

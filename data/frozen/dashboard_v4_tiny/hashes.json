@@ -1,0 +1,64 @@
+{
+  "hash_algorithm": "SHA-256",
+  "dataset_version": "dashboard_v4_tiny_1",
+  "parent_dataset_version": "dashboard_v4_1",
+  "files": {
+    "train.jsonl": {
+      "sha256": "44ae7d7072e5e50d9db2c4cb4971577d70a82332c49b0b44b8ef6505e21bc549",
+      "bytes": 844092
+    },
+    "val.jsonl": {
+      "sha256": "337bc170c0d292e3b4e271c184b4d7ea9650a0b059f6da050a54e3acd11a128a",
+      "bytes": 452596
+    },
+    "test.jsonl": {
+      "sha256": "17feca0c80285e23301295ef0ad5c8ae93a8700be42d16f1c6514ab7401e1bef",
+      "bytes": 234910
+    },
+    "sports_test.jsonl": {
+      "sha256": "c5dc37393fe117218d9d6a63fa71886bdf35c973b050fe4bb172e4672226dffc",
+      "bytes": 282827
+    },
+    "human_eval_test_items_50.csv": {
+      "sha256": "2fd4f3270bbdaebd5856fa355a45ebbaf1512166cf605ac19e9f806c654d0b53",
+      "bytes": 384454
+    },
+    "human_eval_sports_test_items_50.csv": {
+      "sha256": "a90464b8540eef827eba99837455953d01823a9e408f7780fe2b6a34289904c4",
+      "bytes": 410451
+    },
+    "human_evaluation_guide.md": {
+      "sha256": "03c38848c0c3f06d8fb7643c87102f659d59d2a897ca4768aa88a27c0da39dc2",
+      "bytes": 657
+    },
+    "schema.json": {
+      "sha256": "50e264be71f5d052f489e9a2753c4d878ec6b1ea17b8b38e3b19cf8cd0129183",
+      "bytes": 5261
+    },
+    "manifest.json": {
+      "sha256": "8390599852294c52e0df45709db0b8a76f00d836892e4ba92e861c162892541c",
+      "bytes": 2132
+    },
+    "dataset_card.md": {
+      "sha256": "a7cab9ff4358784295481219fc032f2348b9e273101d0fe11294ca8a492b7588",
+      "bytes": 1865
+    },
+    "reports/sampling_report.json": {
+      "sha256": "c0650834177202134e0c4cb4458c572015a193b3650b8450ef6c7df1d2a9fe0b",
+      "bytes": 10980
+    },
+    "reports/validation_report.json": {
+      "sha256": "63a3d372b8b3cd74190b26ac32a608443d9b4580fe617d6df76ae0aebe2b50c9",
+      "bytes": 1223
+    },
+    "reports/leakage_report.json": {
+      "sha256": "d6fb4201faf783bc897f3face96a208289b29cc50e4a7eac2338b293f1a05181",
+      "bytes": 246
+    },
+    "reports/distribution_report.json": {
+      "sha256": "b72301d78e4d8c4feefb46595b924ce71791e56b6c35a77c1bb56a4e91aa6945",
+      "bytes": 2023
+    }
+  },
+  "line_endings": "LF"
+}

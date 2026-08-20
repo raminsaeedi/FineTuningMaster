@@ -278,7 +278,7 @@ def _profile_cmd(script_name: str, experiment: str, overrides: list[str], *, res
 # Selection and smoke data
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run smoke or final multi-model experiments")
-    p.add_argument("--profile", choices=("smoke", "final"), default="final")
+    p.add_argument("--profile", choices=("smoke", "tiny", "final"), default="final")
     p.add_argument("--matrix", default=str(DEFAULT_MATRIX), help="Matrix definition")
     p.add_argument("--model", default=None, help="One model profile")
     p.add_argument("--all-models", action="store_true", help="Run all four final model profiles")
@@ -321,10 +321,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def _selected_models(args: argparse.Namespace, matrix: dict) -> list[str]:
     if args.all_models and args.model:
         raise SystemExit("Use --all-models or --model, not both.")
-    if args.profile == "smoke":
+    if args.profile in {"smoke", "tiny"}:
         model = args.model or matrix.get("smoke_model", SMOKE_MODEL)
         if args.all_models or model != SMOKE_MODEL:
-            raise SystemExit("The smoke profile only supports qwen2_5_0_5b.")
+            raise SystemExit(
+                f"The {args.profile} profile only supports qwen2_5_0_5b."
+            )
         return [model]
     if args.all_models:
         return list(matrix.get("final_models") or FINAL_MODELS)
@@ -361,7 +363,7 @@ def _selected_seeds(args: argparse.Namespace, matrix: dict) -> list[int]:
         return [int(args.seed)]
     if args.seeds is not None:
         return [int(seed) for seed in args.seeds]
-    if args.profile == "smoke":
+    if args.profile in {"smoke", "tiny"}:
         return [42]
     return [int(seed) for seed in matrix.get("seeds", [42, 43, 44])]
 
@@ -422,7 +424,9 @@ def _base_overrides(
     values += [
         f"output_root={_hydra_path(output_root_arg)}",
         f"profile={profile}",
-        f"run_layout={profile}",
+        # Tiny runs are development artifacts but use the collision-proof
+        # final-style layout so their adapter can be reused for sports eval.
+        f"run_layout={'final' if profile == 'tiny' else profile}",
         f"model={model}",
         f"model_key={model}",
         f"method_key={method}",
@@ -593,6 +597,7 @@ def main(argv: list[str] | None = None) -> None:
     # explicit CLI paths remain highest priority.
     output_root_arg = args.output_root or os.environ.get("FTM_OUTPUT_DATA_PATH") or (
         "experiments/outputs/smoke" if args.profile == "smoke"
+        else "experiments/outputs/tiny" if args.profile == "tiny"
         else matrix.get("output_root", "experiments/outputs/final")
     )
     output_root = _resolved(output_root_arg)
@@ -849,6 +854,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.profile == "smoke":
         print("PASS_QWEN_0_5B_END_TO_END_SMOKE")
         print(f"Smoke artifacts: {output_root / dataset / SMOKE_MODEL}")
+    elif args.profile == "tiny":
+        print("PASS_QWEN_0_5B_TINY_GPU_PIPELINE")
+        print(f"Tiny artifacts: {output_root / dataset / SMOKE_MODEL}")
     else:
         print("PASS_MULTI_MODEL_EXPERIMENT_RELEASE_READY_FOR_PROFESSOR")
 

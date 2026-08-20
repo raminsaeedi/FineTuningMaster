@@ -1,0 +1,22 @@
+# Reproducible small-GPU derivative of frozen dashboard_v4.
+# Development smoke data only; never use for final thesis claims.
+name: dashboard_v4_tiny
+dataset_version: dashboard_v4_tiny
+frozen_manifest_version: dashboard_v4_tiny_1
+schema_version: GoldItem
+frozen_dir: data/frozen/dashboard_v4_tiny
+
+train_file: data/frozen/dashboard_v4_tiny/train.jsonl
+val_file: data/frozen/dashboard_v4_tiny/val.jsonl
+test_file: data/frozen/dashboard_v4_tiny/test.jsonl
+paraphrased_file: null
+missing_info_file: null
+human_eval_file: data/frozen/dashboard_v4_tiny/human_eval_test_items_50.csv
+
+not_for_training:
+  - data/frozen/dashboard_v4_tiny/test.jsonl
+  - data/frozen/dashboard_v4_tiny/sports_test.jsonl
+  - data/frozen/dashboard_v4_tiny/human_eval_test_items_50.csv
+  - data/frozen/dashboard_v4_tiny/human_eval_sports_test_items_50.csv
+
+max_samples: null

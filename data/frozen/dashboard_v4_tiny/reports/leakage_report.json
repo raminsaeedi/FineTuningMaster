@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "train_val_vs_test_and_sports": {
+    "item_id_overlap": [],
+    "fingerprint_overlap": []
+  },
+  "test_vs_sports": {
+    "item_id_overlap": [],
+    "fingerprint_overlap": []
+  },
+  "sports_examples_in_train_or_val": []
+}

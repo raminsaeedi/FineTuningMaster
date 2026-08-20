@@ -55,41 +55,26 @@ def build_user_message(brief: BriefLike) -> str:
     """Render a brief into the user-turn instruction text."""
     b = _as_dict(brief)
     lines = [
-        "Please generate a structured dashboard design recommendation for the "
-        "following brief:",
+        "Generate one dashboard recommendation for this brief.",
+        f"Users: {b.get('users', 'N/A')}",
+        f"Goals: {_fmt_list(b.get('goals', []))}",
+        f"KPIs: {_fmt_list(b.get('kpis', []))}",
+        f"Data columns: {_fmt_columns(b.get('columns', []))}",
+        f"Constraints: {b.get('constraints') or 'None'}",
         "",
-        f"**Users:** {b.get('users', 'N/A')}",
-        f"**Goals:** {_fmt_list(b.get('goals', []))}",
-        f"**KPIs:** {_fmt_list(b.get('kpis', []))}",
-        f"**Data columns:** {_fmt_columns(b.get('columns', []))}",
-        f"**Constraints:** {b.get('constraints') or 'None'}",
-        "",
-        "Respond ONLY with a valid JSON object containing exactly these keys "
-        "with these types:",
-        "  1. context_summary  (object / JSON dictionary, never a plain string)",
-        "  2. kpi_chart_mapping (array of objects)",
-        "  3. layout           (object / JSON dictionary, never a plain string)",
-        "  4. styling          (object / JSON dictionary, never a plain string)",
-        "  5. interactions     (array)",
-        "  6. rationales       (array of objects)",
-        "",
-        "Example shape (values are illustrative):",
-        '{',
-        '  "context_summary": {"audience": "executives", "focus": "revenue trend"},',
-        '  "kpi_chart_mapping": [{"kpi": "Revenue", "task_type": "trend", '
-        '"chart_type": "line", "alternatives": ["area"], "encoding": {}}],',
-        '  "layout": {"structure": "single_page", "sections": ["kpi_row", "trend"]},',
-        '  "styling": {"theme": "light", "density": "comfortable"},',
-        '  "interactions": ["filter_by_region", "hover_tooltip"],',
-        '  "rationales": [{"claim": "Line chart shows change over time", '
-        '"principle": "task-chart fit"}]',
-        '}',
-        "",
-        "In kpi_chart_mapping, each entry has: kpi, task_type, chart_type, "
-        "alternatives (list), encoding (object).",
-        f"Allowed task_type values: {', '.join(TASK_TYPES)}.",
-        f"Allowed chart_type values: {', '.join(CHART_TYPES)}.",
-        "rationales is a list of objects, each with: claim, principle.",
+        "Return only one JSON object with exactly this shape and value types:",
+        '{"context_summary":{},"kpi_chart_mapping":[{"kpi":"",'
+        '"task_type":"trend","chart_type":"line","alternatives":[],'
+        '"encoding":{}}],"layout":{},"styling":{},"interactions":[],'
+        '"rationales":[{"claim":"","principle":""}]}',
+        "All six top-level fields are required. context_summary, layout, styling, "
+        "and encoding are objects. kpi_chart_mapping, alternatives, interactions, "
+        "and rationales are arrays.",
+        "Each kpi_chart_mapping item requires kpi, task_type, chart_type, "
+        "alternatives, encoding.",
+        "Each rationale requires claim and principle.",
+        f"Allowed task_type: {', '.join(TASK_TYPES)}.",
+        f"Allowed chart_type: {', '.join(CHART_TYPES)}.",
     ]
     return "\n".join(lines)
 

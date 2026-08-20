@@ -8,6 +8,7 @@ separately once retrieval is implemented.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Mapping, Optional
 
@@ -16,6 +17,8 @@ from src.core.prompts import SYSTEM_PROMPT, build_user_message
 from src.core.schemas import DashboardBrief, GenerationResult
 from src.inference.postprocess import parse_json_safe
 from src.models.hf_causal import HFCausalModel
+
+logger = logging.getLogger(__name__)
 
 
 def _get(cfg: Mapping[str, Any], key: str, default: Any = None) -> Any:
@@ -73,17 +76,22 @@ class HFMethod(BaseMethod):
     def _raw_generate(self, system: str, user: str) -> str:
         """Generate raw text, using constrained JSON decoding when enabled."""
         if self._decoder is not None:
-            messages = [{"role": "system", "content": system},
-                        {"role": "user", "content": user}]
-            prompt = self.model.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
+            prompt, _inputs, _tokens, _budget = self.model.prepare_prompt(
+                system,
+                user,
+                int(self._gen_kwargs.get("max_new_tokens", 1024)),
             )
             return self._decoder.generate(prompt)
         return self.model.chat(system, user, **self._gen_kwargs)
 
     def generate(self, brief: DashboardBrief) -> GenerationResult:
+        system = self._system_prompt()
+        user = build_user_message(brief)
+        max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
+        prompt_tokens = self.model.prompt_token_count(system, user)
+        prompt_budget = self.model.input_token_budget(max_new)
         t0 = time.perf_counter()
-        raw = self._raw_generate(self._system_prompt(), build_user_message(brief))
+        raw = self._raw_generate(system, user)
         parsed, err = parse_json_safe(raw)
         return GenerationResult(
             item_id=brief.item_id or "",
@@ -93,6 +101,9 @@ class HFMethod(BaseMethod):
             raw_text=raw,
             parsed=parsed,
             parse_error=err,
+            prompt_input_tokens=prompt_tokens,
+            prompt_input_budget=prompt_budget,
+            rag_context_truncated=False,
             latency_ms=(time.perf_counter() - t0) * 1000.0,
             seed=self.seed,
         )
@@ -144,10 +155,69 @@ class RAGHFMethod(HFMethod):
             f"--- End of Guidelines ---"
         )
 
+    def _fit_system_prompt(self, passages: list, user: str) -> tuple[str, bool]:
+        """Fit equal token excerpts from every retrieved passage into the prompt."""
+        full_system = self._system_prompt_with(passages)
+        max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
+        budget = self.model.input_token_budget(max_new)
+        full_tokens = self.model.prompt_token_count(full_system, user)
+        if full_tokens <= budget:
+            return full_system, False
+
+        tokenizer = self.model.tokenizer
+        passage_token_ids = [
+            tokenizer(str(p.get("text", "")), add_special_tokens=False)["input_ids"]
+            for p in passages
+        ]
+
+        def system_with_limit(per_passage_limit: int) -> str:
+            clipped = []
+            for passage, token_ids in zip(passages, passage_token_ids):
+                item = dict(passage)
+                item["text"] = tokenizer.decode(
+                    token_ids[:per_passage_limit], skip_special_tokens=True
+                ).strip()
+                clipped.append(item)
+            return self._system_prompt_with(clipped)
+
+        headings_only = system_with_limit(0)
+        if self.model.prompt_token_count(headings_only, user) > budget:
+            raise ValueError(
+                "Prompt and RAG passage headings exceed the input-token budget; "
+                "shorten the base prompt or increase max_seq_length."
+            )
+
+        low = 0
+        high = max((len(ids) for ids in passage_token_ids), default=0)
+        while low < high:
+            middle = (low + high + 1) // 2
+            candidate = system_with_limit(middle)
+            if self.model.prompt_token_count(candidate, user) <= budget:
+                low = middle
+            else:
+                high = middle - 1
+
+        fitted = system_with_limit(low)
+        fitted_tokens = self.model.prompt_token_count(fitted, user)
+        logger.info(
+            "RAG context fitted to prompt budget: %d -> %d tokens; "
+            "%d text tokens per passage across %d passages",
+            full_tokens,
+            fitted_tokens,
+            low,
+            len(passages),
+        )
+        return fitted, True
+
     def generate(self, brief: DashboardBrief) -> GenerationResult:
         passages = self.retriever.retrieve(self._brief_to_query(brief), self.top_k)
+        user = build_user_message(brief)
+        system, context_truncated = self._fit_system_prompt(passages, user)
+        max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
+        prompt_tokens = self.model.prompt_token_count(system, user)
+        prompt_budget = self.model.input_token_budget(max_new)
         t0 = time.perf_counter()
-        raw = self._raw_generate(self._system_prompt_with(passages), build_user_message(brief))
+        raw = self._raw_generate(system, user)
         parsed, err = parse_json_safe(raw)
         return GenerationResult(
             item_id=brief.item_id or "",
@@ -158,6 +228,9 @@ class RAGHFMethod(HFMethod):
             parsed=parsed,
             parse_error=err,
             retrieved_docs=passages,
+            prompt_input_tokens=prompt_tokens,
+            prompt_input_budget=prompt_budget,
+            rag_context_truncated=context_truncated,
             latency_ms=(time.perf_counter() - t0) * 1000.0,
             seed=self.seed,
         )

@@ -119,6 +119,9 @@ class GenerationResult(BaseModel):
     parsed: Optional[DesignOutput] = None
     parse_error: Optional[str] = None
     retrieved_docs: Optional[List[Dict[str, Any]]] = None  # RAG methods only
+    prompt_input_tokens: Optional[int] = None
+    prompt_input_budget: Optional[int] = None
+    rag_context_truncated: Optional[bool] = None
     latency_ms: float = 0.0
     seed: int = 42
     variant: str = "original"  # "original" | "paraphrased" | "missing_info"

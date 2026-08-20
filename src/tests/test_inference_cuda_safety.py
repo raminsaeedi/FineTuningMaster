@@ -9,6 +9,7 @@ import torch
 
 from src.core.schemas import DashboardBrief, GenerationResult
 from src.inference.runner import InferenceRunner
+from src.methods.base import RAGHFMethod
 from src.models.hf_causal import HFCausalModel
 
 
@@ -49,7 +50,71 @@ def test_chat_sanitizes_sampling_scores_before_multinomial():
     model.tokenizer = _Tokenizer()
     model.max_seq_length = 128
 
-    assert model.chat("system", "user", do_sample=True) == "safe output"
+    assert model.chat(
+        "system", "user", do_sample=True, max_new_tokens=16
+    ) == "safe output"
+
+
+def test_chat_rejects_silent_prompt_truncation():
+    model = HFCausalModel({"max_seq_length": 17})
+    model.model = _SamplingBoundary()
+    model.tokenizer = _Tokenizer()
+    model.max_seq_length = 17
+
+    with pytest.raises(ValueError, match="Prompt exceeds"):
+        model.chat("system", "user", max_new_tokens=16)
+
+
+class _CharacterTokenizer:
+    eos_token_id = 2
+
+    def apply_chat_template(self, messages, **kwargs):
+        del kwargs
+        return "\n".join(message["content"] for message in messages) + "\nassistant"
+
+    def __call__(self, text, return_tensors=None, **kwargs):
+        del kwargs
+        ids = [ord(character) for character in text]
+        if return_tensors == "pt":
+            return {
+                "input_ids": torch.tensor([ids], dtype=torch.long),
+                "attention_mask": torch.ones((1, len(ids)), dtype=torch.long),
+            }
+        return {"input_ids": ids}
+
+    def decode(self, token_ids, **kwargs):
+        del kwargs
+        return "".join(chr(token_id) for token_id in token_ids)
+
+
+def test_rag_context_is_shared_across_all_passages_and_fits_budget():
+    method = RAGHFMethod({
+        "model": {"max_seq_length": 1800},
+        "method": {
+            "generate": {"max_new_tokens": 300},
+            "retriever": {"top_k": 3},
+        },
+    })
+    method.model = HFCausalModel({"max_seq_length": 1800})
+    method.model.tokenizer = _CharacterTokenizer()
+    method.model.max_seq_length = 1800
+    passages = [
+        {
+            "source": f"source-{index}",
+            "heading": f"heading-{index}",
+            "text": chr(64 + index) * 1000,
+        }
+        for index in range(1, 4)
+    ]
+
+    system, truncated = method._fit_system_prompt(passages, "short user brief")
+
+    assert truncated is True
+    assert method.model.prompt_token_count(system, "short user brief") <= 1500
+    for index, marker in enumerate(("A", "B", "C"), start=1):
+        assert f"source-{index}" in system
+        assert marker in system
+        assert marker * 1000 not in system
 
 
 class _FatalCudaMethod:

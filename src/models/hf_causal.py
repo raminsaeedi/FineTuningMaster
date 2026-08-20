@@ -140,25 +140,57 @@ class HFCausalModel:
         template_kwargs.update(kwargs)
         return self.tokenizer.apply_chat_template(messages, **template_kwargs)
 
+    def _render_chat_prompt(self, system: str, user: str) -> str:
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        return self.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+
+    def input_token_budget(self, max_new_tokens: int) -> int:
+        """Maximum prompt length while reserving the requested output budget."""
+        max_new = int(max_new_tokens)
+        if max_new <= 0 or max_new >= self.max_seq_length:
+            raise ValueError(
+                "max_new_tokens must be positive and smaller than max_seq_length "
+                f"({max_new} vs {self.max_seq_length})."
+            )
+        return self.max_seq_length - max_new
+
+    def prompt_token_count(self, system: str, user: str) -> int:
+        prompt = self._render_chat_prompt(system, user)
+        encoded = self.tokenizer(prompt, add_special_tokens=False)
+        ids = encoded["input_ids"]
+        if hasattr(ids, "shape"):
+            return int(ids.shape[-1])
+        return len(ids[0]) if ids and isinstance(ids[0], list) else len(ids)
+
+    def prepare_prompt(
+        self, system: str, user: str, max_new_tokens: int
+    ) -> tuple[str, dict[str, Any], int, int]:
+        """Tokenize without silent truncation and reject an invalid context budget."""
+        prompt = self._render_chat_prompt(system, user)
+        budget = self.input_token_budget(max_new_tokens)
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=False)
+        prompt_tokens = int(inputs["input_ids"].shape[-1])
+        if prompt_tokens > budget:
+            raise ValueError(
+                "Prompt exceeds the reserved input-token budget: "
+                f"{prompt_tokens} > {budget}. Shorten the prompt/RAG context or "
+                "increase max_seq_length; refusing silent truncation."
+            )
+        return prompt, inputs, prompt_tokens, budget
+
     # ------------------------------------------------------------------
     def chat(self, system: str, user: str, **gen_kwargs: Any) -> str:
         """Run one chat turn and return the decoded assistant text."""
         import torch
 
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
-        prompt = self.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-
         max_new = int(gen_kwargs.get("max_new_tokens", 1024))
-        inputs = self.tokenizer(
-            prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=max(self.max_seq_length - max_new, 16),
+        _prompt, inputs, _prompt_tokens, _budget = self.prepare_prompt(
+            system, user, max_new
         )
         device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}

@@ -89,7 +89,17 @@ def resolve_adapter_path(cfg: Any, project_root: Optional[Path] = None) -> Path:
 
     layout = str(_get(cfg, "run_layout", _get(cfg, "profile", "legacy")) or "legacy")
     if layout in {"final", "smoke"}:
-        dataset = str(_nested_get(cfg, "data.dataset_version", "dashboard_v3"))
+        # Cross-domain evaluation may intentionally consume an adapter trained
+        # on a different dataset.  Keep the evaluation dataset in its own run
+        # directory while resolving the adapter from the explicitly declared
+        # training dataset.
+        dataset = str(
+            _nested_get(
+                cfg,
+                "data.adapter_dataset_version",
+                _nested_get(cfg, "data.dataset_version", "dashboard_v3"),
+            )
+        )
         model_key = str(
             _get(cfg, "model_key")
             or _nested_get(cfg, "model.key")
@@ -225,7 +235,14 @@ def check_adapter_compatibility(metadata: Mapping[str, Any], cfg: Any) -> list[s
                 f"this run uses seed {expected_seed}"
             )
 
-    expected_dataset = _nested_get(cfg, "data.dataset_version")
+    # ``adapter_dataset_version`` is an explicit, auditable opt-in for a
+    # cross-domain evaluation set.  Without it, adapters remain tied to the
+    # dataset version used by the current run.
+    expected_dataset = _nested_get(
+        cfg,
+        "data.adapter_dataset_version",
+        _nested_get(cfg, "data.dataset_version"),
+    )
     actual_dataset = metadata.get("dataset_version")
     if expected_dataset and actual_dataset and str(actual_dataset) != str(expected_dataset):
         problems.append(
