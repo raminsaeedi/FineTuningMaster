@@ -875,7 +875,7 @@ def _load_source() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dic
         "parent_human_eval": (PARENT_DIR / "human_eval_test_items_40.csv").read_bytes(),
         "schema": (PARENT_DIR / "schema.json").read_bytes(),
     }
-    generated = [record for record in parent_train[len(v3_train):] + parent_val[len(v3_val):] if ((record.get("brief") or {}).get("extra") or {}).get("source") == "ai_generated"]
+    generated = [record for record in parent_train[len(v3_train):] + parent_val[len(v3_val):] if ((record.get("brief") or {}).get("extra") or {}).get("source") == "llm_generated"]
     if len(generated) != 2000:
         raise ValueError(f"expected 2000 generated parent records, got {len(generated)}")
     return parent_train, parent_val, parent_test, source_bytes
@@ -1112,7 +1112,7 @@ def _write_release(result: Mapping[str, Any], source_bytes: Mapping[str, bytes],
             "lineage": {
                 "original_dashboard_v3": "preserved_unchanged",
                 "parent_dashboard_v4": "preserved_as_immutable_parent",
-                "generated": "ai_generated_semantic_repair",
+                "generated": "llm_generated_semantic_repair",
                 "generated_not_gold": True,
             },
             "repair_scope": {
@@ -1138,7 +1138,7 @@ def _write_release(result: Mapping[str, Any], source_bytes: Mapping[str, bytes],
             "hashes_file": "hashes.json",
         }
         _atomic_write_json(temporary_dir / "manifest.json", manifest)
-        dataset_card = f"""# Dataset Card — {TARGET_VERSION}\n\n## Scope\n\n`{TARGET_VERSION}` is a semantic-repair revision of the immutable `{PARENT_VERSION}` release. It preserves the original dashboard_v3 Train/Validation records, all generated structural/source fields, and the parent Test and Human-Evaluation files. It repairs generated users, context summaries, layouts, styling, interactions, and rationales from each record's own brief and encoding.\n\n## Counts\n\n- dashboard_v3 Train: {len(result['v3_train'])}\n- dashboard_v3 Validation: {len(result['v3_val'])}\n- Generated Train: {len(generated_train)}\n- Generated Validation: {len(generated_val)}\n- Final Train: {len(result['final_train'])}\n- Final Validation: {len(result['final_val'])}\n- Test: {len(result['final_test'])}\n- Human Evaluation: {max(0, len(source_bytes['parent_human_eval'].splitlines()) - 1)}\n\n## Repair provenance\n\nGenerated records retain `source=ai_generated`, carry parent lineage to `{PARENT_VERSION}`, and record `{REPAIR_VERSION}`, `{REPAIR_MODEL}`, and `{REPAIR_MODE}`. They remain AI-generated records and are not nvBench gold, human gold, or expert gold.\n\n## Semantic guarantees\n\nThe corrected generated fields are anchored to each record's goals, KPIs, columns, constraints, task, chart, and encoding. Interactions use existing columns only; rationales explain the actual chart and encoding without asserting unobserved trends, correlations, outcomes, or business facts; styling states its accessibility and color semantics; layouts match the number and order of mapped visual components.\n\nSee `reports/repair_report.json`, the before/after semantic audits, `manifest.json`, and `hashes.json`.\n"""
+        dataset_card = f"""# Dataset Card — {TARGET_VERSION}\n\n## Scope\n\n`{TARGET_VERSION}` is a semantic-repair revision of the immutable `{PARENT_VERSION}` release. It preserves the original dashboard_v3 Train/Validation records, all generated structural/source fields, and the parent Test and Human-Evaluation files. It repairs generated users, context summaries, layouts, styling, interactions, and rationales from each record's own brief and encoding.\n\n## Counts\n\n- dashboard_v3 Train: {len(result['v3_train'])}\n- dashboard_v3 Validation: {len(result['v3_val'])}\n- Generated Train: {len(generated_train)}\n- Generated Validation: {len(generated_val)}\n- Final Train: {len(result['final_train'])}\n- Final Validation: {len(result['final_val'])}\n- Test: {len(result['final_test'])}\n- Human Evaluation: {max(0, len(source_bytes['parent_human_eval'].splitlines()) - 1)}\n\n## Repair provenance\n\nGenerated records retain `source=llm_generated`, carry parent lineage to `{PARENT_VERSION}`, and record `{REPAIR_VERSION}`, `{REPAIR_MODEL}`, and `{REPAIR_MODE}`. They remain AI-generated records and are not nvBench gold, human gold, or expert gold.\n\n## Semantic guarantees\n\nThe corrected generated fields are anchored to each record's goals, KPIs, columns, constraints, task, chart, and encoding. Interactions use existing columns only; rationales explain the actual chart and encoding without asserting unobserved trends, correlations, outcomes, or business facts; styling states its accessibility and color semantics; layouts match the number and order of mapped visual components.\n\nSee `reports/repair_report.json`, the before/after semantic audits, `manifest.json`, and `hashes.json`.\n"""
         _atomic_write_bytes(temporary_dir / "dataset_card.md", dataset_card.encode("utf-8"))
 
         hash_files = [
@@ -1198,7 +1198,7 @@ def _verify_published(source_bytes: Mapping[str, bytes], result: Mapping[str, An
     train = _read_jsonl(TARGET_DIR / "train.jsonl")
     val = _read_jsonl(TARGET_DIR / "val.jsonl")
     test = _read_jsonl(TARGET_DIR / "test.jsonl")
-    generated = [record for record in train + val if ((record.get("brief") or {}).get("extra") or {}).get("source") == "ai_generated"]
+    generated = [record for record in train + val if ((record.get("brief") or {}).get("extra") or {}).get("source") == "llm_generated"]
     invalid = []
     for record in train + val + test:
         if validate_record(record):

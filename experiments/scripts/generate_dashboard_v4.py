@@ -8,7 +8,7 @@ the final freeze phase so their bytes can be copied and verified exactly.
 The generator is a local Codex-agent generation implementation.  It uses the
 project's existing GoldItem schema, task/chart vocabulary, brief fingerprint,
 character 3-gram similarity, and hash-based split conventions.  Each accepted
-record is explicitly labelled ai_generated and is never labelled nvBench gold,
+record is explicitly labelled llm_generated and is never labelled nvBench gold,
 human gold, or expert gold.
 
 Usage:
@@ -806,23 +806,23 @@ def _build_record(index: int, task: str, profile: Mapping[str, bool]) -> Dict[st
         "columns": columns,
         "constraints": constraints,
         "extra": {
-            "source": "ai_generated",
+            "source": "llm_generated",
             "dataset_version": "dashboard_v4",
             "domain": domain.name,
             "generation_group_id": f"dashboard_v4:scenario:{index:05d}",
             "lineage": {
-                "users": "ai_generated",
-                "goals": "ai_generated",
-                "kpis": "ai_generated",
-                "columns": "ai_generated",
-                "constraints": "ai_generated",
+                "users": "llm_generated",
+                "goals": "llm_generated",
+                "kpis": "llm_generated",
+                "columns": "llm_generated",
+                "constraints": "llm_generated",
                 "task_type": "deterministically_validated",
                 "chart_type": "deterministically_validated",
-                "encoding": "ai_generated_and_deterministically_validated",
-                "layout": "ai_generated",
-                "styling": "ai_generated",
-                "interactions": "ai_generated",
-                "rationales": "ai_generated",
+                "encoding": "llm_generated_and_deterministically_validated",
+                "layout": "llm_generated",
+                "styling": "llm_generated",
+                "interactions": "llm_generated",
+                "rationales": "llm_generated",
             },
             "generation": {
                 "generator_model": GENERATOR_MODEL,
@@ -891,8 +891,8 @@ def _generated_quality_errors(record: Mapping[str, Any]) -> List[str]:
     dtype = {str(column.get("name")): str(column.get("dtype")) for column in columns}
     roles = {str(column.get("name")): str(column.get("role")) for column in columns}
     mappings = recommendation.get("kpi_chart_mapping") or []
-    if not isinstance(brief.get("extra"), dict) or (brief.get("extra") or {}).get("source") != "ai_generated":
-        errors.append("missing_ai_generated_source")
+    if not isinstance(brief.get("extra"), dict) or (brief.get("extra") or {}).get("source") != "llm_generated":
+        errors.append("missing_llm_generated_source")
     if (brief.get("extra") or {}).get("dataset_version") != "dashboard_v4":
         errors.append("wrong_dataset_version")
     if not brief.get("users") or not brief.get("goals") or not brief.get("kpis") or not columns:
@@ -1163,7 +1163,7 @@ def _validate_final_records(records: Sequence[Mapping[str, Any]]) -> Tuple[int, 
     invalid: List[str] = []
     for record in records:
         problems = validate_record(dict(record))
-        problems.extend(_generated_quality_errors(record) if (record.get("brief", {}).get("extra", {}) or {}).get("source") == "ai_generated" else [])
+        problems.extend(_generated_quality_errors(record) if (record.get("brief", {}).get("extra", {}) or {}).get("source") == "llm_generated" else [])
         if problems:
             invalid.append(f"{record.get('item_id')}: {sorted(set(problems))}")
     return len(invalid), invalid[:50], {"schema_invalid_count": len(invalid)}
@@ -1360,9 +1360,9 @@ def _freeze(
             },
             "lineage": {
                 "original_dashboard_v3": "preserved_unchanged",
-                "generated": "ai_generated",
+                "generated": "llm_generated",
                 "generated_not_gold": True,
-                "generated_source": "ai_generated",
+                "generated_source": "llm_generated",
             },
             "base_dashboard_v3_sha256": base_hashes,
             "checks": checks,
@@ -1376,7 +1376,7 @@ def _freeze(
             "hashes_file": "hashes.json",
         }
         _atomic_write_json(temporary_dir / "manifest.json", manifest)
-        dataset_card = f"""# Dataset Card — dashboard_v4\n\n## Scope\n\n`dashboard_v4` consists of the frozen `dashboard_v3` Train/Validation records plus exactly 2,000 newly generated AI records. The original dashboard_v3 Test and Human-Evaluation files are copied byte-for-byte and remain held out.\n\n## Counts\n\n- dashboard_v3 Train: {len(train_v3)}\n- dashboard_v3 Validation: {len(val_v3)}\n- Generated Train: {len(generated_train)}\n- Generated Validation: {len(generated_val)}\n- Final Train: {len(final_train)}\n- Final Validation: {len(final_val)}\n- Test: {len(_read_jsonl(test_v3_path))}\n- Human Evaluation: 40\n- Generated total: {len(generated)}\n\n## Generated lineage\n\nGenerated records carry `source=ai_generated`, `dataset_version=dashboard_v4`, `generator_model={GENERATOR_MODEL}`, and `generation_mode={GENERATION_MODE}`. They are not nvBench gold, human gold, or expert gold. Original dashboard_v3 records retain their existing provenance and content.\n\n## Integrity\n\nThe package was written through an atomic temporary-directory build. The generated records passed schema, duplicate, normalized-goal, brief-fingerprint, split, and byte-identity checks. Test and Human-Evaluation files are byte-identical to dashboard_v3.\n\nSee `manifest.json`, `hashes.json`, and `reports/` for the complete construction and validation evidence.\n"""
+        dataset_card = f"""# Dataset Card — dashboard_v4\n\n## Scope\n\n`dashboard_v4` consists of the frozen `dashboard_v3` Train/Validation records plus exactly 2,000 newly generated AI records. The original dashboard_v3 Test and Human-Evaluation files are copied byte-for-byte and remain held out.\n\n## Counts\n\n- dashboard_v3 Train: {len(train_v3)}\n- dashboard_v3 Validation: {len(val_v3)}\n- Generated Train: {len(generated_train)}\n- Generated Validation: {len(generated_val)}\n- Final Train: {len(final_train)}\n- Final Validation: {len(final_val)}\n- Test: {len(_read_jsonl(test_v3_path))}\n- Human Evaluation: 40\n- Generated total: {len(generated)}\n\n## Generated lineage\n\nGenerated records carry `source=llm_generated`, `dataset_version=dashboard_v4`, `generator_model={GENERATOR_MODEL}`, and `generation_mode={GENERATION_MODE}`. They are not nvBench gold, human gold, or expert gold. Original dashboard_v3 records retain their existing provenance and content.\n\n## Integrity\n\nThe package was written through an atomic temporary-directory build. The generated records passed schema, duplicate, normalized-goal, brief-fingerprint, split, and byte-identity checks. Test and Human-Evaluation files are byte-identical to dashboard_v3.\n\nSee `manifest.json`, `hashes.json`, and `reports/` for the complete construction and validation evidence.\n"""
         _atomic_write_bytes(temporary_dir / "dataset_card.md", dataset_card.encode("utf-8"))
 
         hash_files = [
