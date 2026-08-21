@@ -81,11 +81,8 @@ class ExperimentRunner:
         briefs = [it.brief for it in items]
 
         method = self._make_method()
-        out_path = self.exp_dir / "predictions.jsonl"
         identity = cache_identity(self.cfg)
-        InferenceRunner(method, out_path, cache_identity=identity).run(
-            briefs, variant="original"
-        )
+        jobs = [(briefs, self.exp_dir / "predictions.jsonl", "original")]
 
         # Optional perturbation variants — only if their files exist.
         for variant, cfg_key in VARIANTS.items():
@@ -97,11 +94,16 @@ class ExperimentRunner:
                 continue
             v_items = load_gold_items(vpath)
             v_briefs = [it.brief for it in v_items]
-            v_method = self._make_method()
-            v_out = self.exp_dir / f"predictions_{variant}.jsonl"
-            InferenceRunner(v_method, v_out, cache_identity=identity).run(
-                v_briefs, variant=variant
-            )
+            jobs.append((v_briefs, self.exp_dir / f"predictions_{variant}.jsonl", variant))
+
+        # Original and robustness variants use identical model/retriever setup.
+        # Keep generation order and cache semantics, but avoid loading the same
+        # base model and adapter up to three times in one experiment.
+        InferenceRunner(
+            method,
+            self.exp_dir / "predictions.jsonl",
+            cache_identity=identity,
+        ).run_many(jobs)
 
     # ------------------------------------------------------------------
     def _load_predictions(self, name: str) -> Optional[List[GenerationResult]]:

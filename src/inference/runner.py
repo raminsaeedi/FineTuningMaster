@@ -16,7 +16,7 @@ import json
 import logging
 import traceback
 from pathlib import Path
-from typing import Any, List, Set
+from typing import Any, List, Optional, Set
 
 from src.core.interfaces import BaseMethod
 from src.core.schemas import GenerationResult
@@ -115,7 +115,8 @@ class InferenceRunner:
         with self.errors_path.open("a", encoding="utf-8") as ef:
             ef.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
+    def _prepare(self, briefs) -> List[Any]:
+        """Validate cache and return only briefs that still need generation."""
         self._check_cache_identity()
         stale = self._stale_config_hashes()
         if stale:
@@ -127,43 +128,90 @@ class InferenceRunner:
                 f"the file to regenerate, or run under a distinct experiment_name."
             )
 
+        briefs = list(briefs)
         done = self._load_done()
         remaining = [b for b in briefs if (b.item_id or "") not in done]
 
         if not remaining:
             logger.info("[CACHE HIT] %s already complete (%d items).", self.out_path, len(done))
             print(f"[CACHE HIT] {self.out_path.name}: {len(done)} items already done.")
-            return self._load_existing()
+        return remaining
 
+    def _run_remaining(self, remaining: List[Any], variant: str) -> List[GenerationResult]:
+        """Generate prepared items; caller owns method setup/teardown lifecycle."""
         self.out_path.parent.mkdir(parents=True, exist_ok=True)
-        logger.info("Setting up method '%s'…", self.method.name)
-        self.method.setup()
         n_errors = 0
-        try:
-            n = len(remaining)
-            with self.out_path.open("a", encoding="utf-8") as f:
-                for i, brief in enumerate(remaining, start=1):
-                    try:
-                        result = self.method.generate(brief)
-                        result.variant = variant
-                        f.write(result.model_dump_json() + "\n")
-                        f.flush()
-                        status = "ok" if result.parse_error is None else result.parse_error
-                        print(f"  [{i:>3}/{n}] {brief.item_id} {status} ({result.latency_ms:.0f} ms)")
-                    except Exception as exc:  # recoverable item errors do not abort the run
-                        # Record it instead of dropping it: otherwise n_predictions
-                        # silently differs across methods and a crashing method looks
-                        # artificially better. See errors*.jsonl next to predictions.
-                        logger.exception("Generation failed for %s: %s", brief.item_id, exc)
-                        self._record_error(brief, variant, exc)
-                        n_errors += 1
-                        print(f"  [{i:>3}/{n}] {brief.item_id} ERROR: {exc}")
-                        if _is_fatal_cuda_error(exc):
-                            raise
-        finally:
-            self.method.teardown()
+        n = len(remaining)
+        with self.out_path.open("a", encoding="utf-8") as f:
+            for i, brief in enumerate(remaining, start=1):
+                try:
+                    result = self.method.generate(brief)
+                    result.variant = variant
+                    f.write(result.model_dump_json() + "\n")
+                    f.flush()
+                    status = "ok" if result.parse_error is None else result.parse_error
+                    print(f"  [{i:>3}/{n}] {brief.item_id} {status} ({result.latency_ms:.0f} ms)")
+                except Exception as exc:  # recoverable item errors do not abort the run
+                    # Record it instead of dropping it: otherwise n_predictions
+                    # silently differs across methods and a crashing method looks
+                    # artificially better. See errors*.jsonl next to predictions.
+                    logger.exception("Generation failed for %s: %s", brief.item_id, exc)
+                    self._record_error(brief, variant, exc)
+                    n_errors += 1
+                    print(f"  [{i:>3}/{n}] {brief.item_id} ERROR: {exc}")
+                    if _is_fatal_cuda_error(exc):
+                        raise
 
         if n_errors:
             print(f"  {n_errors} item(s) failed — logged to {self.errors_path.name}")
 
         return self._load_existing()
+
+    def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
+        """Run one file, loading and releasing method resources around it."""
+        remaining = self._prepare(briefs)
+        if not remaining:
+            return self._load_existing()
+
+        logger.info("Setting up method '%s'…", self.method.name)
+        self.method.setup()
+        try:
+            return self._run_remaining(remaining, variant)
+        finally:
+            self.method.teardown()
+
+    def run_many(
+        self,
+        jobs: list[tuple[Any, str | Path, str]],
+    ) -> List[List[GenerationResult]]:
+        """Run several cache files while loading one method instance once.
+
+        Jobs execute in supplied order. Cache checks still happen before model
+        setup, and fatal CUDA errors still stop the batch immediately.
+        """
+        runners = [
+            InferenceRunner(self.method, out_path, cache_identity=self.cache_identity)
+            for _briefs, out_path, _variant in jobs
+        ]
+        results: List[Optional[List[GenerationResult]]] = [None] * len(jobs)
+        pending: list[tuple[int, InferenceRunner, List[Any], str]] = []
+
+        for index, (briefs, _out_path, variant) in enumerate(jobs):
+            remaining = runners[index]._prepare(briefs)
+            if remaining:
+                pending.append((index, runners[index], remaining, variant))
+            else:
+                results[index] = runners[index]._load_existing()
+
+        if not pending:
+            return [value or [] for value in results]
+
+        logger.info("Setting up method '%s' once for %d inference files…", self.method.name, len(pending))
+        self.method.setup()
+        try:
+            for index, runner, remaining, variant in pending:
+                results[index] = runner._run_remaining(remaining, variant)
+        finally:
+            self.method.teardown()
+
+        return [value or [] for value in results]

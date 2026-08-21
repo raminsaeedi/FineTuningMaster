@@ -190,3 +190,20 @@ def test_the_guard_applies_to_variant_prediction_files(tmp_path):
 
     with pytest.raises(RuntimeError):
         InferenceRunner(FakeMethod(), out).run(_briefs(1), variant="paraphrased")
+
+
+def test_run_many_reuses_one_method_lifecycle_for_variants(tmp_path):
+    method = FakeMethod()
+    runner = InferenceRunner(method, tmp_path / "predictions.jsonl")
+    jobs = [
+        (_briefs(2), tmp_path / "predictions.jsonl", "original"),
+        (_briefs(2), tmp_path / "predictions_paraphrased.jsonl", "paraphrased"),
+    ]
+
+    results = runner.run_many(jobs)
+
+    assert method.setup_calls == 1
+    assert method.teardown_calls == 1
+    assert all(len(value) == 2 for value in results)
+    assert {result.variant for result in results[0]} == {"original"}
+    assert {result.variant for result in results[1]} == {"paraphrased"}

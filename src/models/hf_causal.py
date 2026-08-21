@@ -183,19 +183,10 @@ class HFCausalModel:
             )
         return prompt, inputs, prompt_tokens, budget
 
-    # ------------------------------------------------------------------
-    def chat(self, system: str, user: str, **gen_kwargs: Any) -> str:
-        """Run one chat turn and return the decoded assistant text."""
-        import torch
-
+    def _generation_args(self, gen_kwargs: Mapping[str, Any]) -> dict[str, Any]:
+        """Build generation kwargs shared by normal and pre-tokenized paths."""
         max_new = int(gen_kwargs.get("max_new_tokens", 1024))
-        _prompt, inputs, _prompt_tokens, _budget = self.prepare_prompt(
-            system, user, max_new
-        )
-        device = next(self.model.parameters()).device
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-        gen_args = dict(
+        return dict(
             max_new_tokens=max_new,
             temperature=gen_kwargs.get("temperature", 0.1),
             top_p=gen_kwargs.get("top_p", 0.9),
@@ -207,11 +198,27 @@ class HFCausalModel:
             eos_token_id=self.tokenizer.eos_token_id,
         )
 
-        with torch.no_grad():
+    def generate_prepared(self, inputs: Mapping[str, Any], **gen_kwargs: Any) -> str:
+        """Generate from already-tokenized inputs without rebuilding prompt."""
+        import torch
+
+        device = next(self.model.parameters()).device
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        gen_args = self._generation_args(gen_kwargs)
+        with torch.inference_mode():
             out_ids = self.model.generate(**inputs, **gen_args)
 
         new_ids = out_ids[0][inputs["input_ids"].shape[1]:]
         return self.tokenizer.decode(new_ids, skip_special_tokens=True)
+
+    # ------------------------------------------------------------------
+    def chat(self, system: str, user: str, **gen_kwargs: Any) -> str:
+        """Run one chat turn and return the decoded assistant text."""
+        max_new = int(gen_kwargs.get("max_new_tokens", 1024))
+        _prompt, inputs, _prompt_tokens, _budget = self.prepare_prompt(
+            system, user, max_new
+        )
+        return self.generate_prepared(inputs, **gen_kwargs)
 
     # ------------------------------------------------------------------
     def teardown(self) -> None:

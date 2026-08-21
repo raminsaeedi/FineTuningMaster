@@ -127,6 +127,7 @@ class QLoRASFTTrainer(BaseTrainer):
         lora_cfg = _get(self.train_cfg, "lora", {})
         quant_cfg = _get(self.train_cfg, "quantization", {})
         sft_cfg = _get(self.train_cfg, "sft", {})
+        gradient_checkpointing = bool(_get(sft_cfg, "gradient_checkpointing", True))
 
         # Resolve from the weakest visible GPU. Configured model dtype is only
         # a preference; mixed jobs must use one safe precision intersection.
@@ -200,7 +201,8 @@ class QLoRASFTTrainer(BaseTrainer):
         # ── Prepare for k-bit training ───────────────────────────────────
         if bnb_config:
             self.model = prepare_model_for_kbit_training(
-                self.model, use_gradient_checkpointing=True
+                self.model,
+                use_gradient_checkpointing=gradient_checkpointing,
             )
 
         # ── LoRA adapters (QLoRA / LoRA / DoRA / RSLoRA via flags) ───────────

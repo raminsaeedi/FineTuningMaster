@@ -73,7 +73,12 @@ class HFMethod(BaseMethod):
     def _system_prompt(self) -> str:
         return SYSTEM_PROMPT
 
-    def _raw_generate(self, system: str, user: str) -> str:
+    def _raw_generate(
+        self,
+        system: str,
+        user: str,
+        prepared_inputs: Optional[Mapping[str, Any]] = None,
+    ) -> str:
         """Generate raw text, using constrained JSON decoding when enabled."""
         if self._decoder is not None:
             prompt, _inputs, _tokens, _budget = self.model.prepare_prompt(
@@ -82,16 +87,24 @@ class HFMethod(BaseMethod):
                 int(self._gen_kwargs.get("max_new_tokens", 1024)),
             )
             return self._decoder.generate(prompt)
+        if prepared_inputs is not None:
+            return self.model.generate_prepared(prepared_inputs, **self._gen_kwargs)
         return self.model.chat(system, user, **self._gen_kwargs)
 
     def generate(self, brief: DashboardBrief) -> GenerationResult:
         system = self._system_prompt()
         user = build_user_message(brief)
         max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
-        prompt_tokens = self.model.prompt_token_count(system, user)
-        prompt_budget = self.model.input_token_budget(max_new)
+        prepared_inputs = None
+        if self._decoder is not None:
+            prompt_tokens = self.model.prompt_token_count(system, user)
+            prompt_budget = self.model.input_token_budget(max_new)
+        else:
+            _prompt, prepared_inputs, prompt_tokens, prompt_budget = self.model.prepare_prompt(
+                system, user, max_new
+            )
         t0 = time.perf_counter()
-        raw = self._raw_generate(system, user)
+        raw = self._raw_generate(system, user, prepared_inputs)
         parsed, err = parse_json_safe(raw)
         return GenerationResult(
             item_id=brief.item_id or "",
@@ -214,10 +227,16 @@ class RAGHFMethod(HFMethod):
         user = build_user_message(brief)
         system, context_truncated = self._fit_system_prompt(passages, user)
         max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
-        prompt_tokens = self.model.prompt_token_count(system, user)
-        prompt_budget = self.model.input_token_budget(max_new)
+        prepared_inputs = None
+        if self._decoder is not None:
+            prompt_tokens = self.model.prompt_token_count(system, user)
+            prompt_budget = self.model.input_token_budget(max_new)
+        else:
+            _prompt, prepared_inputs, prompt_tokens, prompt_budget = self.model.prepare_prompt(
+                system, user, max_new
+            )
         t0 = time.perf_counter()
-        raw = self._raw_generate(system, user)
+        raw = self._raw_generate(system, user, prepared_inputs)
         parsed, err = parse_json_safe(raw)
         return GenerationResult(
             item_id=brief.item_id or "",
