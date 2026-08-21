@@ -210,7 +210,17 @@ Der Output entsprach damit stark dem leeren Strukturbeispiel aus `src/core/promp
 
 Diese Challenge wird durch vier getrennte Methoden kontrolliert. Erstens prüft ein Dataset-Preflight vor dem Training die Anzahl und Nicht-Leerheit von `layout` und `styling` pro Split. Zweitens vergleicht ein Raw-Output-Audit `raw_text`, geparstes JSON, `parse_error`, Prompt-Tokens und Budget, damit unterschieden wird, ob Information im Modelloutput fehlt oder erst beim Parsing verloren geht. Drittens muss der Prompt ein knappes, befülltes Minimalbeispiel für `layout`, `styling`, `encoding` und `rationales` zeigen und leere Platzhalter ausdrücklich verbieten, ohne das Kontextbudget erneut zu überlasten. Viertens soll die Validierung für diese Pflichtbereiche nicht nur syntaktisches JSON akzeptieren: leere Objekte müssen als Inhaltsfehler markiert werden und in `completeness` sowie in der Fehlerdiagnose sichtbar bleiben.
 
-Die vierte Methode ist teilweise bereits durch das Completeness-Gate vorhanden. Die Promptänderung und ein expliziter Non-Empty-Contract sind als nächster Minimalfix zu verifizieren. Erst danach darf beurteilt werden, ob das 0,5B-Modell die geforderten Layout- und Styling-Inhalte zuverlässig erzeugen kann. Nicht-leere Dataset-Felder beweisen außerdem noch nicht, dass jede Annotation semantisch optimal ist; ihre inhaltliche Qualität bleibt eine separate Dataset- und Human-Evaluation-Frage.
+Die vierte Methode ist teilweise bereits durch das Completeness-Gate vorhanden. Nicht-leere Dataset-Felder beweisen außerdem noch nicht, dass jede Annotation semantisch optimal ist; ihre inhaltliche Qualität bleibt eine separate Dataset- und Human-Evaluation-Frage.
+
+**Umgesetzter Minimalfix (Stand 21.08.2026):** In [`src/core/prompts.py`](../../src/core/prompts.py) (`build_user_message`) wurde das leere Struktur-Beispiel (`"layout":{}`, `"styling":{}`, `"encoding":{}`, `"interactions":[]`) durch ein kurzes, tatsächlich schema-valides Beispiel mit befüllten Feldern ersetzt und um eine explizite Nicht-Leer-Anforderung für `context_summary`, `layout`, `styling`, `encoding`, `rationales` und `interactions` ergänzt. Die Änderung betrifft ausschließlich diese eine Funktion, die einzige Quelle des Nutzer-Prompts für Training (`src/data_pipeline/formatter.py`) und Inferenz (`src/methods/base.py`) — sie wirkt damit identisch auf A, B, C und D, keine Methode wird bevorzugt.
+
+Geprüfte Nebenwirkungen vor Übernahme:
+- Das Beispiel wurde gegen `DesignOutput` validiert (`pytest`-Ad-hoc-Check) — schema-valide.
+- Der volle Chat-Prompt für A/C stieg von ca. 322–360 auf 422 Tokens (Qwen2.5-0.5B-Tokenizer, `add_generation_prompt=True`). Bei `max_seq_length=1024` und `max_new_tokens=512` bleiben weiterhin 512 Tokens Budget übrig — das dynamische Budgetierungssystem aus Abschnitt 4.1 (`model.input_token_budget`, `prompt_token_count`) berechnet das RAG-Restbudget für B/D zur Laufzeit neu und kürzt ggf. die Retrieval-Passagen entsprechend stärker; es gibt keinen hartkodierten Token-Wert, der hätte veralten können.
+- Bestehende Tests (`src/tests/test_metric_semantics.py`, `src/tests/test_scientific_validity.py`, `src/tests/test_postprocess.py`) — 22 Tests — laufen unverändert grün. Kein Test fixiert den exakten Prompt-Text, daher keine Snapshot-Brüche.
+- `src/core/schemas.py`, `src/inference/postprocess.py`, `src/evaluation/metrics/schema_compliance.py` wurden **nicht** geändert: Der Non-Empty-Validator (`_nonempty`, `completeness_fraction`) existierte bereits und ist bereits regressionsgetestet; der Parser füllt fehlende Inhalte bereits korrekt nicht künstlich auf.
+
+Damit ist die im vorigen Absatz offene vierte Methode umgesetzt, ohne Schema, Parser oder Metrik anzufassen. Der nächste Schritt ist ein 10–20-Item-Pilot mit unveränderter Trainings- und Evaluationslogik (siehe Abschnitt 9), um die empirische Wirkung zu messen, bevor der volle 50-Item-Tiny-Run und danach `dashboard_v4` folgen.
 
 ### 7.4 Challenge: Top-3 ist nicht „dreimal ausführen"
 
@@ -302,6 +312,8 @@ Das 0,5B-Modell kann die leeren oder unvollständigen Layout- und Styling-Felder
 
 Ein starker Coding-Agent kann den technischen Fix rational umsetzen: Prompt mit befülltem Beispiel, striktere semantische Validierung, Regressionstest mit dem bisherigen Fehleroutput, 10–20-Item-Pilot und anschließenden Tiny-Run. Der Agent kann Code prüfen und Tests ausführen. Er kann aber keine Human Usefulness garantieren und keine unabhängige wissenschaftliche Evidenz ersetzen. Modellwahl des Coding-Agents ist kein Forschungsfaktor; entscheidend sind reproduzierbare Änderungen, Tests, Run-Hashes und unabhängige Bewertung. Für diese Reparatur ist kein großer Architekturumbau erforderlich.
 
+Der Prompt-Teil dieses Minimalfixes wurde umgesetzt (siehe Abschnitt 7.3). Der Non-Empty-Validator, das Schema und der Parser blieben unverändert, weil sie die geforderte Semantik bereits korrekt abbilden. Offen bleibt die empirische Überprüfung: Steigt die Completeness bei A–D messbar, oder bleibt ein Rest-Defizit, das auf Modellkapazität statt Prompt-Vertrag zurückgeht?
+
 ## 8. Was die neue Pipeline tatsächlich ermöglicht
 
 Die neue Pipeline ermöglicht einen reproduzierbaren technischen Smoke-Test auf kleiner Hardware. Sie beantwortet, ob Dataset, Promptformat, RAG-Retrieval, Modell-Inferenz, QLoRA-Training, Adapterübergabe, Evaluation, Hashing und Ergebnisverpackung zusammenarbeiten. Sie macht Fehler außerdem lokalisierbar: Prozessfehler, Adapterfehler, Cache-Konflikte, Coverage-Fehler und Modellqualitätsfehler werden getrennt ausgewiesen.
@@ -323,6 +335,14 @@ Ein kleiner Format- und Pipeline-Pilot verwendet 20 Testitems, trainiert aber we
 ```powershell
 python experiments/scripts/run_tiny_v4_kaggle.py --eval-items 20 --force
 ```
+
+Um gezielt den Prompt-Minimalfix aus Abschnitt 7.3 mit möglichst wenig Compute zu verifizieren, reicht ein 10-Item-Pilot über alle vier Methoden:
+
+```powershell
+python experiments/scripts/run_tiny_v4_kaggle.py --eval-items 10 --force
+```
+
+`--eval-items` begrenzt ausschließlich die Test-Evaluation (`data.eval_max_samples`); Training läuft unverändert auf allen 100 Items, damit C/D-Ergebnisse mit dem bisherigen 20-Item-Pilot aus Abschnitt 6 vergleichbar bleiben. Der Befehl verwendet dieselben 10 ersten Test-IDs wie jeder größere `--eval-items`-Lauf (deterministische Reihenfolge aus `test.jsonl`), sodass Vorher/Nachher-Zahlen für dieselben Items verglichen werden können. Dieser 10-Item-Lauf dient ausschließlich der technischen Verifikation des Prompt-Fixes (Completeness, Schema, JSON-Parse) und darf nicht als Grundlage für weitere Prompt- oder Threshold-Anpassungen dienen — jede weitere Iteration am Prompt oder Validator muss stattdessen gegen `val.jsonl` geprüft werden, damit `test.jsonl` für die abschließende Tiny- und Final-Bewertung unberührt bleibt.
 
 Der vollständige Tiny-Entwicklungslauf verwendet standardmäßig 50 In-Domain-Testitems und danach den separaten Sports-Test:
 

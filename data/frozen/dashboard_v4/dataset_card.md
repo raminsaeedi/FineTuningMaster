@@ -17,7 +17,7 @@
 
 ## Repair provenance
 
-Generated records retain `source=ai_generated`, carry parent lineage to `dashboard_v4`, and record `dashboard_v4_1-semantic-repair-v1`, `gpt-5.6-luna`, and `codex_agent_context_aware`. They remain AI-generated records and are not nvBench gold, human gold, or expert gold.
+Generated records retain `source=llm_generated`, carry parent lineage to `dashboard_v4`, and record `dashboard_v4_1-semantic-repair-v1`, `gpt-5.6-luna`, and `codex_agent_context_aware`. They remain AI-generated records and are not nvBench gold, human gold, or expert gold.
 
 ## Semantic guarantees
 

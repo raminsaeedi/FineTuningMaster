@@ -22,7 +22,7 @@
   "lineage": {
     "original_dashboard_v3": "preserved_unchanged",
     "parent_dashboard_v4": "preserved_as_immutable_parent",
-    "generated": "ai_generated_semantic_repair",
+    "generated": "llm_generated_semantic_repair",
     "generated_not_gold": true
   },
   "repair_scope": {

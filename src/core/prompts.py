@@ -62,14 +62,19 @@ def build_user_message(brief: BriefLike) -> str:
         f"Data columns: {_fmt_columns(b.get('columns', []))}",
         f"Constraints: {b.get('constraints') or 'None'}",
         "",
-        "Return only one JSON object with exactly this shape and value types:",
-        '{"context_summary":{},"kpi_chart_mapping":[{"kpi":"",'
-        '"task_type":"trend","chart_type":"line","alternatives":[],'
-        '"encoding":{}}],"layout":{},"styling":{},"interactions":[],'
-        '"rationales":[{"claim":"","principle":""}]}',
-        "All six top-level fields are required. context_summary, layout, styling, "
-        "and encoding are objects. kpi_chart_mapping, alternatives, interactions, "
-        "and rationales are arrays.",
+        "Return only one JSON object with exactly this shape and value types. "
+        "Every field must be filled in, never left as {} or []:",
+        '{"context_summary":{"goal":"track signups"},'
+        '"kpi_chart_mapping":[{"kpi":"",'
+        '"task_type":"trend","chart_type":"line","alternatives":["bar"],'
+        '"encoding":{"x":"month","y":"signups"}}],'
+        '"layout":{"summary":"one chart at the top"},'
+        '"styling":{"theme":"minimal"},"interactions":["filter by region"],'
+        '"rationales":[{"claim":"line chart shows change over time",'
+        '"principle":"trend visibility"}]}',
+        "All six top-level fields are required and non-empty. context_summary, "
+        "layout, styling, and encoding are objects. kpi_chart_mapping, "
+        "alternatives, interactions, and rationales are arrays.",
         "Each kpi_chart_mapping item requires kpi, task_type, chart_type, "
         "alternatives, encoding.",
         "Each rationale requires claim and principle.",
