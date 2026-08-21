@@ -62,22 +62,24 @@ def build_user_message(brief: BriefLike) -> str:
         f"Data columns: {_fmt_columns(b.get('columns', []))}",
         f"Constraints: {b.get('constraints') or 'None'}",
         "",
-        "Return only one JSON object with exactly this shape and value types. "
-        "Every field must be filled in, never left as {} or []:",
-        '{"context_summary":{"goal":"track signups"},'
-        '"kpi_chart_mapping":[{"kpi":"",'
-        '"task_type":"trend","chart_type":"line","alternatives":["bar"],'
-        '"encoding":{"x":"month","y":"signups"}}],'
-        '"layout":{"summary":"one chart at the top"},'
-        '"styling":{"theme":"minimal"},"interactions":["filter by region"],'
-        '"rationales":[{"claim":"line chart shows change over time",'
-        '"principle":"trend visibility"}]}',
-        "All six top-level fields are required and non-empty. context_summary, "
-        "layout, styling, and encoding are objects. kpi_chart_mapping, "
-        "alternatives, interactions, and rationales are arrays.",
-        "Each kpi_chart_mapping item requires kpi, task_type, chart_type, "
-        "alternatives, encoding.",
-        "Each rationale requires claim and principle.",
+        "Return one JSON object with exactly these six top-level keys: "
+        "context_summary, kpi_chart_mapping, layout, styling, interactions, "
+        "rationales. Do not add top-level keys; put encoding inside each "
+        "kpi_chart_mapping item.",
+        "All six top-level fields must be present and non-empty. "
+        "context_summary, layout, and styling are objects. "
+        "kpi_chart_mapping, alternatives, interactions, and rationales are "
+        "arrays.",
+        "Field contract: context_summary.goal must be a concise paraphrase of "
+        "the current brief's Goals. Each kpi_chart_mapping item requires kpi, "
+        "task_type, chart_type, alternatives, and encoding. Use current brief "
+        "KPIs and data columns for kpi and encoding; do not invent field names. "
+        "Each rationale requires claim and principle and must explain the "
+        "current brief's recommendation. Make layout, styling, and "
+        "interactions specific to the current brief, not generic defaults.",
+        "Never output placeholders, instructions, or schema descriptions as "
+        "values. Never copy wording from this contract except field names and "
+        "allowed vocabulary.",
         f"Allowed task_type: {', '.join(TASK_TYPES)}.",
         f"Allowed chart_type: {', '.join(CHART_TYPES)}.",
     ]

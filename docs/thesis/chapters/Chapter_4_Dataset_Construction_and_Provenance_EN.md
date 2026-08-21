@@ -20,7 +20,7 @@ A source dataset was considered suitable only if it could contribute reliable su
 
 For the purposes of this thesis, a useful source record should provide as much as possible of the following information: (1) a natural-language analytical intent; (2) a database or table schema; (3) explicitly identifiable dimensions and measures; (4) aggregation semantics; (5) filter, sorting, grouping, or temporal constraints where present; (6) a chart type or visualization specification; and (7) sufficient provenance to reconstruct how the record was obtained. The source did **not** need to provide layout, styling, interactions, personas, or rationales, because these fields could be added later under a clearly separated generated lineage. However, the analytical fields underlying a recommendation were required to be source-grounded or deterministically derivable.
 
-This requirement follows established visualization principles. Mackinlay's formulation of automated graphical presentation distinguishes expressiveness from effectiveness: a visualization must first represent the intended information correctly before it can be optimized for perceptual effectiveness \cite{mackinlay1986apt}. Cleveland and McGill similarly show that graphical encodings differ in perceptual accuracy, which motivates validating chart suitability rather than accepting any syntactically valid chart label \cite{cleveland1984graphical}. Brehmer and Munzner distinguish the *why*, *how*, and *what* of visualization tasks, making it important to preserve analytical intent separately from the concrete visual representation \cite{brehmer2013typology}. Draco formalizes a related principle computationally by representing visualization design knowledge as constraints, illustrating why design validity should be checked as a set of conditions rather than reduced to JSON validity alone \cite{moritz2019draco}.
+This requirement follows established visualization principles. Mackinlay's formulation of automated graphical presentation distinguishes expressiveness from effectiveness: a visualization must first represent the intended information correctly before it can be optimized for perceptual effectiveness \cite{mackinlay1986apt}. Cleveland and McGill similarly show that graphical encodings differ in perceptual accuracy, which motivates validating chart suitability rather than accepting any syntactically valid chart label \cite{cleveland1984graphical}. Brehmer and Munzner distinguish the _why_, _how_, and _what_ of visualization tasks, making it important to preserve analytical intent separately from the concrete visual representation \cite{brehmer2013typology}. Draco formalizes a related principle computationally by representing visualization design knowledge as constraints, illustrating why design validity should be checked as a set of conditions rather than reduced to JSON validity alone \cite{moritz2019draco}.
 
 ### 4.2.1 Chart-understanding datasets considered but not selected as the primary source
 
@@ -217,7 +217,7 @@ The source-grounded v3 corpus remained narrow for full dashboard-design supervis
 
 The current `dashboard_v4` augmentation was therefore designed to expand **coverage**, not to replace the source-grounded core. The goal was to add tasks and chart types that are structurally supported by the thesis schema, to increase filtered, grouped, and temporal cases, and to introduce multi-KPI dashboard layouts. The expansion also had to preserve the original v3 held-out test so that the benchmark boundary would not move together with the training data.
 
-The decision to generate additional supervision rather than force unsupported transformations from external sources is consistent with the logic of model-assisted data generation: synthetic data can expand task coverage, but it requires explicit filtering, provenance, and separation from independent evaluation \cite{wang2023selfinstruct}. The resulting generated records are therefore labelled `source=ai_generated` and `not_gold=true`.
+The decision to generate additional supervision rather than force unsupported transformations from external sources is consistent with the logic of model-assisted data generation: synthetic data can expand task coverage, but it requires explicit filtering, provenance, and separation from independent evaluation \cite{wang2023selfinstruct}. The resulting generated records are therefore labelled `source=llm_generated` and `not_gold=true`.
 
 ## 4.12 Controlled generation of 2,000 additional training/validation records
 
@@ -247,14 +247,14 @@ The phrase **semantically clean** in the manifest must be interpreted narrowly: 
 
 The current operational dataset is `dashboard_v4`; the exact frozen manifest revision is `dashboard_v4_1`. The final composition is shown in Table 4.1.
 
-| Partition or artifact | Preserved nvBench-derived v3 | AI-generated v4/v4.1 | Total | Role |
-|---|---:|---:|---:|---|
-| Train | 1,281 | 1,651 | **2,932** | trainable |
-| Validation | 264 | 349 | **613** | tuning/model selection only |
-| Held-out test | 274 | 0 | **274** | evaluation only |
-| **Modeling total** | **1,819** | **2,000** | **3,819** | A/B/C/D study |
-| Human-evaluation item file | 40 test-derived | 0 | **40** | separate evaluation artifact |
-| **Train + validation** | **1,545** | **2,000** | **3,545** | training/tuning input |
+| Partition or artifact      | Preserved nvBench-derived v3 | AI-generated v4/v4.1 |     Total | Role                         |
+| -------------------------- | ---------------------------: | -------------------: | --------: | ---------------------------- |
+| Train                      |                        1,281 |                1,651 | **2,932** | trainable                    |
+| Validation                 |                          264 |                  349 |   **613** | tuning/model selection only  |
+| Held-out test              |                          274 |                    0 |   **274** | evaluation only              |
+| **Modeling total**         |                    **1,819** |            **2,000** | **3,819** | A/B/C/D study                |
+| Human-evaluation item file |              40 test-derived |                    0 |    **40** | separate evaluation artifact |
+| **Train + validation**     |                    **1,545** |            **2,000** | **3,545** | training/tuning input        |
 
 The final dataset is therefore **mixed-lineage by design**. The 1,819 preserved records retain nvBench source provenance. Within train and validation, their analytical content remains source-grounded while the six presentation fields are LLM-generated by the v3 enrichment workflow. The 2,000 additional v4 records are fully marked as AI-generated supervision and are explicitly not nvBench observations, human gold, or expert gold. Their presentation fields were later repaired under the v4.1 workflow.
 
