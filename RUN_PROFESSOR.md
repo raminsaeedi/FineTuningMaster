@@ -23,6 +23,10 @@ export HF_TOKEN="hf_your_token_here"
 5. aggregates the results and draws the figures,
 6. writes `professor_results_dashboard_v4.zip` to send back.
 
+The requested `cunda 25.9.2` is treated as host CUDA 12.5.2. The pinned
+PyTorch 2.6.0 environment intentionally uses the `cu124` wheel channel; the
+host NVIDIA driver may be newer. Do not change this to `cu125`.
+
 **If it stops** — session ended, GPU lost, network died, anything — run the
 **same command again**:
 
@@ -41,8 +45,9 @@ are reused, never recomputed. Nothing that already succeeded is lost.
 ./run_professor.sh --dry-run                    # show the plan, run nothing
 ```
 
-Results land in `experiments/results/final/dashboard_v4/`; the ZIP in the
-repository root. Everything below is detail — read it only if needed.
+Results land in `experiments/results/final/dashboard_v4/`; the ZIP is written to
+`FTM_PACKAGES_PATH` when configured, otherwise to the repository root. Everything
+below is detail — read it only if needed.
 
 > Shell says `Permission denied`? Use `bash run_professor.sh`, or once:
 > `chmod +x run_professor.sh scripts/*.sh scripts/lib/*.sh`.
@@ -143,7 +148,8 @@ experiments/outputs/final/dashboard_v4/<model>/<A|B|C|D>/seed_<seed>/
 └── adapter/ + checkpoints/           (method C only)
 ```
 
-The ZIP to send back is created automatically in the repository root:
+The ZIP to send back is created automatically at `FTM_PACKAGES_PATH` when set
+(otherwise in the repository root):
 
 ```text
 professor_results_dashboard_v4.zip
@@ -177,6 +183,8 @@ CACHE_PATH=$BIG/hf-cache
 OUTPUT_DATA_PATH=$BIG/runs      # predictions, metrics, logs
 OUTPUT_MODEL_PATH=$BIG/adapters # adapters + checkpoints (large)
 RESULTS_PATH=$BIG/results       # tables and figures
+FTM_PACKAGES_PATH=$BIG/packages # ZIP + integrity manifest
+TORCH_CUDA_INDEX=cu124          # PyTorch 2.6.0 CUDA wheel channel
 ```
 
 Every script reads `paths.env` automatically. Nothing else changes.
@@ -229,6 +237,18 @@ Environment check on its own (fast, downloads nothing, ~10 s):
 ```
 
 Its last line must be `PASS`.
+
+## 9. Copy the result to the Windows PC
+
+The remote process cannot write into the PC directly. Start the transfer on
+the PC after the remote command completes. The helper uses OpenSSH `scp`,
+copies the ZIP and manifest, and verifies the archive hash:
+
+```powershell
+python scripts/fetch_remote_results.py user@h100:/mnt/big/packages/professor_results_dashboard_v4.zip --destination .\remote-results
+```
+
+Replace `user@h100` and `/mnt/big` with the actual SSH host and `BIG` path.
 
 ---
 

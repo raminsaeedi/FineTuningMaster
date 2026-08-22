@@ -120,6 +120,9 @@ if [[ -n "$GPUS" ]]; then
   export CUDA_VISIBLE_DEVICES="$GPUS"
 fi
 
+TORCH_CUDA_EXPECTED="${TORCH_CUDA_INDEX:-cu124}"
+TORCH_CUDA_EXPECTED="${TORCH_CUDA_EXPECTED#cu}"
+
 run() {  # echo + execute, or only echo in --dry-run
   printf '  $ %s\n' "$*"
   [[ "$DRY_RUN" == 1 ]] || "$@"
@@ -156,7 +159,13 @@ fi
 say "environment"
 PY="$(venv_python_path "$PROJECT_ROOT" || true)"
 env_ready=0
-if [[ -n "$PY" ]] && "$PY" -c "import torch, transformers, peft, trl, bitsandbytes, accelerate, datasets" 2>/dev/null; then
+if [[ -n "$PY" ]] && {
+  if [[ "$CPU_OK" == 1 ]]; then
+    "$PY" -c "import torch, transformers, peft, trl, bitsandbytes, accelerate, datasets" 2>/dev/null
+  else
+    "$PY" -c "import torch, transformers, peft, trl, bitsandbytes, accelerate, datasets; assert torch.version.cuda and torch.cuda.is_available() and torch.version.cuda.replace('.', '') == '${TORCH_CUDA_EXPECTED}'" 2>/dev/null
+  fi
+}; then
   env_ready=1
 fi
 if [[ "$env_ready" == 1 ]]; then
@@ -167,6 +176,7 @@ else
   info "installing the locked environment (first run only)"
   declare -a BOOTSTRAP_ARGS=()
   [[ "$CPU_OK" == 1 ]] && BOOTSTRAP_ARGS+=(--cpu-ok)
+  [[ -n "$PATHS_FILE" ]] && BOOTSTRAP_ARGS+=(--paths-file "$PATHS_FILE")
   run ./scripts/bootstrap_remote.sh "${BOOTSTRAP_ARGS[@]}"
   PY="$(venv_python_path "$PROJECT_ROOT" || true)"
   if [[ "$DRY_RUN" != 1 ]]; then
@@ -258,7 +268,12 @@ fi
 # ---------------------------------------------------------------------------
 # 7. Package. Attempted even after a partial failure, so finished work is
 #    always retrievable; completed results are never discarded.
-PACKAGE_PATH="$PROJECT_ROOT/professor_results_$DATASET.zip"
+PACKAGE_DIR="${FTM_PACKAGES_PATH:-$PROJECT_ROOT}"
+case "$PACKAGE_DIR" in
+  /*) ;;
+  *) PACKAGE_DIR="$PROJECT_ROOT/$PACKAGE_DIR" ;;
+esac
+PACKAGE_PATH="$PACKAGE_DIR/professor_results_$DATASET.zip"
 if [[ "$DO_PACKAGE" == 1 && "$DRY_RUN" != 1 ]]; then
   say "packaging"
   "$PY" experiments/scripts/package_professor_results.py --dataset "$DATASET" || {

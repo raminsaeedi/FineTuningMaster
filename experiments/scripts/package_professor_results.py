@@ -42,9 +42,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="Default: professor_results_<dataset>.zip")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
-    scratch_outputs = os.environ.get("FTM_OUTPUT_DATA_PATH")
-    scratch_results = os.environ.get("FTM_RESULTS_PATH")
-    scratch_packages = os.environ.get("FTM_PACKAGES_PATH")
+    # Accept both the generated HPC names and the ordinary paths.env names.
+    # This keeps the package aligned with run_experiment.sh when outputs live
+    # on an external volume but setup_hpc.sh was not used.
+    scratch_outputs = os.environ.get("FTM_OUTPUT_DATA_PATH") or os.environ.get("OUTPUT_DATA_PATH")
+    scratch_results = os.environ.get("FTM_RESULTS_PATH") or os.environ.get("RESULTS_PATH")
+    scratch_packages = os.environ.get("FTM_PACKAGES_PATH") or os.environ.get("PACKAGES_PATH")
     # V3 and V4 evidence never lands in the same archive: every default path is
     # keyed on the dataset.
     args.outputs_root = args.outputs_root or (

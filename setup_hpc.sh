@@ -67,6 +67,11 @@ done
 source "${PROJECT_ROOT}/scripts/lib/paths.sh"
 load_paths_file "${PROJECT_ROOT}" "${PATHS_FILE}" || exit 1
 
+case "${TORCH_CUDA_INDEX}" in
+  cu118|cu124|cu126) ;;
+  *) echo "ERROR: PyTorch 2.6.0 supports cu118, cu124 or cu126; got '${TORCH_CUDA_INDEX}'." >&2; exit 1 ;;
+esac
+
 resolve_path() {
   paths_resolve "${PROJECT_ROOT}" "$1"
 }
@@ -195,6 +200,9 @@ export FTM_OUTPUT_MODEL_PATH="${OUTPUT_MODEL_PATH}"
 export FTM_RESULTS_PATH="${AGGREGATE_PATH}"
 export FTM_CACHE_PATH="${MODEL_CACHE_PATH}"
 export FTM_PACKAGES_PATH="${PACKAGES_PATH}"
+export TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX}"
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export TOKENIZERS_PARALLELISM=false
 
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="${PROJECT_ROOT}/src:\${PYTHONPATH:-}"
@@ -264,4 +272,3 @@ echo
 echo "=== Setup complete ==="
 echo "  source ${ENV_FILE}"
 echo "  sbatch experiments/slurm/job_final_matrix.sh"
-

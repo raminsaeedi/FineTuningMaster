@@ -16,6 +16,7 @@
 #   --with-dev        Also install pytest
 #   --cpu-ok          Do not fail when no CUDA GPU is visible
 #   --python PATH     Interpreter to build the environment with
+#   TORCH_CUDA_INDEX  PyTorch wheel channel (default: cu124)
 #   -h, --help
 
 set -euo pipefail
@@ -39,6 +40,7 @@ WITH_DEV=0
 REQUIRE_CUDA=1
 PYTHON_BIN="${PYTHON_BIN:-}"
 PATHS_FILE="${PATHS_FILE:-paths.env}"
+TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX:-cu124}"
 
 log()  { printf '[bootstrap] %s\n' "$*"; }
 die()  { printf '[bootstrap] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -62,6 +64,11 @@ load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
 apply_cache_paths "$PROJECT_ROOT"
 [[ -z "${PATHS_FILE_RESOLVED:-}" ]] || log "paths file: $PATHS_FILE_RESOLVED"
 [[ -z "${HF_HOME:-}" ]] || log "HF_HOME: $HF_HOME"
+
+case "$TORCH_CUDA_INDEX" in
+  cu118|cu124|cu126) ;;
+  *) die "PyTorch 2.6.0 supports cu118, cu124 or cu126; got '$TORCH_CUDA_INDEX'." ;;
+esac
 
 # ---------------------------------------------------------------------------
 # 1. Supported Python interpreter (Poetry cannot install one).
@@ -150,6 +157,22 @@ log "installing locked dependencies (this downloads ~3 GB of wheels the first ti
 
 RUN_PY=("$POETRY" run python)
 
+# Poetry's lock is platform-stable, but the wheel channel is machine-specific.
+# On a CUDA run, replace a CPU/default PyPI torch wheel when necessary and then
+# verify that the installed CUDA runtime matches the selected PyTorch channel.
+if [[ "$REQUIRE_CUDA" == 1 ]]; then
+  expected_torch_cuda="${TORCH_CUDA_INDEX#cu}"
+  actual_torch_cuda="$("${RUN_PY[@]}" -c 'import torch; print((torch.version.cuda or "").replace(".", ""))' 2>/dev/null || true)"
+  if [[ "$actual_torch_cuda" != "$expected_torch_cuda" ]]; then
+    log "installing PyTorch 2.6.0 CUDA wheel (${TORCH_CUDA_INDEX})"
+    "${RUN_PY[@]}" -m pip install --force-reinstall "torch==2.6.0" \
+      --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_INDEX}"
+  else
+    log "PyTorch CUDA wheel matches ${TORCH_CUDA_INDEX}"
+  fi
+fi
+"${RUN_PY[@]}" -m pip check
+
 # ---------------------------------------------------------------------------
 # 5+6. Lightweight environment check. Fails before any GPU work is started.
 log "verifying the installed stack"
@@ -189,7 +212,7 @@ try:
         problems.append(
             "The installed torch is a CPU-only build. Install the CUDA build for this "
             "machine, then re-run: "
-            "poetry run pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124"
+            "poetry run pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/${TORCH_CUDA_INDEX}"
         )
 except Exception as exc:  # noqa: BLE001
     problems.append(f"torch import failed: {type(exc).__name__}: {exc}")
