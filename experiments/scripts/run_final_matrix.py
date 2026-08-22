@@ -356,7 +356,10 @@ def _selected_methods(args: argparse.Namespace) -> list[str]:
     unknown = [value for value in values if value not in METHOD_KEYS]
     if unknown:
         raise SystemExit(f"Unknown method key(s): {', '.join(unknown)}")
-    return [key for key in METHOD_KEYS if key in values]
+    # Preserve an explicitly requested execution order. The default/all-methods
+    # path still uses METHOD_KEYS, and C training is independently guaranteed
+    # before D consumes its adapter in main().
+    return list(dict.fromkeys(values))
 
 
 def _selected_seeds(args: argparse.Namespace, matrix: dict) -> list[int]:
@@ -623,7 +626,7 @@ def main(argv: list[str] | None = None) -> None:
     smoke_items = args.n_eval_items
     if args.profile == "smoke":
         smoke_root = profile_run_dir(
-            output_root, SMOKE_MODEL, "A", seeds[0], dataset
+            output_root, models[0], "A", seeds[0], dataset
         ).parents[1]
         smoke_path = smoke_root / "smoke_eval_items.jsonl"
         if args.dry_run:
@@ -652,7 +655,9 @@ def main(argv: list[str] | None = None) -> None:
     effective_methods = set(methods)
     if "D" in effective_methods and args.with_dependencies:
         effective_methods.add("C")
-    ordered_methods = [key for key in METHOD_KEYS if key in effective_methods]
+    ordered_methods = list(methods)
+    if "C" in effective_methods and "C" not in ordered_methods:
+        ordered_methods.insert(0, "C")
 
     for model in models:
         for seed in seeds:
@@ -856,7 +861,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.profile == "smoke":
         print("PASS_QWEN_0_5B_END_TO_END_SMOKE")
-        print(f"Smoke artifacts: {output_root / dataset / SMOKE_MODEL}")
+        print(f"Smoke artifacts: {output_root / dataset / models[0]}")
     elif args.profile == "tiny":
         print("PASS_QWEN_0_5B_TINY_GPU_PIPELINE")
         print(f"Tiny artifacts: {output_root / dataset / SMOKE_MODEL}")

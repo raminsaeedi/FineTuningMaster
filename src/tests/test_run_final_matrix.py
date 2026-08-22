@@ -218,6 +218,16 @@ def test_hydra_path_quotes_external_windows_paths():
     assert matrix_runner._hydra_path("/mnt/scratch/runs") == "/mnt/scratch/runs"
 
 
+def test_explicit_method_order_is_preserved():
+    args = matrix_runner.parse_args(["--methods", "C", "D", "A", "B"])
+    assert matrix_runner._selected_methods(args) == ["C", "D", "A", "B"]
+
+
+def test_duplicate_explicit_methods_are_removed_without_reordering():
+    args = matrix_runner.parse_args(["--methods", "C", "D", "C", "A"])
+    assert matrix_runner._selected_methods(args) == ["C", "D", "A"]
+
+
 # --- dataset isolation -----------------------------------------------------
 
 def _completed_run(path: Path, dataset: str) -> Path:

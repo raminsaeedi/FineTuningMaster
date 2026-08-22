@@ -472,7 +472,7 @@ require_file "$TRAINER"
 
 declare -a MODEL_LIST=()
 if [[ "$PROFILE" == smoke ]]; then
-  [[ "$MODEL" == qwen2_5_0_5b ]] || die "Smoke supports only qwen2_5_0_5b."
+  [[ -n "$MODEL" ]] || die "Smoke needs one explicit model profile."
   MODEL_LIST=("$MODEL")
 elif [[ "$ALL_MODELS" == 1 ]]; then
   MODEL_LIST=(qwen3_1_7b qwen3_8b qwen3_14b llama3_1_8b)
