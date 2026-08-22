@@ -501,9 +501,11 @@ def check_hf_access(report: Report, profiles: list[dict], *, verify_remote: bool
 
 # Model-profile key prefix -> the transformers `model_type` it needs.
 _MODEL_TYPE_BY_PREFIX = (
+    ("qwen3_8_27b", "qwen3_5"),
     ("qwen3", "qwen3"),
     ("qwen2_5", "qwen2"),
     ("llama3", "llama"),
+    ("olmo2", "olmo2"),
 )
 
 
@@ -527,12 +529,15 @@ def check_transformers_model_support(report: Report, profiles: list[dict]) -> No
         )
         return
 
-    needed = {
-        model_type
-        for profile in profiles
-        for prefix, model_type in _MODEL_TYPE_BY_PREFIX
-        if str(profile["key"]).startswith(prefix)
-    }
+    needed = set()
+    for profile in profiles:
+        key = str(profile["key"])
+        model_type = next(
+            (value for prefix, value in _MODEL_TYPE_BY_PREFIX if key.startswith(prefix)),
+            None,
+        )
+        if model_type:
+            needed.add(model_type)
     missing = sorted(name for name in needed if name not in CONFIG_MAPPING_NAMES)
     if missing:
         report.fail(

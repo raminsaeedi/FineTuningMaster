@@ -33,8 +33,10 @@ RUNNER_SPEC.loader.exec_module(runner)
 
 MODEL_EXPECTATIONS = {
     "qwen2_5_0_5b": "Qwen/Qwen2.5-0.5B-Instruct",
+    "olmo2_1_49b": "allenai/OLMo-2-0425-1B-Instruct",
     "qwen3_1_7b": "Qwen/Qwen3-1.7B",
     "qwen3_8b": "Qwen/Qwen3-8B",
+    "qwen3_8_27b": "Qwen/Qwen3.8-27B",
     "qwen3_14b": "Qwen/Qwen3-14B",
     "llama3_1_8b": "meta-llama/Llama-3.1-8B-Instruct",
 }
@@ -64,7 +66,7 @@ def _cfg(tmp_path: Path, *, model: str = "qwen3_8b", method: str = "D", seed: in
 
 
 @pytest.mark.parametrize("model_key,hf_id", MODEL_EXPECTATIONS.items())
-def test_all_five_model_profiles_compose(model_key, hf_id):
+def test_all_model_profiles_compose(model_key, hf_id):
     cfg = load_cfg(experiment="E01_qwen0_5b_prompt", overrides=[f"model={model_key}"])
     assert cfg.model.key == model_key
     assert cfg.model.hf_id == hf_id
@@ -75,6 +77,20 @@ def test_qwen3_disables_thinking_without_prompt_markers():
     assert chat_template_kwargs(cfg.model) == {"enable_thinking": False}
     assert "/think" not in str(cfg.model.chat_template)
     assert "/no_think" not in str(cfg.model.chat_template)
+
+
+def test_additional_models_are_explicit_not_default_final_matrix_members():
+    assert "olmo2_1_49b" in runner.SUPPORTED_FINAL_MODELS
+    assert "qwen3_8_27b" in runner.SUPPORTED_FINAL_MODELS
+    assert "olmo2_1_49b" not in runner.FINAL_MODELS
+    assert "qwen3_8_27b" not in runner.FINAL_MODELS
+
+
+@pytest.mark.parametrize("model", ["olmo2_1_49b", "qwen3_8_27b"])
+def test_smoke_profile_accepts_one_explicit_additional_model(model):
+    args = runner.parse_args(["--profile", "smoke", "--model", model])
+    matrix = runner.load_matrix(runner.DEFAULT_MATRIX)
+    assert runner._selected_models(args, matrix) == [model]
 
 
 def test_llama_uses_generic_profile_and_marks_gated_access():

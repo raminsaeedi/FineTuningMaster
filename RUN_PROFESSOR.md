@@ -23,9 +23,9 @@ export HF_TOKEN="hf_your_token_here"
 5. aggregates the results and draws the figures,
 6. writes `professor_results_dashboard_v4.zip` to send back.
 
-The requested `cunda 25.9.2` is treated as host CUDA 12.5.2. The pinned
-PyTorch 2.6.0 environment intentionally uses the `cu124` wheel channel; the
-host NVIDIA driver may be newer. Do not change this to `cu125`.
+`conda 25.9.2` is an environment-manager version, not a CUDA version. It can
+provide Python 3.12 for setup. The pinned PyTorch 2.6.0 environment still uses
+the `cu124` wheel channel; CUDA/GPU availability is checked separately.
 
 **If it stops** — session ended, GPU lost, network died, anything — run the
 **same command again**:

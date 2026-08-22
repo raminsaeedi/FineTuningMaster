@@ -41,6 +41,8 @@ from src.utils.artifacts import cache_identity  # noqa: E402
 
 DEFAULT_MATRIX = _PROJECT_ROOT / "src" / "config" / "matrix" / "final.yaml"
 FINAL_MODELS = ("qwen3_1_7b", "qwen3_8b", "qwen3_14b", "llama3_1_8b")
+ADDITIONAL_MODELS = ("olmo2_1_49b", "qwen3_8_27b")
+SUPPORTED_FINAL_MODELS = FINAL_MODELS + ADDITIONAL_MODELS
 SMOKE_MODEL = "qwen2_5_0_5b"
 DEFAULT_DATASET = "dashboard_v4"
 METHOD_KEYS = ("A", "B", "C", "D")
@@ -323,17 +325,18 @@ def _selected_models(args: argparse.Namespace, matrix: dict) -> list[str]:
         raise SystemExit("Use --all-models or --model, not both.")
     if args.profile in {"smoke", "tiny"}:
         model = args.model or matrix.get("smoke_model", SMOKE_MODEL)
-        if args.all_models or model != SMOKE_MODEL:
-            raise SystemExit(
-                f"The {args.profile} profile only supports qwen2_5_0_5b."
-            )
+        if args.all_models:
+            raise SystemExit(f"The {args.profile} profile supports one explicit model only.")
+        if not (_PROJECT_ROOT / "src" / "config" / "model" / f"{model}.yaml").is_file():
+            raise SystemExit(f"Unknown model profile: {model}")
         return [model]
     if args.all_models:
         return list(matrix.get("final_models") or FINAL_MODELS)
     model = args.model or matrix.get("model") or FINAL_MODELS[0]
-    if model not in FINAL_MODELS:
+    if model not in SUPPORTED_FINAL_MODELS:
         raise SystemExit(
-            f"Final profile model '{model}' is not one of: {', '.join(FINAL_MODELS)}"
+            f"Final profile model '{model}' is not one of: "
+            f"{', '.join(SUPPORTED_FINAL_MODELS)}"
         )
     return [model]
 

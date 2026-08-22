@@ -1,0 +1,14 @@
+# Additional comparison model: Qwen3.8 27B, text-only causal-LM path.
+key: qwen3_8_27b
+name: Qwen/Qwen3.8-27B
+hf_id: Qwen/Qwen3.8-27B
+revision: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+family: qwen3_5
+size_billions: 27.0
+max_seq_length: 4096
+dtype: bfloat16
+trust_remote_code: false
+requires_hf_token: false
+chat_template:
+  enable_thinking: false
+cache_dir: null

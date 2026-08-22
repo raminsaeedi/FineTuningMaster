@@ -1,0 +1,13 @@
+# Additional comparison model: OLMo 2 April 2025 1B Instruct (~1.49B parameters).
+key: olmo2_1_49b
+name: allenai/OLMo-2-0425-1B-Instruct
+hf_id: allenai/OLMo-2-0425-1B-Instruct
+revision: 48d788eca847d4d7548f375ad03d3c9312f6139e
+family: olmo2
+size_billions: 1.49
+max_seq_length: 4096
+dtype: bfloat16
+trust_remote_code: false
+requires_hf_token: false
+chat_template: {}
+cache_dir: null
