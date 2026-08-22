@@ -122,14 +122,22 @@ class Grounding(BaseMetric):
             unsupported = sum(1 for s in scored if not s)
             per_item_unsupported.append(unsupported / len(scored))
 
+        # The rate is scored only over items that emitted at least one claim, so
+        # the scored subset must be visible: a method that rarely writes
+        # rationales is otherwise silently judged on a favourable subset.
+        selection = {
+            "n_with_retrieved_docs": len(rated),
+            "claim_coverage_rate": round(100.0 * len(per_item_unsupported) / len(rated), 2),
+        }
         if not per_item_unsupported:
             return {"unsupported_claim_rate": None, "supported_claim_rate": None,
-                    "n": 0, "n_claims": 0, "mode": mode}
+                    "n": 0, "n_claims": 0, "mode": mode, **selection}
         rate = sum(per_item_unsupported) / len(per_item_unsupported)
         return {
             "unsupported_claim_rate": round(100.0 * rate, 2),
             "supported_claim_rate": round(100.0 * (1.0 - rate), 2),
             "n": len(per_item_unsupported),
+            **selection,
             "n_claims": total_claims,
             "mode": mode,  # "semantic" | "lexical_proxy" — read the rate accordingly
         }
