@@ -55,7 +55,7 @@ src/
 experiments/
   scripts/          CLI entry points (build_data, train, infer, eval_auto, eval_stats, run_experiment)
   outputs/          raw experiment runs (gitignored): experiments/ (current E01–E04)
-  results/          aggregated analysis: stats/, human_eval/, human_ratings/
+  results/          aggregated analysis: stats/, human_eval/<dataset>/<model>/seed_<seed>/
   notebooks/        exploratory and results-analysis notebooks
   slurm/            HPC job submission scripts and templates
 
@@ -68,8 +68,8 @@ docs/
 Note: `data/` (top level) holds the **datasets**; `src/data_pipeline/` holds the
 **code** that loads and processes them.
 
-Inside `experiments/results/`: `human_eval/` = eval-set **inputs** (assignment, items),
-`human_ratings/` = rating **outputs**, `stats/` = auto-metric statistics.
+Inside `experiments/results/`: `human_eval/<dataset>/<model>/seed_<seed>/` contains
+study inputs, `ratings/` and `analysis/`; `stats/` contains auto-metric statistics.
 
 **Training and inference are decoupled.** Importing the inference/evaluation code
 never pulls in `peft`/`trl`/`bitsandbytes`; those are imported lazily and only by
@@ -232,24 +232,34 @@ Krippendorff's α.
 ```bash
 poetry install --extras human
 
-# 1. Build the eval set + balanced rater assignment from the four method runs:
+# 1. Build one final study for one fixed dataset, model and seed:
 python experiments/scripts/build_human_eval.py \
-    --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag \
-    --n-items 60 --n-raters 6 --ratings-per-output 3
+    --dataset dashboard_v4 \
+    --model qwen3_8b \
+    --seed 42 \
+    --n-items 40 --n-raters 6 --ratings-per-output 3
 
 # 2. Each rater opens the app, picks their ID, and rates (auto-saves + resumes):
-python experiments/scripts/run_human_eval.py
+python experiments/scripts/run_human_eval.py \
+    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
 
 # 3. Aggregate inter-rater reliability + per-system scores + statistics:
-python experiments/scripts/compute_irr.py
+python experiments/scripts/compute_irr.py \
+    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
 ```
+
+The builder reads the canonical `predictions.jsonl` from methods A/B/C/D and
+the frozen test briefs. It creates `items.jsonl`, `assignment.json` and
+`study_manifest.json` under the study directory. The old `--experiments`
+argument belongs to the legacy E01-E04 layout and is not supported by the
+current builder.
 
 - Rating is **blind**: raters never see which method produced an output.
 - Each (item, method) output is rated by ≥3 distinct raters; per-rater load is balanced.
 - Rubric: 6 Likert dimensions (`src/evaluation/human/rubric.py`).
 - `compute_irr.py` writes Krippendorff's α per dimension, per-system means, and a
   Friedman + Wilcoxon+Holm (with Cliff's δ and bootstrap CI) comparison of the
-  per-item overall human scores, to `experiments/results/human_ratings/`.
+  per-item overall human scores, to the study's `analysis/` directory.
 
 ---
 
@@ -268,9 +278,9 @@ python experiments/scripts/compute_irr.py
 | `python experiments/scripts/eval_stats.py --experiments A B ...` | Cross-method statistics |
 | `python experiments/scripts/aggregate_results.py` | Aggregate all runs → `experiments/results/comparison_table.csv`, `comparison_seeds.csv`, `final_report.md` |
 | `python experiments/scripts/generate_dataset.py --n 600` | Generate principled gold data (`data/gold.jsonl`) |
-| `python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag` | Build blind human-eval set + assignment |
-| `python experiments/scripts/run_human_eval.py` | Launch the Streamlit rating app |
-| `python experiments/scripts/compute_irr.py` | Krippendorff's α + per-system human scores |
+| `python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8b --seed 42` | Build blind human-eval study + assignment |
+| `python experiments/scripts/run_human_eval.py --study-dir <study-dir>` | Launch the Streamlit rating app |
+| `python experiments/scripts/compute_irr.py --study-dir <study-dir>` | Krippendorff's α + per-system human scores |
 | `pytest` | Run the unit tests |
 
 ## Optional features (extras)

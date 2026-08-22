@@ -24,7 +24,7 @@ package during thesis experiments. Remote GPU instructions: `RUN_PROFESSOR.md`.
 | evaluate cached predictions | `python experiments/scripts/eval_auto.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final`                                                                                                    | cheap/local                    |
 | aggregate results           | `python experiments/scripts/aggregate_results.py --outputs-root experiments/outputs/final --out-dir experiments/results`                                                                                                                                  | cheap/local                    |
 | statistics                  | `python experiments/scripts/eval_stats.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --out-dir experiments/results/stats/seed_42 --override output_root=experiments/outputs/final seed=42 model=qwen2_5_0_5b` | cheap/local                    |
-| human evaluation            | `python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --n-items 40 --n-raters 6 --ratings-per-output 3`                                                                  | manual                         |
+| human evaluation            | `python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8b --seed 42 --n-items 40 --n-raters 6 --ratings-per-output 3`                                                                                         | manual                         |
 | run full tests              | `pytest -q`                                                                                                                                                                                                                                               | cheap/moderate CPU             |
 
 ## Cost labels
@@ -546,34 +546,36 @@ tests as if they were one sample.
 
 ## T. Human evaluation
 
-Run after final A/B/C/D predictions exist.
+Run after final A/B/C/D predictions exist for one fixed dataset, model and
+seed. Do not mix models, seeds or legacy E01-E04 run directories.
 
 ### 1. Build blind assignment
 
 ```powershell
-python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --n-items 40 --n-raters 6 --ratings-per-output 3 --seed 42 --out-dir experiments/results/human_eval
+python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8b --seed 42 --n-items 40 --n-raters 6 --ratings-per-output 3
 ```
 
 Outputs:
 
 ```text
-experiments/results/human_eval/items.jsonl
-experiments/results/human_eval/assignment.json
+experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42/items.jsonl
+experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42/assignment.json
+experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42/study_manifest.json
 ```
 
-Current builder selects common items from cached `predictions.jsonl` files and
-configured test split. Frozen
-`data/frozen/dashboard_v3/human_eval_test_items_40.csv` remains separate; the
-current builder does not automatically read that CSV.
+Current builder reads the four canonical `predictions.jsonl` files from
+`experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>/`, checks their
+compatibility, and uses the canonical item list configured by the dataset.
+The old `--experiments` command is legacy and intentionally rejected.
 
 ### 2. Start rating application
 
 ```powershell
-python experiments/scripts/run_human_eval.py --eval-dir experiments/results/human_eval --ratings-dir experiments/results/human_ratings --port 8501
+python experiments/scripts/run_human_eval.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42 --port 8501
 ```
 
-Open Streamlit URL shown by app. Ratings save under
-`experiments/results/human_ratings/`. Requires `[human]` extra.
+Open Streamlit URL shown by app. Ratings save under the study's `ratings/`
+directory. Requires `[human]` extra.
 
 ### 3. Collect ratings
 
@@ -583,7 +585,7 @@ Assignment covers A/B/C/D outputs and balances rating workload.
 ### 4. Compute reliability and statistics
 
 ```powershell
-python experiments/scripts/compute_irr.py --ratings-dir experiments/results/human_ratings --out-dir experiments/results/human_ratings
+python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
 ```
 
 Outputs include Krippendorff's ordinal alpha, per-system means, and paired
@@ -749,9 +751,9 @@ Then rerun each affected method's `run_experiment.py` command.
 ### STEP 14 — Human evaluation
 
 ```powershell
-python experiments/scripts/build_human_eval.py --experiments E01_qwen0_5b_prompt E02_qwen0_5b_rag E03_qwen0_5b_ft E04_qwen0_5b_ft_rag --n-items 40 --n-raters 6 --ratings-per-output 3 --seed 42 --out-dir experiments/results/human_eval
-python experiments/scripts/run_human_eval.py --eval-dir experiments/results/human_eval --ratings-dir experiments/results/human_ratings --port 8501
-python experiments/scripts/compute_irr.py --ratings-dir experiments/results/human_ratings --out-dir experiments/results/human_ratings
+python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8b --seed 42 --n-items 40 --n-raters 6 --ratings-per-output 3
+python experiments/scripts/run_human_eval.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42 --port 8501
+python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
 ```
 
 Run rating app interactively between build and compute commands.
@@ -860,32 +862,32 @@ These exist but are not normal independent-run workflow:
 ## Important paths
 
 Paths under `experiments/outputs/final/`, `experiments/results/stats/`,
-`experiments/results/human_ratings/`, and `professor_results.zip` are generated
+`experiments/results/human_eval/`, and `professor_results.zip` are generated
 by commands above. Angle-bracket path components are placeholders.
 
 | Purpose                     | Path                                                                                                        |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| frozen Train                | `data/frozen/dashboard_v3/train.jsonl`                                                                      |
-| frozen Validation           | `data/frozen/dashboard_v3/val.jsonl`                                                                        |
-| frozen Test                 | `data/frozen/dashboard_v3/test.jsonl`                                                                       |
-| human evaluation data       | `data/frozen/dashboard_v3/human_eval_test_items_40.csv`                                                     |
-| dataset manifest            | `data/frozen/dashboard_v3/manifest.json`                                                                    |
-| dataset hashes              | `data/frozen/dashboard_v3/hashes.json`                                                                      |
+| frozen Train                | `data/frozen/dashboard_v4/train.jsonl`                                                                      |
+| frozen Validation           | `data/frozen/dashboard_v4/val.jsonl`                                                                        |
+| frozen Test                 | `data/frozen/dashboard_v4/test.jsonl`                                                                       |
+| human evaluation data       | `data/frozen/dashboard_v4/human_eval_test_items_40.csv`                                                     |
+| dataset manifest            | `data/frozen/dashboard_v4/manifest.json`                                                                    |
+| dataset hashes              | `data/frozen/dashboard_v4/hashes.json`                                                                      |
 | RAG sources                 | `data/knowledge_base/guidelines/`                                                                           |
 | built KB                    | `data/knowledge_base/chunks.jsonl`, `data/knowledge_base/kb_manifest.json`                                  |
-| external robustness data    | `data/eval/robustness_v3/`                                                                                  |
+| external robustness data    | `data/eval/robustness_v4/`                                                                                  |
 | model configs               | `src/config/model/`                                                                                         |
 | experiment configs          | `src/config/experiment/`                                                                                    |
 | method configs              | `src/config/method/`                                                                                        |
 | final matrix config         | `src/config/matrix/final.yaml`                                                                              |
-| adapters                    | `experiments/outputs/final/<experiment>_<seed>/adapter/`                                                    |
-| predictions                 | `experiments/outputs/final/<experiment>_<seed>/predictions*.jsonl`                                          |
-| automatic metrics           | `experiments/outputs/final/<experiment>_<seed>/metrics_auto.json`                                           |
-| per-run reports             | `experiments/outputs/final/<experiment>_<seed>/metrics.json`, `eval_per_item.jsonl`                         |
-| per-seed statistics         | `experiments/results/stats/seed_<seed>/`                                                                    |
+| adapters                    | `experiments/outputs/final/<dataset>/<model>/C/seed_<seed>/adapter/`                                        |
+| predictions                 | `experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>/predictions*.jsonl`                         |
+| automatic metrics           | `experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>/metrics_auto.json`                          |
+| per-run reports             | `experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>/metrics.json`, `eval_per_item.jsonl`        |
+| per-seed statistics         | `experiments/results/stats/<dataset>/seed_<seed>/`                                                          |
 | final result reports        | `experiments/results/comparison_table.*`, `multi_seed_summary.*`, `comparison_seeds.csv`, `final_report.md` |
-| human-evaluation assignment | `experiments/results/human_eval/`                                                                           |
-| human ratings/statistics    | `experiments/results/human_ratings/`                                                                        |
+| human-evaluation study      | `experiments/results/human_eval/<dataset>/<model>/seed_<seed>/`                                             |
+| human ratings/statistics    | `<study-dir>/ratings/` and `<study-dir>/analysis/`                                                          |
 | professor package           | `professor_results.zip`                                                                                     |
 
 ## Model / seed / method explained simply
