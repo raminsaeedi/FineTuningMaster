@@ -68,6 +68,10 @@ class TopKAccuracy(BaseMetric):
             primary = refs[0]
             preds = predicted_charts(r)
             if not preds:
+                # Parse failure / empty prediction: keep the per-KPI denominator
+                # identical to the missing-prediction case above, so the per-KPI
+                # rate is comparable across methods with different failure rates.
+                per_kpi_total += len(refs)
                 continue
             n_predicted += 1
 

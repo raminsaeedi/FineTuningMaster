@@ -46,7 +46,7 @@ _REPORT_COLS = [
     ("n_with_3_recs", "n_3rec"),
     ("n_with_alternatives", "n_alt"),
     ("macro_f1", "macro_f1"),
-    ("latency", "latency_s"),
+    ("avg_latency_ms", "latency_ms"),        # unit-correct label (was mislabelled _s)
     ("paraphrase_consistency", "para_stab%"),
     ("paraphrase_accuracy", "para_acc%"),
     ("missing_info_clarification_rate", "clarify%"),

@@ -10,6 +10,24 @@ from src.evaluation.metrics.base import align_results
 
 _HIDDEN_CONTEXT_FIELDS = ("db_id", "source", "n_kpis")
 
+# Encoding fields the prompt actually asks the model to produce. The gold
+# ``encoding`` additionally carries source-derived bookkeeping (``source_x``,
+# ``visual_grouping``, ``having``, ``time_grain``, ...) that is never requested,
+# so strict whole-dict equality is unreachable by construction and would report
+# 0% for every method. ``exact_encoding`` therefore scores the requested core
+# fields; the unreachable strict number is kept as a diagnostic.
+_CORE_ENCODING_FIELDS = ("x", "y", "aggregate")
+
+
+def _core_encoding(mapping: dict[str, Any]) -> dict[str, str]:
+    """Requested encoding fields, case-normalised (``SUM`` == ``sum``)."""
+    encoding = mapping.get("encoding", {}) or {}
+    return {
+        field: str(encoding[field]).strip().lower()
+        for field in _CORE_ENCODING_FIELDS
+        if encoding.get(field) is not None
+    }
+
 
 def _rate(hits: int, n: int) -> float | None:
     return round(100.0 * hits / n, 2) if n else None
@@ -38,7 +56,7 @@ class StructuredExactMatch(BaseMetric):
             if _reference_mappings(reference)
         ]
         n = len(aligned)
-        task_hits = kpi_hits = count_hits = encoding_hits = 0
+        task_hits = kpi_hits = count_hits = encoding_hits = strict_encoding_hits = 0
         aggregate_hits = aggregate_n = 0
         context = {
             field: {"present": 0, "exact": 0, "n": 0}
@@ -53,7 +71,10 @@ class StructuredExactMatch(BaseMetric):
             ]
             kpi_hits += [m.get("kpi") for m in predicted] == [m.get("kpi") for m in gold]
             count_hits += len(predicted) == len(gold)
-            encoding_hits += [m.get("encoding", {}) for m in predicted] == [
+            encoding_hits += [_core_encoding(m) for m in predicted] == [
+                _core_encoding(m) for m in gold
+            ]
+            strict_encoding_hits += [m.get("encoding", {}) for m in predicted] == [
                 m.get("encoding", {}) for m in gold
             ]
 
@@ -64,8 +85,10 @@ class StructuredExactMatch(BaseMetric):
                 aggregate_n += 1
                 aggregate_hits += len(predicted) == len(gold) and all(
                     "aggregate" in (predicted[index].get("encoding", {}) or {})
-                    and predicted[index]["encoding"]["aggregate"]
-                    == gold[index]["encoding"]["aggregate"]
+                    # Case-insensitive: the aggregate is a SQL function name, so
+                    # "COUNT" and "count" are the same answer.
+                    and str(predicted[index]["encoding"]["aggregate"]).strip().lower()
+                    == str(gold[index]["encoding"]["aggregate"]).strip().lower()
                     for index in range(len(gold))
                 )
 
@@ -99,6 +122,10 @@ class StructuredExactMatch(BaseMetric):
             "exact_kpi_selection": _rate(kpi_hits, n),
             "exact_mapping_count": _rate(count_hits, n),
             "exact_encoding": _rate(encoding_hits, n),
+            # Whole-dict equality incl. source-derived gold bookkeeping fields
+            # that the prompt never requests — diagnostic only, expected ~0.
+            "exact_encoding_strict": _rate(strict_encoding_hits, n),
+            "encoding_fields_scored": list(_CORE_ENCODING_FIELDS),
             "exact_aggregate": _rate(aggregate_hits, aggregate_n),
             "n_aggregate_applicable": aggregate_n,
             "hidden_context_diagnostics": diagnostics,

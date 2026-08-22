@@ -4,17 +4,23 @@ Scores each method's cached predictions against the independent L1 literature ta
 (`data/eval/l1_chart_effectiveness_v1.csv`). Offline — reparses cached `raw_text`,
 no model inference.
 
-IMPORTANT (keying case): these are the cached SYNTHETIC v1 predictions, whose gold
-`task_type` is generator-derived. L1 scores here are therefore DIAGNOSTIC / LIMITED
-(they test chart choice against independent literature, but the task label shares the
-generator lineage). Independent L1 scoring requires benchmark_v1 predictions
-(approval-gated inference).
+IMPORTANT (keying case): the chart set is independent (literature), but `task_type`
+comes from whichever gold file is passed. With the default (cached SYNTHETIC v1)
+the task label is generator-derived, so those scores are DIAGNOSTIC / LIMITED.
+Fully independent L1 scoring requires benchmark_v1 predictions (approval-gated
+inference). The recorded `keying_case` states which case a report belongs to.
 
     python experiments/scripts/eval_l1_independent.py
+    python experiments/scripts/eval_l1_independent.py \
+        --gold data/frozen/dashboard_v4/test.jsonl \
+        --outputs-root experiments/outputs/final/dashboard_v4 \
+        --run prompt_only=qwen2_5_0_5b/A/seed_42 \
+        --out-prefix experiments/results/l1_independent_v4
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -45,19 +51,44 @@ def _load_predictions(run_dir: Path):
     return [reparse(GenerationResult(**r)) for r in read_jsonl(path)]
 
 
+def parse_args() -> argparse.Namespace:
+    """Paths are overridable so the same scorer runs on the final matrix layout
+    (``<root>/<dataset>/<model>/<method>/seed_<n>``), not only on the cached v1
+    runs. Defaults reproduce the previous behaviour exactly."""
+    p = argparse.ArgumentParser(description="Independent L1 chart-selection scorer (offline)")
+    p.add_argument("--gold", default=GOLD, help="gold jsonl the predictions were produced on")
+    p.add_argument("--outputs-root", default=OUTPUTS_ROOT)
+    p.add_argument("--run", action="append", default=[], metavar="METHOD=RELDIR",
+                   help="repeatable; run directory (relative to --outputs-root) per method")
+    p.add_argument("--out-prefix", default="experiments/results/l1_independent_results")
+    return p.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
+    gold = args.gold
+    outputs_root = args.outputs_root
+    method_runs = dict(METHOD_RUNS)
+    if args.run:
+        method_runs = {}
+        for entry in args.run:
+            if "=" not in entry:
+                raise SystemExit(f"--run expects METHOD=RELDIR, got: {entry}")
+            method, _, rel = entry.partition("=")
+            method_runs[method.strip()] = rel.strip()
+
     l1_path = _PROJECT_ROOT / DEFAULT_L1_CSV
     effective_sets = load_effective_sets(l1_path)
 
-    gold_items = load_gold_items(_PROJECT_ROOT / GOLD)
+    gold_items = load_gold_items(_PROJECT_ROOT / gold)
     references = [
         {"item_id": it.item_id, "recommendation": it.recommendation.model_dump(mode="json")}
         for it in gold_items
     ]
 
     per_method = {}
-    for method, run in METHOD_RUNS.items():
-        results = _load_predictions(_PROJECT_ROOT / OUTPUTS_ROOT / run)
+    for method, run in method_runs.items():
+        results = _load_predictions(_PROJECT_ROOT / outputs_root / run)
         if results is None:
             per_method[method] = {"status": "no_predictions"}
             continue
@@ -65,29 +96,34 @@ def main() -> None:
 
     payload = {
         "l1_gold_file": DEFAULT_L1_CSV,
-        "gold_file": GOLD,
-        "keying_case": "synthetic_v1_generator_derived_task_type (diagnostic/limited)",
+        "gold_file": gold,
+        "predictions_root": outputs_root,
+        "runs": method_runs,
+        "keying_case": (
+            "synthetic_v1_generator_derived_task_type (diagnostic/limited)"
+            if gold == GOLD else
+            f"gold={gold}: task_type lineage of that gold file applies (see its dataset card)"
+        ),
         "covered_task_types": sorted(effective_sets.keys()),
         "per_method": per_method,
     }
-    write_json(payload, _PROJECT_ROOT / "experiments/results/l1_independent_results.json")
+    write_json(payload, _PROJECT_ROOT / f"{args.out_prefix}.json")
 
     lines = ["# Independent L1 Chart-Selection Results", "",
              f"L1 gold (independent, literature): `{DEFAULT_L1_CSV}` "
              "(Saket 2019 + Kim & Heer 2018).",
-             f"Predictions gold join: `{GOLD}` (cached v1 synthetic test).", "",
-             "> **Keying case — diagnostic/limited.** These cached predictions are on the "
-             "SYNTHETIC v1 test set, whose `task_type` is generator-derived. The chart set is "
-             "independent (literature), but the task label shares the generator lineage, so "
-             "these L1 numbers are a diagnostic, not a fully independent claim. Independent L1 "
-             "requires `benchmark_v1` predictions (approval-gated inference).", "",
+             f"Predictions gold join: `{gold}`; predictions root: `{outputs_root}`.", "",
+             f"> **Keying case.** {payload['keying_case']} The chart set is independent "
+             "(literature), but the `task_type` label comes from the gold file above, so read "
+             "these numbers with that lineage in mind. Fully independent L1 requires "
+             "`benchmark_v1` predictions (approval-gated inference).", "",
              "> **L1 limitation.** L1 validates only chart-selection *acceptability for covered "
              "task types*. It does NOT validate layout, styling, interaction, rationale, or "
              "overall dashboard-design quality. Uncovered items are excluded from accuracy "
              "(never counted correct); coverage is reported below.", "",
              "| method | coverage_rate | n_covered | n_uncovered | covered_accuracy |",
              "| --- | --- | --- | --- | --- |"]
-    for method in METHOD_RUNS:
+    for method in method_runs:
         m = per_method.get(method, {})
         if m.get("status") == "no_predictions":
             lines.append(f"| {method} | (no predictions) | | | |")
@@ -95,7 +131,7 @@ def main() -> None:
         lines.append(f"| {method} | {m['coverage_rate']} | {m['n_covered']} | "
                      f"{m['n_uncovered']} | {m['covered_accuracy']} |")
     lines += ["", "## Per-method detail (per task_type accuracy on covered items)", ""]
-    for method in METHOD_RUNS:
+    for method in method_runs:
         m = per_method.get(method, {})
         if m.get("status") == "no_predictions":
             continue
@@ -110,9 +146,9 @@ def main() -> None:
             lines.append(f"- uncovered task types (excluded): {m['uncovered_task_types']}")
         lines.append("")
 
-    (_PROJECT_ROOT / "experiments/results/l1_independent_results.md").write_text(
-        "\n".join(lines), encoding="utf-8")
-    print("L1 independent results -> experiments/results/l1_independent_results.md")
+    out_md = _PROJECT_ROOT / f"{args.out_prefix}.md"
+    out_md.write_text("\n".join(lines), encoding="utf-8")
+    print(f"L1 independent results -> {out_md}")
 
 
 if __name__ == "__main__":
