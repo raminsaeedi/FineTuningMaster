@@ -41,6 +41,7 @@ def test_c_and_d_use_4bit_inference_without_changing_model_profile():
             "bnb_4bit_quant_type": "nf4",
             "bnb_4bit_use_double_quant": True,
         }
+        assert profile["allow_training_config_mismatch"] is False
 
     model_profile = yaml.safe_load(
         (ROOT / "src" / "config" / "model" / "qwen3_8_27b.yaml").read_text(
@@ -59,3 +60,6 @@ def test_h100_inference_mode_requires_adapter_and_skips_training():
     assert 'DEFAULT_ROBUSTNESS=0' in launcher
     assert "adapter_config.json" in launcher
     assert "adapter_model.safetensors" in launcher
+    assert '--input-model-weights "${ADAPTER_DIR}"' in launcher
+    assert '"model.max_seq_length=1024"' in launcher
+    assert '"method.allow_training_config_mismatch=true"' in launcher

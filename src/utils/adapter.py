@@ -295,14 +295,34 @@ def validate_adapter(adapter_dir: Path, cfg: Any, *, strict: bool = True) -> dic
 
     metadata = read_training_metadata(adapter_dir)
     problems = check_adapter_compatibility(metadata, cfg)
+    waived_problems: list[str] = []
+
+    # Explicit adapter reuse may intentionally cross training-runtime config
+    # revisions. Only that provenance hash can be waived; model identity and
+    # configuration, seed, and dataset remain strict.
+    training_hash_problem = (
+        "training configuration hash mismatch between adapter and run"
+    )
+    explicit_adapter = _nested_get(cfg, "method.adapter_path")
+    allow_training_mismatch = bool(
+        _nested_get(cfg, "method.allow_training_config_mismatch", False)
+    )
+    if explicit_adapter and allow_training_mismatch and training_hash_problem in problems:
+        waived_problems.append(training_hash_problem)
+        problems = [problem for problem in problems if problem != training_hash_problem]
 
     if problems and strict:
         bullets = "\n".join(f"  - {p}" for p in problems)
         raise AdapterError(
             f"Adapter at {adapter_dir} is incompatible with this run:\n{bullets}\n"
-            f"Refusing to silently reuse a mismatched adapter. Train the matching "
-            f"adapter, or set method.adapter_path explicitly if the reuse is "
-            f"intentional."
+            f"Refusing to silently reuse a mismatched adapter. Use a matching "
+            f"adapter or method.adapter_path with an explicit, narrowly scoped "
+            f"compatibility override."
         )
 
-    return {"adapter_dir": str(adapter_dir), "metadata": metadata, "problems": problems}
+    return {
+        "adapter_dir": str(adapter_dir),
+        "metadata": metadata,
+        "problems": problems,
+        "waived_problems": waived_problems,
+    }

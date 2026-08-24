@@ -186,7 +186,12 @@ if [[ "${RUN_KIND}" == pilot ]]; then
   command+=(--n-eval-items 2 --n-train-items 2 --max-steps 1)
 fi
 if [[ "${INFERENCE_ONLY}" == 1 ]]; then
-  command+=(--mode inference)
+  command+=(
+    --mode inference
+    --input-model-weights "${ADAPTER_DIR}"
+    --override "model.max_seq_length=1024"
+    --override "method.allow_training_config_mismatch=true"
+  )
 fi
 if [[ "${ROBUSTNESS}" == 0 ]]; then
   command+=(--no-paraphrased --no-missing-info)

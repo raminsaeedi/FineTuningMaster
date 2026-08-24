@@ -12,6 +12,7 @@ type: fine_tuned_rag
 adapter_path: null
 adapter_source_experiment: E03_qwen0_5b_ft
 adapter_source_method_key: null
+allow_training_config_mismatch: false
 retriever:
   name: tfidf
   top_k: 3

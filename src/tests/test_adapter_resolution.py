@@ -242,6 +242,57 @@ def test_non_strict_validation_still_requires_the_directory(tmp_path):
         validate_adapter(tmp_path / "nope", _cfg(tmp_path), strict=False)
 
 
+def test_explicit_adapter_can_waive_only_training_hash_mismatch(tmp_path):
+    cfg = _cfg(
+        tmp_path,
+        training={"type": "qlora_sft", "sft": {"per_device_train_batch_size": 2}},
+        method={
+            "adapter_path": str(tmp_path / "adapter"),
+            "allow_training_config_mismatch": True,
+        },
+    )
+    adapter = _make_adapter(
+        tmp_path / "adapter",
+        metadata={
+            "base_model": BASE_MODEL,
+            "seed": 42,
+            "dataset_version": "dashboard_v3",
+            "training_config_hash": "older-training-config",
+        },
+    )
+
+    report = validate_adapter(adapter, cfg)
+
+    assert report["problems"] == []
+    assert report["waived_problems"] == [
+        "training configuration hash mismatch between adapter and run"
+    ]
+
+
+def test_training_hash_waiver_never_waives_seed_mismatch(tmp_path):
+    cfg = _cfg(
+        tmp_path,
+        seed=43,
+        training={"type": "qlora_sft"},
+        method={
+            "adapter_path": str(tmp_path / "adapter"),
+            "allow_training_config_mismatch": True,
+        },
+    )
+    adapter = _make_adapter(
+        tmp_path / "adapter",
+        metadata={
+            "base_model": BASE_MODEL,
+            "seed": 42,
+            "dataset_version": "dashboard_v3",
+            "training_config_hash": "older-training-config",
+        },
+    )
+
+    with pytest.raises(AdapterError, match="seed mismatch"):
+        validate_adapter(adapter, cfg)
+
+
 # --- metadata reading ------------------------------------------------------
 
 def test_read_training_metadata_tolerates_absent_and_corrupt_files(tmp_path):
