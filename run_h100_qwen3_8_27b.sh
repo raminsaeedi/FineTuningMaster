@@ -12,6 +12,10 @@ Usage:
 
 Run --pilot first. It uses two train/evaluation items and one training step.
 Run --full only after the pilot prints PASS_H100_QWEN3_8_27B_PILOT.
+
+Optional environment variables:
+  FTM_METHODS="D B"     Run selected methods; default: "C D A B".
+  FTM_ROBUSTNESS=0      Run original test split only; default: 1.
 USAGE
 }
 
@@ -49,7 +53,19 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DATASET=dashboard_v4
 MODEL=qwen3_8_27b
 SEED=42
-METHODS=(C D A B)
+read -r -a METHODS <<< "${FTM_METHODS:-C D A B}"
+ROBUSTNESS="${FTM_ROBUSTNESS:-1}"
+[[ "${#METHODS[@]}" -gt 0 ]] || { echo "ERROR: FTM_METHODS is empty." >&2; exit 2; }
+for METHOD in "${METHODS[@]}"; do
+  case "${METHOD}" in
+    A|B|C|D) ;;
+    *) echo "ERROR: invalid method in FTM_METHODS: ${METHOD}" >&2; exit 2 ;;
+  esac
+done
+case "${ROBUSTNESS}" in
+  0|1) ;;
+  *) echo "ERROR: FTM_ROBUSTNESS must be 0 or 1." >&2; exit 2 ;;
+esac
 STORAGE_ROOT="${FTM_H100_STORAGE:-${HOME}/Sep_work/Ramin/ftm_qwen3_8_27b}"
 WORK_ROOT="${STORAGE_ROOT}/${RUN_KIND}"
 export HF_HOME="${STORAGE_ROOT}/huggingface"
@@ -76,6 +92,7 @@ echo "model: ${MODEL}"
 echo "dataset: ${DATASET}"
 echo "seed: ${SEED}"
 echo "methods: ${METHODS[*]}"
+echo "robustness variants: ${ROBUSTNESS}"
 echo "storage: ${STORAGE_ROOT}"
 echo "log: ${LOG_FILE}"
 git rev-parse --short HEAD
@@ -135,6 +152,9 @@ command=(
 
 if [[ "${RUN_KIND}" == pilot ]]; then
   command+=(--n-eval-items 2 --n-train-items 2 --max-steps 1)
+fi
+if [[ "${ROBUSTNESS}" == 0 ]]; then
+  command+=(--no-paraphrased --no-missing-info)
 fi
 
 "${command[@]}"

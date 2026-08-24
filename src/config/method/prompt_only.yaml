@@ -2,7 +2,9 @@
 name: prompt_only
 type: prompt_only
 generate:
-  max_new_tokens: 1024
+  # Shared across A/B/C/D. 512 bounds KV-cache growth on 27B inference while
+  # preserving enough space for the structured dashboard JSON response.
+  max_new_tokens: 512
   temperature: 0.1        # low temperature for structured JSON output
   top_p: 0.9
   do_sample: true
