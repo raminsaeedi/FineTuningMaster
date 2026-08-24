@@ -236,6 +236,7 @@ def test_trainer_applies_fp16_amp_and_max_length_on_p100(tmp_path, monkeypatch):
     assert args["fp16"] is True
     assert args["bf16"] is False
     assert args["max_length"] == 4096
+    assert args["per_device_eval_batch_size"] == 1
     callbacks = captured["callbacks"] or []
     callback_types = [type(cb).__name__ for cb in callbacks]
     assert "AbortOnNonFiniteCallback" in callback_types

@@ -90,8 +90,8 @@ read -r -a SEED_LIST <<< "${SEEDS//,/ }"
 # needs no bash arithmetic to map SLURM_ARRAY_TASK_ID onto a work item.
 JOB_DIR="$PROJECT_ROOT/experiments/slurm/jobs"
 mkdir -p "$JOB_DIR"
-# Keep every submission immutable: concurrent submissions must not overwrite
-# task or script files still referenced by queued/running jobs.
+# Every submission gets private task/script files. A second submission for the
+# same dataset must not overwrite files still referenced by an older job.
 SUBMIT_TAG="${DATASET}_$(date +%Y%m%d_%H%M%S)_${BASHPID}"
 TASKLIST="$JOB_DIR/tasks_${SUBMIT_TAG}.txt"
 : > "$TASKLIST"
