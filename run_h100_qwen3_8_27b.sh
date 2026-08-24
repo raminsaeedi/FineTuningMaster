@@ -9,6 +9,7 @@ usage() {
 Usage:
   ./run_h100_qwen3_8_27b.sh --pilot
   ./run_h100_qwen3_8_27b.sh --full
+  ./run_h100_qwen3_8_27b.sh --inference
 
 Run --pilot first. It uses two train/evaluation items and one training step.
 Run --full only after the pilot prints PASS_H100_QWEN3_8_27B_PILOT.
@@ -20,9 +21,19 @@ USAGE
 }
 
 [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+INFERENCE_ONLY=0
+DEFAULT_METHODS="C D A B"
+DEFAULT_ROBUSTNESS=1
 case "$1" in
   --pilot) PROFILE=smoke; RUN_KIND=pilot ;;
   --full) PROFILE=final; RUN_KIND=full ;;
+  --inference)
+    PROFILE=final
+    RUN_KIND=full
+    INFERENCE_ONLY=1
+    DEFAULT_METHODS="C D"
+    DEFAULT_ROBUSTNESS=0
+    ;;
   -h|--help) usage; exit 0 ;;
   *) usage >&2; exit 2 ;;
 esac
@@ -46,6 +57,7 @@ export TOKENIZERS_PARALLELISM=false
 export CUDA_MODULE_LOADING=LAZY
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
+export FTM_MIN_FREE_GPU_GIB="${FTM_MIN_FREE_GPU_GIB:-35}"
 # Direct servers can expose every installed GPU. Use GPU 0 unless the caller
 # explicitly selects another single H100 before launching this script.
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
@@ -53,8 +65,8 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DATASET=dashboard_v4
 MODEL=qwen3_8_27b
 SEED=42
-read -r -a METHODS <<< "${FTM_METHODS:-C D A B}"
-ROBUSTNESS="${FTM_ROBUSTNESS:-1}"
+read -r -a METHODS <<< "${FTM_METHODS:-${DEFAULT_METHODS}}"
+ROBUSTNESS="${FTM_ROBUSTNESS:-${DEFAULT_ROBUSTNESS}}"
 [[ "${#METHODS[@]}" -gt 0 ]] || { echo "ERROR: FTM_METHODS is empty." >&2; exit 2; }
 for METHOD in "${METHODS[@]}"; do
   case "${METHOD}" in
@@ -82,6 +94,19 @@ mkdir -p \
   "${RUN_ROOT}" "${MODEL_ROOT}" "${RESULT_ROOT}" \
   "${PACKAGE_ROOT}" "${LOG_ROOT}"
 
+ADAPTER_DIR="${MODEL_ROOT}/${DATASET}/${MODEL}/C/seed_${SEED}/adapter"
+if [[ "${INFERENCE_ONLY}" == 1 ]]; then
+  [[ -f "${ADAPTER_DIR}/adapter_config.json" ]] || {
+    echo "ERROR: completed C adapter missing: ${ADAPTER_DIR}" >&2
+    exit 1
+  }
+  if [[ ! -f "${ADAPTER_DIR}/adapter_model.safetensors" && \
+        ! -f "${ADAPTER_DIR}/adapter_model.bin" ]]; then
+    echo "ERROR: completed C adapter has no weights: ${ADAPTER_DIR}" >&2
+    exit 1
+  fi
+fi
+
 LOG_FILE="${LOG_ROOT}/qwen3_8_27b_seed42_${RUN_KIND}_$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
@@ -93,6 +118,7 @@ echo "dataset: ${DATASET}"
 echo "seed: ${SEED}"
 echo "methods: ${METHODS[*]}"
 echo "robustness variants: ${ROBUSTNESS}"
+echo "inference only: ${INFERENCE_ONLY}"
 echo "storage: ${STORAGE_ROOT}"
 echo "log: ${LOG_FILE}"
 git rev-parse --short HEAD
@@ -100,6 +126,7 @@ nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 
 "${PY}" - <<'PY'
 import importlib.metadata as metadata
+import os
 import torch
 
 assert torch.__version__.split("+")[0] == "2.6.0", torch.__version__
@@ -113,9 +140,14 @@ memory_gib = torch.cuda.get_device_properties(0).total_memory / 2**30
 assert "H100" in name.upper(), f"expected H100, got {name}"
 assert memory_gib >= 75, f"expected H100 80 GB, got {memory_gib:.1f} GiB"
 assert torch.cuda.is_bf16_supported(), f"BF16 unsupported on {name}"
+free_gib = torch.cuda.mem_get_info(0)[0] / 2**30
+minimum_free_gib = float(os.environ["FTM_MIN_FREE_GPU_GIB"])
+assert free_gib >= minimum_free_gib, (
+    f"insufficient free VRAM: {free_gib:.1f} GiB; need {minimum_free_gib:.1f} GiB"
+)
 print(
     f"PASS_GPU_ENV torch={torch.__version__} CUDA={torch.version.cuda} "
-    f"GPU={name} memory={memory_gib:.1f}GiB BF16=True"
+    f"GPU={name} memory={memory_gib:.1f}GiB free={free_gib:.1f}GiB BF16=True"
 )
 PY
 
@@ -152,6 +184,9 @@ command=(
 
 if [[ "${RUN_KIND}" == pilot ]]; then
   command+=(--n-eval-items 2 --n-train-items 2 --max-steps 1)
+fi
+if [[ "${INFERENCE_ONLY}" == 1 ]]; then
+  command+=(--mode inference)
 fi
 if [[ "${ROBUSTNESS}" == 0 ]]; then
   command+=(--no-paraphrased --no-missing-info)

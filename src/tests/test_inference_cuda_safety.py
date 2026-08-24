@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 import pytest
 import torch
@@ -63,6 +65,62 @@ def test_chat_rejects_silent_prompt_truncation():
 
     with pytest.raises(ValueError, match="Prompt exceeds"):
         model.chat("system", "user", max_new_tokens=16)
+
+
+def test_inference_loader_forwards_4bit_quantization(monkeypatch):
+    import src.models.hf_causal as hf_causal
+    from src.utils import gpu_precision
+
+    captured = {}
+
+    class DummyTokenizer:
+        pad_token = None
+        eos_token = "<eos>"
+
+    class DummyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.anchor = torch.nn.Parameter(torch.zeros(1))
+            self.config = types.SimpleNamespace()
+
+    class FakeAutoLoader:
+        @staticmethod
+        def from_pretrained(*_args, **_kwargs):
+            raise AssertionError("patched loader boundary should intercept this call")
+
+    class FakeBitsAndBytesConfig:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    def fake_load(_loader, _name, *, kwargs, logger, component):
+        del logger
+        captured[component] = kwargs
+        return DummyTokenizer() if component == "inference tokenizer" else DummyModel()
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(gpu_precision, "resolve_inference_dtype", lambda _value: "bfloat16")
+    monkeypatch.setattr(hf_causal, "load_pretrained_with_cache_repair", fake_load)
+    fake_transformers = types.ModuleType("transformers")
+    fake_transformers.AutoModelForCausalLM = FakeAutoLoader
+    fake_transformers.AutoTokenizer = FakeAutoLoader
+    fake_transformers.BitsAndBytesConfig = FakeBitsAndBytesConfig
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+
+    model = HFCausalModel(
+        {"name": "fake/27b", "max_seq_length": 4096, "dtype": "bfloat16"},
+        {
+            "load_in_4bit": True,
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_use_double_quant": True,
+        },
+    ).load()
+
+    quantization = captured["inference model"]["quantization_config"]
+    assert quantization.load_in_4bit is True
+    assert quantization.bnb_4bit_quant_type == "nf4"
+    assert quantization.bnb_4bit_compute_dtype == torch.bfloat16
+    assert captured["inference model"]["low_cpu_mem_usage"] is True
+    assert model.model.training is False
 
 
 class _CharacterTokenizer:

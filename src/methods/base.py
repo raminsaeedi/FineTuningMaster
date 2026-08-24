@@ -62,7 +62,8 @@ class HFMethod(BaseMethod):
         return None
 
     def setup(self) -> None:
-        self.model = HFCausalModel(self.model_cfg)
+        inference_cfg = _get(self.method_cfg, "inference", {})
+        self.model = HFCausalModel(self.model_cfg, inference_cfg)
         self.model.load(self._adapter_path())
         if self._constrained:
             from src.inference.decoders import ConstrainedDecoder

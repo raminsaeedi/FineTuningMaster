@@ -27,3 +27,35 @@ def test_h100_launcher_supports_method_and_robustness_selection():
     assert "FTM_ROBUSTNESS" in launcher
     assert "--no-paraphrased" in launcher
     assert "--no-missing-info" in launcher
+
+
+def test_c_and_d_use_4bit_inference_without_changing_model_profile():
+    for method in ("ft", "ft_rag"):
+        profile = yaml.safe_load(
+            (ROOT / "src" / "config" / "method" / f"{method}.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert profile["inference"] == {
+            "load_in_4bit": True,
+            "bnb_4bit_quant_type": "nf4",
+            "bnb_4bit_use_double_quant": True,
+        }
+
+    model_profile = yaml.safe_load(
+        (ROOT / "src" / "config" / "model" / "qwen3_8_27b.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "inference" not in model_profile
+    assert "inference_load_in_4bit" not in model_profile
+
+
+def test_h100_inference_mode_requires_adapter_and_skips_training():
+    launcher = (ROOT / "run_h100_qwen3_8_27b.sh").read_text(encoding="utf-8")
+    assert "--inference" in launcher
+    assert "--mode inference" in launcher
+    assert 'DEFAULT_METHODS="C D"' in launcher
+    assert 'DEFAULT_ROBUSTNESS=0' in launcher
+    assert "adapter_config.json" in launcher
+    assert "adapter_model.safetensors" in launcher

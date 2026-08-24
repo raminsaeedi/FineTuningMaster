@@ -16,6 +16,10 @@ retriever:
   name: tfidf
   top_k: 3
   chunks_path: data/knowledge_base/chunks.jsonl
+inference:
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_use_double_quant: true
 generate:
   # Keep identical across A/B/C/D for a fair comparison.
   max_new_tokens: 512

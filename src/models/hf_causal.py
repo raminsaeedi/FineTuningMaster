@@ -43,8 +43,13 @@ def _get(cfg: Mapping[str, Any], key: str, default: Any = None) -> Any:
 class HFCausalModel:
     """Thin wrapper around a HuggingFace causal LM + tokenizer."""
 
-    def __init__(self, model_cfg: Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        model_cfg: Mapping[str, Any],
+        inference_cfg: Optional[Mapping[str, Any]] = None,
+    ) -> None:
         self.cfg = model_cfg
+        self.inference_cfg = inference_cfg or {}
         self.model = None
         self.tokenizer = None
         self.chat_kwargs = chat_template_kwargs(model_cfg)
@@ -53,7 +58,7 @@ class HFCausalModel:
     def load(self, adapter_path: Optional[str] = None) -> "HFCausalModel":
         """Load tokenizer + model, optionally applying a PEFT adapter."""
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         name = model_identifier(self.cfg)
         cache_dir = _get(self.cfg, "cache_dir")
@@ -106,6 +111,24 @@ class HFCausalModel:
             self.cfg, cache_dir=cache_dir, trust_remote_code=trust_remote_code
         )
         model_kwargs.update(device_map=device_map, dtype=dtype)
+        load_in_4bit = bool(_get(self.inference_cfg, "load_in_4bit", False))
+        if load_in_4bit:
+            if not torch.cuda.is_available():
+                raise RuntimeError("4-bit inference requires a CUDA GPU.")
+            model_kwargs.update(
+                quantization_config=BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type=str(
+                        _get(self.inference_cfg, "bnb_4bit_quant_type", "nf4")
+                    ),
+                    bnb_4bit_compute_dtype=dtype,
+                    bnb_4bit_use_double_quant=bool(
+                        _get(self.inference_cfg, "bnb_4bit_use_double_quant", True)
+                    ),
+                ),
+                low_cpu_mem_usage=True,
+            )
+            logger.info("Using 4-bit inference quantization for %s", name)
         try:
             self.model = load_pretrained_with_cache_repair(
                 AutoModelForCausalLM.from_pretrained,
