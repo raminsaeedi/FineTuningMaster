@@ -43,11 +43,14 @@ environment is created as `.venv`, so the broken old environment is left alone.
 Still inside the DGX session, run:
 
 ```bash
+# If an earlier setup stopped after installing CPU Torch, keep it as a
+# recoverable backup and let the Spark installer create a clean environment.
+if [ -d .venv ]; then mv .venv .venv_failed_1; fi
 bash scripts/bootstrap_remote.sh
 ```
 
 The script installs the portable project dependencies, the CUDA 13 PyTorch
-wheel, and performs three checks:
+wheel and its ARM64 CUDA-13 runtime dependencies, and performs three checks:
 
 1. PyTorch sees the NVIDIA GB10.
 2. A real CUDA matrix operation succeeds.
@@ -60,6 +63,10 @@ The expected check line is:
 ```
 
 If this step fails, do not start training. Copy the complete error output.
+
+The message `torch 2.6.0+cpu` or `CUDA visible : False` means setup failed;
+it is not an experiment result. In that case, copy the newest
+`bootstrap_dgx_spark.sh` again from the laptop and repeat this section.
 
 ## 4. First smoke test: mini dataset, all four methods
 
@@ -100,7 +107,13 @@ ssh -t student@192.168.178.32 "watch -n 2 nvidia-smi"
 To copy results back after a run, use laptop PowerShell:
 
 ```powershell
-scp -r student@192.168.178.32:/home/student/ramin/FineTuningMaster-main/experiments/results/final/dashboard_v4 C:\Projects\MasterArbeit\master-thesis-finetuning\experiments\results\final\
+scp -r student@192.168.178.32:/home/student/ramin/FineTuningMaster-main/experiments/outputs/final/dashboard_v4_tiny C:\Projects\MasterArbeit\master-thesis-finetuning\experiments\outputs\final\
+scp -r student@192.168.178.32:/home/student/ramin/FineTuningMaster-main/experiments/results/final/dashboard_v4_tiny C:\Projects\MasterArbeit\master-thesis-finetuning\experiments\results\final\
 ```
+
+The raw per-method metrics are in the `experiments/outputs/final/...` tree;
+the `experiments/results/final/...` tree contains the summary/report files.
+With `--no-package`, no ZIP file is created, but the raw metrics and
+predictions are still written.
 
 Do not press **Update Now** in the DGX Dashboard while a run is active.

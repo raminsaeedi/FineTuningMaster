@@ -109,7 +109,8 @@ log "installing PyTorch $SPARK_TORCH_VERSION from $TORCH_CUDA_INDEX"
 
 [[ -f "$PROJECT_ROOT/requirements-train.txt" ]] || die "requirements-train.txt is missing."
 FILTERED_REQUIREMENTS="$(mktemp)"
-trap 'rm -f "$FILTERED_REQUIREMENTS"' EXIT
+TORCH_REQUIREMENTS="$(mktemp)"
+trap 'rm -f "$FILTERED_REQUIREMENTS" "$TORCH_REQUIREMENTS"' EXIT
 
 # The exported requirements file is exact for the project, but its Torch and
 # x86 Triton/NVIDIA entries are not appropriate for ARM64 GB10. Keep all
@@ -126,6 +127,35 @@ log "installing portable project dependencies"
 # only a generic torch>=2 requirement, and pip would otherwise replace the
 # CUDA 13 GB10 wheel with the first compatible CPU wheel from PyPI.
 "$ENV_PYTHON" -m pip install --index-url https://pypi.org/simple --no-deps -r "$FILTERED_REQUIREMENTS"
+
+# The CUDA 13 ARM64 wheel carries runtime requirements that are not present in
+# the older x86 requirements export (for example cuda-toolkit, CUDA 13 NVIDIA
+# libraries and the matching Triton wheel). Read the exact requirements from
+# the installed Torch wheel and install only those requirements. Torch itself
+# is deliberately not in this temporary file, so it cannot be replaced by a
+# CPU wheel during dependency resolution.
+"$ENV_PYTHON" - "$TORCH_REQUIREMENTS" <<'PY'
+import sys
+from importlib.metadata import requires
+from pathlib import Path
+
+requirements = [
+    requirement
+    for requirement in (requires("torch") or [])
+    if "extra ==" not in requirement
+]
+Path(sys.argv[1]).write_text("\n".join(requirements) + "\n", encoding="utf-8")
+print("  torch runtime dependencies:")
+for requirement in requirements:
+    print(f"    {requirement}")
+PY
+
+log "installing Torch runtime dependencies"
+"$ENV_PYTHON" -m pip install \
+  --index-url "https://download.pytorch.org/whl/$TORCH_CUDA_INDEX" \
+  --extra-index-url https://pypi.org/simple \
+  --only-binary=:all: \
+  -r "$TORCH_REQUIREMENTS"
 "$ENV_PYTHON" -m pip check
 
 log "checking PyTorch, CUDA and the real 4-bit path"
