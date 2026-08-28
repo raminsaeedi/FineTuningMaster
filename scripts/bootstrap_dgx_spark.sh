@@ -105,7 +105,7 @@ log "upgrading pip tools"
 log "installing PyTorch $SPARK_TORCH_VERSION from $TORCH_CUDA_INDEX"
 "$ENV_PYTHON" -m pip install \
   --index-url "https://download.pytorch.org/whl/$TORCH_CUDA_INDEX" \
-  --no-deps "torch==$SPARK_TORCH_VERSION"
+  --no-deps --force-reinstall "torch==$SPARK_TORCH_VERSION"
 
 [[ -f "$PROJECT_ROOT/requirements-train.txt" ]] || die "requirements-train.txt is missing."
 FILTERED_REQUIREMENTS="$(mktemp)"
@@ -121,7 +121,11 @@ awk -v with_train="$WITH_TRAIN" '
 ' "$PROJECT_ROOT/requirements-train.txt" > "$FILTERED_REQUIREMENTS"
 
 log "installing portable project dependencies"
-"$ENV_PYTHON" -m pip install --index-url https://pypi.org/simple -r "$FILTERED_REQUIREMENTS"
+# This file is a complete exported lock-style requirement set. Installing it
+# without dependency resolution is essential: accelerate/bitsandbytes declare
+# only a generic torch>=2 requirement, and pip would otherwise replace the
+# CUDA 13 GB10 wheel with the first compatible CPU wheel from PyPI.
+"$ENV_PYTHON" -m pip install --index-url https://pypi.org/simple --no-deps -r "$FILTERED_REQUIREMENTS"
 "$ENV_PYTHON" -m pip check
 
 log "checking PyTorch, CUDA and the real 4-bit path"
