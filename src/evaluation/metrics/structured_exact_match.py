@@ -33,6 +33,10 @@ def _rate(hits: int, n: int) -> float | None:
     return round(100.0 * hits / n, 2) if n else None
 
 
+def _normalised_value(value: Any) -> str:
+    return str(value).strip().lower()
+
+
 def _reference_mappings(reference: dict) -> list[dict[str, Any]]:
     recommendation = reference.get("recommendation", {}) or {}
     return [mapping for mapping in recommendation.get("kpi_chart_mapping", []) or []
@@ -58,6 +62,9 @@ class StructuredExactMatch(BaseMetric):
         n = len(aligned)
         task_hits = kpi_hits = count_hits = encoding_hits = strict_encoding_hits = 0
         aggregate_hits = aggregate_n = 0
+        encoding_field_hits = {field: 0 for field in _CORE_ENCODING_FIELDS}
+        encoding_field_n = {field: 0 for field in _CORE_ENCODING_FIELDS}
+        encoding_mapping_hits = encoding_mapping_n = 0
         context = {
             field: {"present": 0, "exact": 0, "n": 0}
             for field in _HIDDEN_CONTEXT_FIELDS
@@ -77,6 +84,35 @@ class StructuredExactMatch(BaseMetric):
             strict_encoding_hits += [m.get("encoding", {}) for m in predicted] == [
                 m.get("encoding", {}) for m in gold
             ]
+
+            # Micro accuracy per KPI mapping. Missing mappings/fields count as
+            # wrong; fields absent from gold are not applicable. This separates
+            # structural validity from semantic x/y/aggregate correctness.
+            for index, gold_mapping in enumerate(gold):
+                gold_encoding = gold_mapping.get("encoding", {}) or {}
+                applicable = [
+                    field for field in _CORE_ENCODING_FIELDS
+                    if gold_encoding.get(field) is not None
+                ]
+                if not applicable:
+                    continue
+                encoding_mapping_n += 1
+                predicted_encoding = (
+                    (predicted[index].get("encoding", {}) or {})
+                    if index < len(predicted)
+                    else {}
+                )
+                mapping_exact = True
+                for field in applicable:
+                    encoding_field_n[field] += 1
+                    matched = (
+                        predicted_encoding.get(field) is not None
+                        and _normalised_value(predicted_encoding[field])
+                        == _normalised_value(gold_encoding[field])
+                    )
+                    encoding_field_hits[field] += int(matched)
+                    mapping_exact = mapping_exact and matched
+                encoding_mapping_hits += int(mapping_exact)
 
             aggregate_applicable = all(
                 "aggregate" in (mapping.get("encoding", {}) or {}) for mapping in gold
@@ -126,6 +162,22 @@ class StructuredExactMatch(BaseMetric):
             # that the prompt never requests — diagnostic only, expected ~0.
             "exact_encoding_strict": _rate(strict_encoding_hits, n),
             "encoding_fields_scored": list(_CORE_ENCODING_FIELDS),
+            "encoding_x_accuracy": _rate(
+                encoding_field_hits["x"], encoding_field_n["x"]
+            ),
+            "encoding_y_accuracy": _rate(
+                encoding_field_hits["y"], encoding_field_n["y"]
+            ),
+            "encoding_aggregate_accuracy": _rate(
+                encoding_field_hits["aggregate"], encoding_field_n["aggregate"]
+            ),
+            "encoding_mapping_exact_accuracy": _rate(
+                encoding_mapping_hits, encoding_mapping_n
+            ),
+            "n_encoding_mappings": encoding_mapping_n,
+            "n_encoding_x_fields": encoding_field_n["x"],
+            "n_encoding_y_fields": encoding_field_n["y"],
+            "n_encoding_aggregate_fields": encoding_field_n["aggregate"],
             "exact_aggregate": _rate(aggregate_hits, aggregate_n),
             "n_aggregate_applicable": aggregate_n,
             "hidden_context_diagnostics": diagnostics,

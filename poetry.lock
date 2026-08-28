@@ -4865,4 +4865,4 @@ train = ["accelerate", "bitsandbytes", "datasets", "peft", "trl"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "c5b1b225bd14bb47beae1286d2afecfcf7fe49f83b3fa8760ce23237d92f8454"
+content-hash = "f11d1923add7378459730c360c5df7ed0bf9c0ef49c6f47a472d751ad11cfb35"

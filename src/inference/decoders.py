@@ -1,9 +1,9 @@
 """Constrained JSON decoding via Outlines.
 
-Forces generation to conform to the DesignOutput JSON schema, guaranteeing
-schema-valid output. This decouples *content* quality from *format* validity:
-report unconstrained results (the model's inherent ability) and constrained
-results (what perfect formatting would yield) side by side.
+Constrains completed generation to the strict DesignOutput JSON schema.
+Truncation or runtime errors can still prevent schema-valid output. This helps
+separate *content* quality from *format* validity: report unconstrained results
+and constrained results side by side.
 
 Requires the ``[constrained]`` extra (outlines). Imports are lazy, so this module
 is safe to import without outlines installed. The schema builder needs no extra.
@@ -16,10 +16,10 @@ from typing import Any
 
 
 def design_output_json_schema() -> dict:
-    """JSON schema for a valid DesignOutput (derived from the Pydantic model)."""
-    from src.core.schemas import DesignOutput
+    """JSON schema for strict constrained generation."""
+    from src.core.strict_response_schema import StrictDesignOutput
 
-    return DesignOutput.model_json_schema()
+    return StrictDesignOutput.model_json_schema()
 
 
 class ConstrainedDecoder:
@@ -31,14 +31,17 @@ class ConstrainedDecoder:
 
     def setup(self, model: Any, tokenizer: Any) -> None:
         import outlines  # lazy
+        from src.core.strict_response_schema import StrictDesignOutput
 
-        ol_model = outlines.models.Transformers(model, tokenizer)
-        schema = json.dumps(design_output_json_schema())
-        self._generator = outlines.generate.json(ol_model, schema)
+        ol_model = outlines.from_transformers(model, tokenizer)
+        self._generator = outlines.Generator(ol_model, StrictDesignOutput)
 
     def generate(self, prompt: str) -> str:
         if self._generator is None:
             raise RuntimeError("ConstrainedDecoder.setup() must be called first.")
-        result = self._generator(prompt, max_tokens=self.max_new_tokens)
-        # Outlines returns a dict/obj that already satisfies the schema.
-        return result if isinstance(result, str) else json.dumps(result, default=str)
+        result = self._generator(prompt, max_new_tokens=self.max_new_tokens)
+        if isinstance(result, str):
+            return result
+        if hasattr(result, "model_dump_json"):
+            return result.model_dump_json()
+        return json.dumps(result, default=str)

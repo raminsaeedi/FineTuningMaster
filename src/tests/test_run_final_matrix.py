@@ -228,6 +228,27 @@ def test_duplicate_explicit_methods_are_removed_without_reordering():
     assert matrix_runner._selected_methods(args) == ["C", "D", "A"]
 
 
+def test_smoke_defaults_do_not_override_explicit_scientific_settings():
+    overrides = matrix_runner._with_default_overrides(
+        [
+            "+method.generate.constrained=true",
+            "method.generate.max_new_tokens=1024",
+            "model.max_seq_length=4096",
+        ],
+        [
+            "model.max_seq_length=512",
+            "method.generate.max_new_tokens=64",
+            "method.generate.do_sample=false",
+        ],
+    )
+
+    assert "method.generate.max_new_tokens=1024" in overrides
+    assert "method.generate.max_new_tokens=64" not in overrides
+    assert "model.max_seq_length=4096" in overrides
+    assert "model.max_seq_length=512" not in overrides
+    assert "method.generate.do_sample=false" in overrides
+
+
 # --- dataset isolation -----------------------------------------------------
 
 def _completed_run(path: Path, dataset: str) -> Path:

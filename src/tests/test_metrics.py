@@ -117,13 +117,17 @@ def test_top3_invalid_when_no_alternatives():
 def test_schema_full_validity_vs_required_keys():
     # Required keys all present but chart_type enum is invalid -> not full-valid.
     bad_enum = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
-                '[{"kpi": "k", "task_type": "trend", "chart_type": "column chart"}], '
+                '[{"kpi": "k", "task_type": "trend", "chart_type": "column chart", '
+                '"alternatives": [], "encoding": {"x": "date", "y": "value", '
+                '"aggregate": null}}], '
                 '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
-                '"rationales": [{"claim": "c"}]}')
+                '"rationales": [{"claim": "c", "principle": "p"}]}')
     valid = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
-             '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+             '[{"kpi": "k", "task_type": "trend", "chart_type": "line", '
+             '"alternatives": [], "encoding": {"x": "date", "y": "value", '
+             '"aggregate": null}}], '
              '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
-             '"rationales": [{"claim": "c"}]}')
+             '"rationales": [{"claim": "c", "principle": "p"}]}')
     results = [_result("a", [], bad_enum), _result("b", [], valid)]
     out = SchemaCompliance().compute(results, None)
     assert out["required_keys_rate"] == 100.0       # both have all keys
@@ -147,9 +151,11 @@ def test_completeness_ignores_empty_containers():
 
 def test_schema_rates_include_a_completely_missing_prediction():
     valid = ('{"context_summary": {"x": 1}, "kpi_chart_mapping": '
-             '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+             '[{"kpi": "k", "task_type": "trend", "chart_type": "line", '
+             '"alternatives": [], "encoding": {"x": "date", "y": "value", '
+             '"aggregate": null}}], '
              '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
-             '"rationales": [{"claim": "c"}]}')
+             '"rationales": [{"claim": "c", "principle": "p"}]}')
     result = _result("a", [], valid)
     refs = [_ref("a", ["line"]), _ref("b", ["bar"])]
 
@@ -250,12 +256,61 @@ def test_structured_exact_match_uses_full_reference_cohort_and_strict_fields():
     assert out["exact_mapping_count"] == 50.0
     assert out["exact_encoding"] == 50.0
     assert out["exact_aggregate"] == 50.0
+    assert out["encoding_x_accuracy"] is None
+    assert out["encoding_y_accuracy"] is None
+    assert out["encoding_aggregate_accuracy"] == 50.0
     assert out["hidden_context_diagnostics"]["db_id"] == {
         "presence_rate": 50.0,
         "exact_match_rate": 50.0,
         "n_applicable": 2,
         "visible_in_prompt": False,
     }
+
+
+def test_structured_exact_match_reports_per_mapping_encoding_accuracy():
+    parsed = DesignOutput(kpi_chart_mapping=[
+        {
+            "kpi": "Revenue",
+            "task_type": "trend",
+            "chart_type": "line",
+            "encoding": {"x": "date", "y": "wrong_field", "aggregate": "SUM"},
+        },
+        {
+            "kpi": "Orders",
+            "task_type": "comparison",
+            "chart_type": "bar",
+            "encoding": {"x": "region", "y": "orders"},
+        },
+    ])
+    result = GenerationResult(
+        item_id="a", method_name="m", model_name="x", raw_text="{}", parsed=parsed
+    )
+    refs = [{
+        "item_id": "a",
+        "recommendation": {"kpi_chart_mapping": [
+            {
+                "kpi": "Revenue",
+                "task_type": "trend",
+                "chart_type": "line",
+                "encoding": {"x": "date", "y": "revenue", "aggregate": "sum"},
+            },
+            {
+                "kpi": "Orders",
+                "task_type": "comparison",
+                "chart_type": "bar",
+                "encoding": {"x": "region", "y": "orders"},
+            },
+        ]},
+    }]
+
+    out = StructuredExactMatch().compute([result], refs)
+
+    assert out["encoding_x_accuracy"] == 100.0
+    assert out["encoding_y_accuracy"] == 50.0
+    assert out["encoding_aggregate_accuracy"] == 100.0
+    assert out["encoding_mapping_exact_accuracy"] == 50.0
+    assert out["n_encoding_mappings"] == 2
+    assert out["n_encoding_aggregate_fields"] == 1
 
 
 def test_full_eval_profile_enables_structured_exact_match():

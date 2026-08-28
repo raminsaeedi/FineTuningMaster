@@ -151,6 +151,20 @@ def _hydra_path(path: str | Path) -> str:
     return value
 
 
+def _with_default_overrides(overrides: list[str], defaults: list[str]) -> list[str]:
+    """Append Hydra defaults only when caller did not set the same key."""
+    result = list(overrides)
+
+    def key(item: str) -> str:
+        return str(item).split("=", 1)[0].lstrip("+")
+
+    explicit_keys = {key(item) for item in result}
+    for default in defaults:
+        if key(default) not in explicit_keys:
+            result.append(default)
+    return result
+
+
 def profile_run_dir(
     output_root: Path, model: str, method: str, seed: int,
     dataset: str = DEFAULT_DATASET,
@@ -674,7 +688,7 @@ def main(argv: list[str] | None = None) -> None:
             smoke_train_items = args.n_train_items if args.profile == "smoke" else None
             train_extra = list(args.override)
             if smoke_train_items is not None:
-                train_extra.extend([
+                train_extra = _with_default_overrides(train_extra, [
                     f"data.max_samples={smoke_train_items}",
                     "model.max_seq_length=512",
                     "training.sft.num_train_epochs=1",
@@ -760,7 +774,7 @@ def main(argv: list[str] | None = None) -> None:
 
                 extra = list(args.override)
                 if args.profile == "smoke":
-                    extra.extend([
+                    extra = _with_default_overrides(extra, [
                         "model.max_seq_length=512",
                         "method.generate.max_new_tokens=64",
                         "method.generate.do_sample=false",

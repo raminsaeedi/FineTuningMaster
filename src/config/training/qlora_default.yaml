@@ -40,3 +40,6 @@ sft:
   gradient_checkpointing: true
   dataloader_pin_memory: false
   packing: false
+  # Compatibility default: false reproduces existing full-sequence C/D runs.
+  # Set true for a new, separately identified response-only ablation/run.
+  completion_only_loss: false

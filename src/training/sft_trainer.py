@@ -14,6 +14,7 @@ module stays import-safe.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -23,6 +24,7 @@ from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseTrainer
 from src.core.registry import TRAINERS
+from src.data_pipeline.formatter import split_training_text
 from src.training.stability import AbortOnNonFiniteCallback, TrainerCallbackCompat
 from src.utils.config_hash import hash_config
 from src.utils.gpu_precision import (
@@ -93,6 +95,49 @@ def build_lora_kwargs(lora_cfg: Mapping[str, Any]) -> dict:
         use_dora=bool(_get(lora_cfg, "use_dora", False)),
         use_rslora=bool(_get(lora_cfg, "use_rslora", False)),
     )
+
+
+def _require_completion_only_api(sft_config_cls: type) -> None:
+    """Fail before GPU setup when installed TRL cannot mask prompt labels."""
+    try:
+        parameters = inspect.signature(sft_config_cls).parameters
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            "TRL compatibility check failed for completion_only_loss. "
+            "Install the pinned training environment with trl==1.3.0."
+        ) from exc
+    if "completion_only_loss" not in parameters:
+        raise RuntimeError(
+            "Installed TRL does not expose SFTConfig.completion_only_loss. "
+            "Install the pinned training environment with trl==1.3.0, or set "
+            "training.sft.completion_only_loss=false."
+        )
+
+
+def _to_prompt_completion_dataset(dataset, eos_token: str, dataset_name: str):
+    """Convert legacy formatted text to TRL's native prompt-completion schema."""
+    if dataset is None:
+        return None
+    sample = next(iter(dataset), None)
+    if sample is None:
+        raise ValueError(f"{dataset_name} dataset is empty; cannot run SFT.")
+    if "prompt" in sample and "completion" in sample:
+        return dataset
+    if "text" not in sample:
+        raise ValueError(
+            f"{dataset_name} dataset must contain either 'text' or both "
+            "'prompt' and 'completion' when completion_only_loss=true."
+        )
+    if not hasattr(dataset, "map"):
+        raise TypeError(
+            f"{dataset_name} dataset does not support map(); expected a "
+            "Hugging Face Dataset or IterableDataset."
+        )
+
+    def split_row(example):
+        return split_training_text(example["text"], eos_token=eos_token)
+
+    return dataset.map(split_row, remove_columns=["text"])
 
 
 @TRAINERS.register("qlora_sft")
@@ -230,6 +275,13 @@ class QLoRASFTTrainer(BaseTrainer):
         """Run SFT and save the adapter to ``output_dir``; return that path."""
         from trl import SFTConfig, SFTTrainer
 
+        sft = _get(self.train_cfg, "sft", {})
+        completion_only_loss = _get(sft, "completion_only_loss", False)
+        if not isinstance(completion_only_loss, bool):
+            raise ValueError("training.sft.completion_only_loss must be true or false.")
+        if completion_only_loss:
+            _require_completion_only_api(SFTConfig)
+
         self._setup()
         if self.precision is None:
             # Keeps the public trainer contract safe for lightweight injected
@@ -239,12 +291,26 @@ class QLoRASFTTrainer(BaseTrainer):
             sft_cfg = _get(self.train_cfg, "sft", {})
             self.precision = resolve_training_precision(sft_cfg)
 
-        sft = _get(self.train_cfg, "sft", {})
         adapter_dir = Path(output_dir)
         checkpoint_dir = adapter_dir.parent / "checkpoints"
         max_seq_length = int(_get(self.model_cfg, "max_seq_length", 2048))
 
-        training_args = SFTConfig(
+        if completion_only_loss:
+            eos_token = getattr(self.tokenizer, "eos_token", "") or ""
+            train_dataset = _to_prompt_completion_dataset(
+                train_dataset, eos_token, "Training"
+            )
+            if isinstance(eval_dataset, dict):
+                eval_dataset = {
+                    name: _to_prompt_completion_dataset(dataset, eos_token, f"Evaluation '{name}'")
+                    for name, dataset in eval_dataset.items()
+                }
+            else:
+                eval_dataset = _to_prompt_completion_dataset(
+                    eval_dataset, eos_token, "Evaluation"
+                )
+
+        training_kwargs = dict(
             output_dir=str(checkpoint_dir),
             num_train_epochs=int(_get(sft, "num_train_epochs", 3)),
             per_device_train_batch_size=int(_get(sft, "per_device_train_batch_size", 2)),
@@ -273,9 +339,13 @@ class QLoRASFTTrainer(BaseTrainer):
             gradient_checkpointing=bool(_get(sft, "gradient_checkpointing", True)),
             dataloader_pin_memory=bool(_get(sft, "dataloader_pin_memory", False)),
             remove_unused_columns=True,
-            dataset_text_field="text",
             packing=bool(_get(sft, "packing", False)),
         )
+        if completion_only_loss:
+            training_kwargs["completion_only_loss"] = True
+        else:
+            training_kwargs["dataset_text_field"] = "text"
+        training_args = SFTConfig(**training_kwargs)
 
         owner = self
 
@@ -416,6 +486,7 @@ class QLoRASFTTrainer(BaseTrainer):
             "scheduler": _get(sft, "lr_scheduler_type"),
             "warmup_ratio": _get(sft, "warmup_ratio"),
             "max_seq_length": _get(self.model_cfg, "max_seq_length"),
+            "completion_only_loss": bool(_get(sft, "completion_only_loss", False)),
             "precision": {
                 "mode": None if self.precision is None else self.precision.mode,
                 "dtype": None if self.precision is None else self.precision.inference_dtype,

@@ -12,9 +12,11 @@ from src.evaluation.reporting import (
 
 _FULL_VALID = (
     '{"context_summary": {"x": 1}, "kpi_chart_mapping": '
-    '[{"kpi": "k", "task_type": "trend", "chart_type": "line"}], '
+    '[{"kpi": "k", "task_type": "trend", "chart_type": "line", '
+    '"alternatives": [], "encoding": {"x": "date", "y": "value", '
+    '"aggregate": null}}], '
     '"layout": {"a": 1}, "styling": {"a": 1}, "interactions": ["zoom"], '
-    '"rationales": [{"claim": "c"}]}'
+    '"rationales": [{"claim": "c", "principle": "p"}]}'
 )
 
 
@@ -80,7 +82,8 @@ def test_build_metrics_json_structure_and_ci():
     assert mj["eval_tier"] == "internal-synthetic"
     layers = mj["layers"]
     assert set(layers) == {
-        "L2_format_robustness", "L1_chart_selection", "L1c_grounding", "L3_realism", "L4_human",
+        "L2_format_robustness", "L1_chart_selection", "L1b_retrieval",
+        "L1c_grounding", "L3_realism", "L4_human",
     }
 
     # L2: parse rate value preserved + a computed bootstrap CI.
@@ -100,6 +103,66 @@ def test_build_metrics_json_structure_and_ci():
     assert layers["L3_realism"]["status"] == "pending"
     assert layers["L4_human"]["status"] == "pending"
     assert layers["L1c_grounding"]["status"] == NOT_APPLICABLE
+    assert layers["L1b_retrieval"]["status"] == NOT_APPLICABLE
+
+
+def test_build_metrics_json_surfaces_supervised_retrieval_with_cis():
+    ci = {"point": 0.5, "ci_low": 0.2, "ci_high": 0.8,
+          "ci_level": 0.95, "n": 2, "n_boot": 10_000}
+    payload = {"metrics": {"retrieval_relevance": {
+        "available": True,
+        "applicable": True,
+        "recall_at_3": 0.5,
+        "mrr_at_3": 0.75,
+        "ndcg_at_3": 0.6,
+        "query_coverage": 1.0,
+        "top_3_retrieval_support_rate": 1.0,
+        "n_qrels": 2,
+        "n_with_3_unique_retrieved_ids": 2,
+        "confidence_intervals": {
+            "recall_at_3": ci, "mrr_at_3": ci, "ndcg_at_3": ci,
+        },
+    }}}
+
+    layer = build_metrics_json(payload, [])["layers"]["L1b_retrieval"]
+
+    assert layer["recall_at_3"] == {"value": 0.5, "n": 2, "ci": ci}
+    assert layer["mrr_at_3"]["value"] == 0.75
+    assert layer["ndcg_at_3"]["value"] == 0.6
+    assert layer["top_3_retrieval_support_rate"] == 1.0
+
+
+def test_json_parse_rate_ci_uses_raw_json_extraction_when_schema_parse_failed():
+    result = GenerationResult(
+        item_id="raw-json-schema-failure",
+        method_name="m",
+        model_name="x",
+        raw_text='{"encoding": "x=month, y=revenue"}',
+        parsed=None,
+        parse_error="schema_validation_failed",
+    )
+    payload = {
+        "metrics": {
+            "schema_compliance": {
+                "json_parse_rate": 100.0,
+                "schema_validity_rate": 0.0,
+                "n": 1,
+            }
+        }
+    }
+
+    rows = score_per_item([result], [])
+    metrics = build_metrics_json(payload, rows)
+    format_layer = metrics["layers"]["L2_format_robustness"]
+
+    assert rows[0]["parsed"] is False
+    assert rows[0]["json_object_extracted"] is True
+    assert rows[0]["schema_valid"] is False
+    assert rows[0]["encoding_object_valid"] is False
+    assert format_layer["json_parse_rate"]["ci"]["ci_low"] == 100.0
+    assert format_layer["json_parse_rate"]["ci"]["ci_high"] == 100.0
+    assert format_layer["schema_validity_rate"]["ci"]["ci_low"] == 0.0
+    assert format_layer["schema_validity_rate"]["ci"]["ci_high"] == 0.0
 
 
 def test_score_per_item_degraded_without_references():

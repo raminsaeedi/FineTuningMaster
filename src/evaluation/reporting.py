@@ -27,7 +27,11 @@ from src.evaluation.metrics.base import (
     predicted_charts,
     reference_charts,
 )
-from src.evaluation.metrics.schema_compliance import completeness_fraction, full_schema_valid
+from src.evaluation.metrics.schema_compliance import (
+    completeness_fraction,
+    encoding_objects_valid,
+    strict_response_valid,
+)
 from src.evaluation.stats.bootstrap_ci import bootstrap_ci
 from src.inference.postprocess import extract_json_dict
 from src.utils.io import write_json, write_jsonl
@@ -82,8 +86,10 @@ def score_per_item(results, references) -> List[dict]:
                 "variant": r.variant,
                 "config_hash": r.config_hash,
                 "parsed": r.parsed is not None,
+                "json_object_extracted": obj is not None,
                 "parse_error": r.parse_error,
-                "schema_valid": full_schema_valid(obj),
+                "schema_valid": strict_response_valid(obj),
+                "encoding_object_valid": encoding_objects_valid(obj),
                 "completeness": round(completeness_fraction(obj), 4),
                 "predicted_primary_chart": pred_primary,
                 "gold_primary_chart": gold_primary,
@@ -190,10 +196,14 @@ def build_metrics_json(payload: dict, per_item_rows: List[dict], compute_ci: boo
     mf = m.get("macro_f1", {}) or {}
     rob = m.get("robustness", {}) or {}
     gr = m.get("grounding", {}) or {}
+    rr = m.get("retrieval_relevance", {}) or {}
 
     if compute_ci:
-        parsed_vec = [1 if row["parsed"] else 0 for row in per_item_rows]
+        parsed_vec = [1 if row["json_object_extracted"] else 0 for row in per_item_rows]
         schema_vec = [1 if row["schema_valid"] else 0 for row in per_item_rows]
+        encoding_object_vec = [
+            1 if row["encoding_object_valid"] else 0 for row in per_item_rows
+        ]
         complete_vec = [row["completeness"] for row in per_item_rows]
         synth_top1_vec = [
             row["synthetic_top1_correct"]
@@ -202,6 +212,7 @@ def build_metrics_json(payload: dict, per_item_rows: List[dict], compute_ci: boo
         ]
         jpr_ci = _ci_from_vector(parsed_vec, 100.0)
         sv_ci = _ci_from_vector(schema_vec, 100.0)
+        encoding_object_ci = _ci_from_vector(encoding_object_vec, 100.0)
         comp_ci = _ci_from_vector(complete_vec, 1.0)
         st1_ci = _ci_from_vector(synth_top1_vec, 100.0)
     else:
@@ -209,14 +220,42 @@ def build_metrics_json(payload: dict, per_item_rows: List[dict], compute_ci: boo
             "backfill: CI not recomputed to avoid pairing a legacy point value with a "
             "current-code CI; corrected re-scoring is a separate task"
         )
-        jpr_ci = sv_ci = comp_ci = st1_ci = _bf
+        jpr_ci = sv_ci = encoding_object_ci = comp_ci = st1_ci = _bf
 
     gr_applicable = bool(gr) and gr.get("mode") is not None and (gr.get("n") or 0) > 0
+    if rr.get("available") is True:
+        rr_cis = rr.get("confidence_intervals") or {}
+        retrieval_layer = {
+            "recall_at_3": _entry(
+                rr.get("recall_at_3"), rr.get("n_qrels"), rr_cis.get("recall_at_3")
+            ),
+            "mrr_at_3": _entry(
+                rr.get("mrr_at_3"), rr.get("n_qrels"), rr_cis.get("mrr_at_3")
+            ),
+            "ndcg_at_3": _entry(
+                rr.get("ndcg_at_3"), rr.get("n_qrels"), rr_cis.get("ndcg_at_3")
+            ),
+            "query_coverage": rr.get("query_coverage"),
+            "top_3_retrieval_support_rate": rr.get("top_3_retrieval_support_rate"),
+            "n_with_3_unique_retrieved_ids": rr.get("n_with_3_unique_retrieved_ids"),
+        }
+    elif rr.get("applicable") is True:
+        retrieval_layer = _not_available(
+            rr.get("reason") or "retrieval qrels are not configured"
+        )
+    else:
+        retrieval_layer = {
+            "status": NOT_APPLICABLE,
+            "reason": rr.get("reason") or "non-RAG run (no retriever)",
+        }
 
     layers = {
         "L2_format_robustness": {
             "json_parse_rate": _entry(sc.get("json_parse_rate"), sc.get("n"), jpr_ci),
             "schema_validity_rate": _entry(sc.get("schema_validity_rate"), sc.get("n"), sv_ci),
+            "encoding_object_rate": _entry(
+                sc.get("encoding_object_rate"), sc.get("n"), encoding_object_ci
+            ),
             "completeness_score": _entry(sc.get("completeness_score"), sc.get("n"), comp_ci),
             "paraphrase_accuracy": _entry(rob.get("paraphrase_accuracy"), None,
                                           _pending(_ROBUSTNESS_CI_REASON)),
@@ -248,6 +287,7 @@ def build_metrics_json(payload: dict, per_item_rows: List[dict], compute_ci: boo
             },
             "l1_human_effectiveness": _pending("set-valued human-effectiveness scorer not implemented"),
         },
+        "L1b_retrieval": retrieval_layer,
         "L1c_grounding": (
             {
                 "supported_claim_rate": _entry(gr.get("supported_claim_rate"), gr.get("n"),

@@ -55,3 +55,37 @@ def format_training_example(
         eos = getattr(tokenizer, "eos_token", "") or ""
         return prompt + response_json + eos
     return prompt + response_json + "\n"
+
+
+def split_training_text(text: str, eos_token: str = "") -> Dict[str, str]:
+    """Recover TRL prompt-completion fields from this module's full SFT text.
+
+    The gold completion is the final JSON object. Parsing candidates instead of
+    splitting on the first ``{`` keeps JSON examples inside the prompt intact.
+    Returned fields concatenate to the original text exactly.
+    """
+    if not isinstance(text, str) or not text:
+        raise ValueError("Training text must be a non-empty string.")
+
+    content_end = len(text)
+    if eos_token and text.endswith(eos_token):
+        content_end -= len(eos_token)
+    json_end = len(text[:content_end].rstrip())
+    decoder = json.JSONDecoder()
+
+    for start in range(json_end - 1, -1, -1):
+        if text[start] != "{":
+            continue
+        candidate = text[start:json_end]
+        try:
+            value, consumed = decoder.raw_decode(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict) and not candidate[consumed:].strip():
+            return {"prompt": text[:start], "completion": text[start:]}
+
+    raise ValueError(
+        "Cannot create prompt-completion training data: final response is not "
+        "a valid JSON object. Keep completion_only_loss=false for legacy data "
+        "or regenerate the formatted dataset."
+    )

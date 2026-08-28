@@ -14,12 +14,13 @@ _RECOMMENDATION = {
     "context_summary": {"scope": "test"},
     "kpi_chart_mapping": [{
         "kpi": "COUNT(value)", "task_type": "comparison", "chart_type": "bar",
-        "encoding": {"aggregate": "COUNT"},
+        "alternatives": [],
+        "encoding": {"x": "category", "y": "value", "aggregate": "COUNT"},
     }],
     "layout": {"type": "single"},
     "styling": {"theme": "minimal"},
     "interactions": ["tooltip"],
-    "rationales": [{"claim": "comparison"}],
+    "rationales": [{"claim": "comparison", "principle": "common scale"}],
 }
 
 

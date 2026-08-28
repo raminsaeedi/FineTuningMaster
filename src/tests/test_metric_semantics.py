@@ -9,7 +9,7 @@ from src.core.schemas import DesignOutput, GenerationResult
 from src.evaluation.metrics.schema_compliance import (
     SchemaCompliance,
     completeness_fraction,
-    full_schema_valid,
+    strict_response_valid,
 )
 from src.evaluation.metrics.topk_accuracy import TOP3_MIN_SUPPORT, TopKAccuracy
 
@@ -54,13 +54,37 @@ def test_top3_invalid_just_below_threshold():
     assert out["top_3_accuracy"] is None
 
 
-def test_full_schema_valid_rejects_bad_enum_accepts_good():
+def test_strict_response_valid_rejects_bad_enum_accepts_good():
     base = {"context_summary": {"x": 1}, "layout": {"a": 1}, "styling": {"a": 1},
-            "interactions": ["zoom"], "rationales": [{"claim": "c"}]}
-    bad = {**base, "kpi_chart_mapping": [{"kpi": "k", "task_type": "trend", "chart_type": "not_a_chart"}]}
-    good = {**base, "kpi_chart_mapping": [{"kpi": "k", "task_type": "trend", "chart_type": "line"}]}
-    assert full_schema_valid(bad) is False
-    assert full_schema_valid(good) is True
+            "interactions": ["zoom"],
+            "rationales": [{"claim": "c", "principle": "p"}]}
+    mapping = {"kpi": "k", "task_type": "trend", "chart_type": "line",
+               "alternatives": [],
+               "encoding": {"x": "date", "y": "value", "aggregate": None}}
+    bad = {**base, "kpi_chart_mapping": [{**mapping, "chart_type": "not_a_chart"}]}
+    good = {**base, "kpi_chart_mapping": [mapping]}
+    assert strict_response_valid(bad) is False
+    assert strict_response_valid(good) is True
+
+
+def test_strict_response_valid_rejects_missing_or_empty_encoding():
+    base = {
+        "context_summary": {"x": 1},
+        "layout": {"a": 1},
+        "styling": {"a": 1},
+        "interactions": [],
+        "rationales": [],
+    }
+    missing = {**base, "kpi_chart_mapping": [
+        {"kpi": "k", "task_type": "trend", "chart_type": "line", "alternatives": []}
+    ]}
+    empty = {**base, "kpi_chart_mapping": [
+        {"kpi": "k", "task_type": "trend", "chart_type": "line",
+         "alternatives": [], "encoding": {}}
+    ]}
+
+    assert strict_response_valid(missing) is False
+    assert strict_response_valid(empty) is False
 
 
 def test_completeness_fraction_counts_only_nonempty():
@@ -76,3 +100,29 @@ def test_schema_validity_rate_is_full_pydantic():
     out = SchemaCompliance().compute([bad], None)
     assert out["schema_validity_rate"] == 0.0
     assert out["json_parse_rate"] == 0.0
+
+
+def test_schema_compliance_reports_encoding_object_rate_separately():
+    good = GenerationResult(
+        item_id="good",
+        method_name="m",
+        model_name="x",
+        raw_text=(
+            '{"kpi_chart_mapping": [{"encoding": '
+            '{"x": "date", "y": "revenue", "aggregate": "sum"}}]}'
+        ),
+        parsed=None,
+    )
+    bad = GenerationResult(
+        item_id="bad",
+        method_name="m",
+        model_name="x",
+        raw_text='{"kpi_chart_mapping": [{"encoding": "x=date, y=revenue"}]}',
+        parsed=None,
+    )
+
+    out = SchemaCompliance().compute([good, bad], None)
+
+    assert out["json_parse_rate"] == 100.0
+    assert out["encoding_object_rate"] == 50.0
+    assert out["n_encoding_object_valid"] == 1

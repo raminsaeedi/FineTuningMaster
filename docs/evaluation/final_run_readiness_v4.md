@@ -1,8 +1,24 @@
 # Final-Run-Readiness v4
 
-Stand: 2026-08-20. Zweck: belastbarer Go/No-Go-Plan vor dem teuren Dashboard-v4-Lauf.
+Stand: 2026-08-26. Original Go/No-Go plan created 2026-08-20.
 
-## Entscheidung
+## Current update: 2026-08-26
+
+New full-data artifacts change run inventory:
+
+- Qwen3-1.7B A: seeds 42, 43, 44 complete.
+- Qwen3-1.7B B: seeds 42, 43, 44 complete.
+- Qwen3-1.7B C: seed 42 evaluated; seeds 43 and 44 have training artifacts only.
+- Qwen3-1.7B D: seed 42 complete with C seed-42 adapter and RAG.
+- OLMo A: seeds 42, 43, 44 complete.
+- OLMo B: all seeds failed after 35/274 predictions because RAG passage headings exceeded input-token budget.
+- OLMo C/D: no results.
+
+Qwen seed-42 A-D execution is now present, but it is not thesis-ready. Strict schema validity is A 0.36%, B 1.09%, C 1.46%, and D 0%. D raw chart diagnostic is 92.78%, below C's approximately 97.0%; no C-to-D quality improvement is shown. C/D multi-seed evaluation, independent quality evaluation, confidence-interval repair, real git revision capture, and D adapter provenance cleanup remain open.
+
+OLMo A is faster than Qwen A but has much lower JSON parse and completeness. OLMo B is not a valid quality comparison until its model-specific RAG prompt-budget failure is fixed. Full comparison: [dashboard v4 Qwen/OLMo analysis](dashboard_v4_qwen3_1_7b_full_analysis.md).
+
+## Historische Entscheidung (2026-08-20)
 
 Noch kein großer Final-Run.
 
@@ -162,3 +178,31 @@ Großer Lauf erst, wenn:
 - Git-Status/Commit und Frozen-Hashes festgehalten sind.
 
 Dann ist der Code experimentbereit. Thesis-ready werden die Resultate erst nach drei Seeds, unabhängiger L1-Auswertung und Human Ratings. L3 ist nur nötig, wenn RQ1d im Claim-Scope bleibt.
+
+## Implementierungsstand 2026-08-28
+
+Code-seitig umgesetzt:
+
+- Separates striktes Generation-Schema. `encoding` muss Objekt mit nicht-leerem `x`, `y` sowie `aggregate` aus `SUM|AVG|COUNT|MIN|MAX|null` sein. Lenienter Parser für historische Artefakte bleibt unverändert.
+- Outlines-Pfad auf API 1.3 aktualisiert; Dependency exakt auf `outlines==1.3.3` fixiert. Constrained Decoding bleibt optional und verändert alte Runs nicht.
+- `schema_validity_rate` validiert jetzt dasselbe strikte Schema wie Constrained Decoding.
+- Explizite `encoding_object_rate` sowie Mapping-Metriken für `x`, `y`, `aggregate` und gemeinsamen Mapping-Treffer ergänzt. Fehlende/ungültige Vorhersagen bleiben im Nenner.
+- `json_parse_rate`-Konfidenzintervall nutzt rohe JSON-Extraktion; Pydantic-/Schemafehler werden nicht länger als JSON-Parsefehler gezählt.
+- Optionales TRL Prompt-Completion-Training über `training.sft.completion_only_loss=true`. Standard bleibt `false`, damit alte C/D-Runs reproduzierbar bleiben. Neue Loss-Variante braucht neuen Adapter und neue Run-ID.
+- RAG-Relevanzmetrik mit manuellen Qrels: Recall@3, MRR@3, nDCG@3, Query-Coverage und Anteil von drei eindeutigen Retrieval-IDs. Ohne Qrels keine erfundene Zahl; A/C werden als nicht anwendbar markiert.
+- Verbindlicher Pilot-/HPC-Plan: [Constrained Encoding and HPC Validation Protocol](constrained_encoding_hpc_protocol.md).
+
+Lokale Verifikation:
+
+- `907 passed` im vollständigen CPU-Testlauf.
+- Poetry-Lockdatei konsistent; `outlines==1.3.3` reproduzierbar fixiert.
+- A-D/Seed-42/20-Item-Matrix mit constrained Decoder, 1024 Output-Tokens, 4096 Kontext und response-only Loss erfolgreich als Dry-Run komponiert. Kein GPU-Lauf ausgeführt.
+
+Noch nicht empirisch bewiesen:
+
+- Kein GPU-Inferenzlauf mit neuem striktem Decoder wurde in dieser Änderung ausgeführt.
+- Kein response-only C-Adapter wurde trainiert.
+- Keine manuellen Retrieval-Qrels wurden erstellt.
+- Vorhandene A-D-Ergebniszahlen bleiben historische unconstrained/full-sequence Resultate.
+
+Urteil: Implementierung ist bereit für 20-Item-Test. 27B bleibt No-Go, bis 20er und 50er Gates bestanden sind. Ein erfolgreicher Format-Gate beweist nur Output-Zuverlässigkeit; fachliche Encoding-, RAG- und Dashboard-Qualität bleiben getrennte Messungen.

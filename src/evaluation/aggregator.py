@@ -118,6 +118,7 @@ def aggregate(outputs_root: str | Path, csv_path: str | Path | None = None):
 _SUMMARY_METRICS = {
     "json_parse_rate": "metrics.schema_compliance.json_parse_rate",
     "schema_validity_rate": "metrics.schema_compliance.schema_validity_rate",
+    "encoding_object_rate": "metrics.schema_compliance.encoding_object_rate",
     "completeness_score": "metrics.schema_compliance.completeness_score",
     "top_1_accuracy": "metrics.top_k_accuracy.top_1_accuracy",
     "macro_f1": "metrics.macro_f1.macro_f1",
@@ -127,6 +128,14 @@ _SUMMARY_METRICS = {
     "exact_kpi_selection": "metrics.structured_exact_match.exact_kpi_selection",
     "exact_mapping_count": "metrics.structured_exact_match.exact_mapping_count",
     "exact_encoding": "metrics.structured_exact_match.exact_encoding",
+    "encoding_x_accuracy": "metrics.structured_exact_match.encoding_x_accuracy",
+    "encoding_y_accuracy": "metrics.structured_exact_match.encoding_y_accuracy",
+    "encoding_aggregate_accuracy": (
+        "metrics.structured_exact_match.encoding_aggregate_accuracy"
+    ),
+    "encoding_mapping_exact_accuracy": (
+        "metrics.structured_exact_match.encoding_mapping_exact_accuracy"
+    ),
     "exact_aggregate": "metrics.structured_exact_match.exact_aggregate",
     "avg_latency_ms": "metrics.latency.avg_latency_ms",
     "paraphrase_accuracy": "metrics.robustness.paraphrase_accuracy",
@@ -136,6 +145,13 @@ _SUMMARY_METRICS = {
     ),
     "missing_info_schema_rate": "metrics.robustness.missing_info_schema_rate",
     "supported_claim_rate": "metrics.grounding.supported_claim_rate",
+    "retrieval_recall_at_3": "metrics.retrieval_relevance.recall_at_3",
+    "retrieval_mrr_at_3": "metrics.retrieval_relevance.mrr_at_3",
+    "retrieval_ndcg_at_3": "metrics.retrieval_relevance.ndcg_at_3",
+    "retrieval_query_coverage": "metrics.retrieval_relevance.query_coverage",
+    "retrieval_top_3_support_rate": (
+        "metrics.retrieval_relevance.top_3_retrieval_support_rate"
+    ),
 }
 
 

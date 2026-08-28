@@ -7,3 +7,8 @@ metrics:
   - macro_f1
   - latency
   - grounding        # RAG only; returns null for non-RAG methods
+  - retrieval_relevance  # RAG only; available when supervised qrels are configured
+
+# Optional human-authored JSONL labels for Recall/MRR/nDCG@3.
+# Keep null until labels exist; the metric reports available=false and invents none.
+retrieval_qrels_path: null

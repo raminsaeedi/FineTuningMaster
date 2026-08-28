@@ -10,6 +10,7 @@ from src.evaluation.metrics import (  # noqa: F401  (register on import)
     latency,
     llm_judge,
     macro_f1,
+    retrieval_relevance,
     schema_compliance,
     structured_exact_match,
     topk_accuracy,
@@ -17,5 +18,5 @@ from src.evaluation.metrics import (  # noqa: F401  (register on import)
 
 __all__ = [
     "schema_compliance", "structured_exact_match", "topk_accuracy", "macro_f1",
-    "latency", "grounding", "llm_judge",
+    "latency", "grounding", "retrieval_relevance", "llm_judge",
 ]
