@@ -114,13 +114,23 @@ fi
 VENV_PATH="${VENV_PATH:-${FTM_VENV_DIR:-}}"
 KB_CHUNKS_PATH="${KB_CHUNKS_PATH:-${FTM_KB_CHUNKS_PATH:-data/knowledge_base/chunks.jsonl}}"
 
+# Match the installed wheel to the machine. DGX Spark is ARM64 and uses the
+# CUDA 13 PyTorch wheel; x86 HPC keeps the established CUDA 12.4 default.
+if [[ -z "${TORCH_CUDA_INDEX:-}" ]]; then
+  case "$(uname -m)" in
+    aarch64|arm64) TORCH_CUDA_INDEX="cu130" ;;
+    *) TORCH_CUDA_INDEX="cu124" ;;
+  esac
+fi
+export TORCH_CUDA_INDEX
+
 # GPU selection. device_map=auto then shards across exactly these devices, so
 # one GPU per job (or a subset for a big model) is a single flag.
 if [[ -n "$GPUS" ]]; then
   export CUDA_VISIBLE_DEVICES="$GPUS"
 fi
 
-TORCH_CUDA_EXPECTED="${TORCH_CUDA_INDEX:-cu124}"
+TORCH_CUDA_EXPECTED="$TORCH_CUDA_INDEX"
 TORCH_CUDA_EXPECTED="${TORCH_CUDA_EXPECTED#cu}"
 
 run() {  # echo + execute, or only echo in --dry-run
@@ -177,7 +187,7 @@ else
   declare -a BOOTSTRAP_ARGS=()
   [[ "$CPU_OK" == 1 ]] && BOOTSTRAP_ARGS+=(--cpu-ok)
   [[ -n "$PATHS_FILE" ]] && BOOTSTRAP_ARGS+=(--paths-file "$PATHS_FILE")
-  run ./scripts/bootstrap_remote.sh "${BOOTSTRAP_ARGS[@]}"
+  run bash ./scripts/bootstrap_remote.sh "${BOOTSTRAP_ARGS[@]}"
   PY="$(venv_python_path "$PROJECT_ROOT" || true)"
   if [[ "$DRY_RUN" != 1 ]]; then
     [[ -n "$PY" ]] || die "Bootstrap did not produce ./.venv."
@@ -234,7 +244,7 @@ run "${PREFLIGHT[@]}"
 # 5. Experiments. run_experiment.sh owns the matrix, adapter dependencies,
 #    resume/cache identity and the aggregation step.
 say "experiments"
-declare -a EXPERIMENT=(./run_experiment.sh --profile final --dataset "$DATASET"
+declare -a EXPERIMENT=(bash ./run_experiment.sh --profile final --dataset "$DATASET"
                        --with-dependencies --resume)
 # Forward the same paths file, so both layers agree on every location.
 if [[ -n "$PATHS_FILE" ]]; then

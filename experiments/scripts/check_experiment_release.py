@@ -217,9 +217,10 @@ def check_cuda(report: Report, require_cuda: bool) -> None:
         report.ok("pytorch", f"{torch.__version__} (CUDA build: {build or 'none - CPU-only wheel'})")
         if not build:
             message = (
-                "CPU-only PyTorch wheel installed; QLoRA training cannot run. Reinstall the "
-                "CUDA build: poetry run pip install torch==2.6.0 "
-                "--index-url https://download.pytorch.org/whl/cu124"
+                "CPU-only PyTorch wheel installed; QLoRA training cannot run. "
+                "Run the machine-specific bootstrap script and repeat the preflight "
+                "(DGX Spark: bash scripts/bootstrap_remote.sh; x86 HPC: the same "
+                "script with its configured CUDA wheel)."
             )
             if require_cuda:
                 report.fail("cuda", message)

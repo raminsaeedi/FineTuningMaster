@@ -420,7 +420,7 @@ def _print_runtime_profile(models: list[str]) -> None:
     print(f"  GPU          : {gpu}")
     print(f"  total VRAM   : {total if total is not None else 'n/a'} bytes")
     print(f"  free VRAM    : {free if free is not None else 'n/a'} bytes")
-    print("  dtype        : auto (bf16 AMP on Ampere/Ada; fp16 AMP + fp32 LoRA on V100/P100)")
+    print("  dtype        : auto (hardware capability; GB10 resolves to bf16 AMP)")
     print("  quantization : QLoRA 4-bit NF4 for C/D")
     print("  device_map   : auto")
 

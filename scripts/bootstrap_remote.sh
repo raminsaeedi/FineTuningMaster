@@ -16,7 +16,7 @@
 #   --with-dev        Also install pytest
 #   --cpu-ok          Do not fail when no CUDA GPU is visible
 #   --python PATH     Interpreter to build the environment with
-#   TORCH_CUDA_INDEX  PyTorch wheel channel (default: cu124)
+#   TORCH_CUDA_INDEX  PyTorch wheel channel (auto: cu130 on ARM64, cu124 elsewhere)
 #   -h, --help
 
 set -euo pipefail
@@ -40,7 +40,7 @@ WITH_DEV=0
 REQUIRE_CUDA=1
 PYTHON_BIN="${PYTHON_BIN:-}"
 PATHS_FILE="${PATHS_FILE:-paths.env}"
-TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX:-cu124}"
+TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX:-}"
 
 log()  { printf '[bootstrap] %s\n' "$*"; }
 die()  { printf '[bootstrap] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -64,6 +64,21 @@ load_paths_file "$PROJECT_ROOT" "$PATHS_FILE" || exit 1
 apply_cache_paths "$PROJECT_ROOT"
 [[ -z "${PATHS_FILE_RESOLVED:-}" ]] || log "paths file: $PATHS_FILE_RESOLVED"
 [[ -z "${HF_HOME:-}" ]] || log "HF_HOME: $HF_HOME"
+
+# DGX Spark is ARM64/GB10. It needs the tested CUDA 13 wheel and a pip-based
+# bootstrap path; the Poetry/x86 path below remains unchanged for ordinary HPC
+# machines. This dispatch happens after paths.env is loaded so a machine can
+# still override its cache and virtual-environment locations.
+if [[ -z "$TORCH_CUDA_INDEX" ]]; then
+  case "$(uname -m)" in
+    aarch64|arm64) TORCH_CUDA_INDEX="cu130" ;;
+    *) TORCH_CUDA_INDEX="cu124" ;;
+  esac
+fi
+export TORCH_CUDA_INDEX
+if [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" || "$TORCH_CUDA_INDEX" == "cu130" ]]; then
+  exec bash "$PROJECT_ROOT/scripts/bootstrap_dgx_spark.sh" "$@"
+fi
 
 case "$TORCH_CUDA_INDEX" in
   cu118|cu124|cu126) ;;
