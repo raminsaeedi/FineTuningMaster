@@ -1,266 +1,268 @@
 # Chapter 2 — Background and Foundations
 
+This chapter introduces the concepts needed to understand the thesis. It first defines dashboards, key performance indicators (KPIs), and the design problem addressed in this project. It then presents the visualization principles that guide chart selection and dashboard composition. The chapter next explains analytical tasks and common chart types, followed by a short description of large language models (LLMs), Transformer-based generation, and instruction tuning. The main part of the chapter describes parameter-efficient fine-tuning (PEFT), including LoRA, QLoRA, and related methods such as AdaLoRA, DoRA, RSLoRA, and GaLore. It also explains why QLoRA is used as the main fine-tuning approach in this thesis. The final sections introduce retrieval-augmented generation (RAG) and structured LLM outputs. The chapter therefore establishes the design, modelling, and evaluation concepts used in the following chapters.
+
 ## 2.1 Dashboard Design
 
-Dashboards are compact visual interfaces that bring together indicators, charts, and controls so that users can monitor a situation, compare performance, detect changes, and support decisions. In this thesis, a dashboard is treated as more than a collection of independent charts. A useful dashboard connects user goals, key performance indicators (KPIs), data attributes, analytical tasks, visual encodings, layout, styling, and interaction choices into one coherent design.
+A dashboard is an interactive view that brings together several related measures and visual elements for monitoring, analysis, or decision support. Dashboards are not defined only by the number of charts that they contain. Their value depends on whether the displayed information supports the needs of a particular audience and decision context. Reviews of dashboard research describe dashboards as systems that combine performance information, visual displays, and interaction in order to support monitoring and management decisions (Yigitbasioglu and Velcu, 2012). More recent work also shows that recurring dashboard design problems can be described through design patterns, for example patterns for overview, comparison, filtering, and detail (Bach et al., 2023).
 
-A KPI is a measurable quantity used to represent progress or performance in relation to a goal. A KPI therefore becomes meaningful only in context: the same measure can be relevant or irrelevant depending on the user, the decision, the time horizon, and the available data. This is one reason why dashboard design cannot be reduced to a fixed chart lookup table. A good design must first understand what the user wants to know and then select appropriate visual representations.
+In this thesis, a dashboard is understood as a coordinated design rather than as a random collection of individual charts. A coherent dashboard connects the intended users, their goals, the relevant KPIs, the available data, the analytical tasks, the visual encodings, the layout, the styling, and the interactions. These elements should support the same decision context. A chart can be correct on its own and still be unsuitable when it is placed in the wrong dashboard, given too much visual emphasis, or separated from the information needed to interpret it.
 
-Visualization research has long treated visualization design as a mapping from data and analytical tasks to graphical representations. Mackinlay’s APT system formalized early ideas about automatic graphical presentation by encoding design criteria that can be used to construct effective graphical presentations (Mackinlay, 1986). Later systems such as Show Me, Voyager, Voyager 2, and Draco extended this direction by combining user intent, data types, perceptual principles, and constraint-based recommendation (Mackinlay et al., 2007; Wongsuphasawat et al., 2016, 2017; Moritz et al., 2019).
+A KPI is a measurable value used to represent progress or performance in relation to a goal. The value of a KPI depends on its context. The same measure may be useful for one user and irrelevant for another user because the decision, time period, comparison group, or available level of detail is different. A dashboard design should therefore make clear what is measured, for whom it is measured, over which period, and why the measure matters. This view also prevents a common mistake in automated design systems: treating a KPI name as enough information to choose a chart.
 
-For dashboard design, the intended user and decision context are important because they affect what information should be emphasized. An executive dashboard may emphasize a small number of high-level KPIs and deviations, while an operational dashboard may require more detailed trends, filters, and drill-down interactions. Therefore, the target of this thesis is not simply “choose a chart.” The task is to generate a structured design recommendation that explains how a dashboard brief should be translated into a coherent presentation.
+The design problem in this thesis can be described as a translation problem. A dashboard brief contains natural-language information about users and goals, KPI descriptions, data columns, and constraints. The system must translate this brief into a structured design recommendation. The recommendation does not only contain a chart type. It also contains the mapping from KPIs to analytical tasks and encodings, a dashboard layout, styling, interactions, and rationales. This formulation is related to the general visualization-design problem of mapping data and user tasks to graphical representations (Mackinlay, 1986; Munzner, 2014). Constraint-based systems such as Draco make a similar distinction by representing design knowledge as explicit constraints that can be used to rank or reject visual encodings (Moritz et al., 2019).
 
-This view is consistent with the project’s structured output schema. The generated recommendation contains a context summary, KPI-to-chart mappings, layout, styling, interactions, and short rationales. The system therefore combines elements of visualization recommendation, natural-language understanding, and structured generation.
+The project implements this design problem as structured generation. Its input is a dashboard brief with users, goals, KPIs, data columns, and constraints. Its target is a typed recommendation with the fields `context_summary`, `kpi_chart_mapping`, `layout`, `styling`, `interactions`, and `rationales`. This structure is a project-specific design contract. It is not presented as a universal definition of a dashboard. It makes the target explicit and allows the methods in the thesis to be compared on the same output interface.
 
 ### 2.1.1 Dashboards versus Individual Visualizations
 
-A single visualization usually answers a relatively focused analytical question, such as how a measure changes over time or how two variables relate. A dashboard combines several such views and must also manage relationships between them. This includes information hierarchy, visual consistency, shared filters, interaction, screen space, and the ordering of attention.
+A single visualization normally addresses a focused analytical question, such as whether a value changes over time or whether two variables are related. A dashboard combines several views and must also manage the relationships between them. These relationships include visual hierarchy, consistent scales and labels, shared filters, spatial grouping, interaction, and the amount of information shown at one time.
 
-This distinction is important for the present work. Many public NL-to-visualization datasets focus on mapping one natural-language query to one visualization. They are valuable sources for chart type, encoding, aggregation, and analytical-task supervision, but they do not directly provide complete dashboard designs. The project therefore uses source-grounded visualization data for analytical semantics while separately representing dashboard-level fields such as layout, styling, interaction, and rationale.
+This distinction matters for the present research. Many visualization datasets and systems focus on one query and one chart specification. They can provide useful examples for analytical tasks, data fields, aggregations, and encodings. They do not necessarily provide a complete dashboard with a coordinated layout, styling, interaction design, and rationale. The project therefore treats chart selection as one part of a larger recommendation. The generated object is evaluated as a structured dashboard design, not only as a single chart label.
 
 ### 2.1.2 Users, Goals, KPIs, and Data Context
 
-A dashboard brief can be viewed as a compact specification of the design problem. Four parts are especially important:
+A dashboard brief is a compact specification of the design problem. The user description identifies the intended audience and its level of expertise. The goals describe what the audience wants to understand, compare, monitor, or decide. The KPIs identify the measures that are relevant to these goals. The data context describes the available fields, their types, their possible groupings, the time dimension, and any constraints on the design. These parts should be interpreted together because none of them is sufficient on its own.
 
-1. **Users** describe the intended audience.
-2. **Goals** describe what users want to understand or decide.
-3. **KPIs** describe measurable quantities relevant to these goals.
-4. **Data context** describes the available columns, data types, filters, groupings, and other constraints.
-
-These elements reduce ambiguity. For example, “show sales” is underspecified, while “show monthly total sales by product category for a regional manager” already provides a temporal grain, aggregation, grouping dimension, and audience context. Structured generation benefits from this explicitness because the model has fewer opportunities to invent unsupported analytical assumptions.
+For example, the instruction “show sales” does not determine a good visualization. A brief such as “show monthly total sales by product category for a regional manager” gives more useful information. It identifies a time grain, an aggregation, a grouping dimension, and an audience. It can therefore support a more precise decision about the analytical task, chart type, encoding, and level of detail. Explicit context also reduces the risk that a model invents a field, a KPI, or an interaction that is not present in the input.
 
 ## 2.2 Visualization Design Principles
 
-Visualization design is guided by both empirical findings and practical heuristics. These should not be confused. Some principles are grounded in controlled perception studies, while others are conventions derived from long-term design practice.
+Visualization design is based on both empirical findings and practical design guidance. These two forms of knowledge should be kept separate. Controlled studies can provide evidence about how accurately people decode a visual encoding. Design frameworks can provide useful concepts for describing tasks, data, and interfaces. Neither type of source turns every chart choice into a universal rule. The relevant principle for this thesis is that a chart should be selected in relation to the task and the context in which it will be read.
 
 ### 2.2.1 Graphical Perception
 
-Cleveland and McGill (1984) studied how accurately people decode elementary graphical encodings. Their work showed that position along a common scale is generally judged more accurately than encodings such as area or angle. This provides an empirical basis for preferring position-based encodings when precise quantitative comparison is important.
+Cleveland and McGill (1984) studied how people judge elementary graphical quantities. Their work showed that some visual encodings support more accurate judgments than others. In particular, position along a common scale is generally judged more accurately than angle or area. This result gives a perceptual reason to prefer position- and length-based encodings when users must make precise quantitative comparisons.
 
-The broader lesson is not that one chart type is universally “best,” but that visual channels have different perceptual properties. A chart recommendation should therefore consider what comparison the user needs to make. If precise comparison is central, position and length are often strong channels. If the task is primarily composition, other encodings may be acceptable even if they are less precise.
+The result should not be interpreted as a complete ranking of all chart types. The usefulness of an encoding also depends on the task, the data distribution, the number of categories, the display size, and the user's prior knowledge. A chart recommendation should therefore ask what the user needs to compare or detect. Precision is important for some tasks, while overview, composition, or recognition may be more important for others.
 
 ### 2.2.2 Expressiveness and Effectiveness
 
-Mackinlay (1986) distinguished between expressiveness and effectiveness. A visual representation is expressive when it represents the intended information without misleading implication, and effective when it uses graphical encodings that support accurate and efficient interpretation.
+Mackinlay (1986) distinguishes between expressiveness and effectiveness. An expressive visualization represents the intended information without adding an unsupported meaning. An effective visualization uses graphical encodings that help users interpret the information accurately and efficiently. These criteria are useful for automated recommendation because a chart can be technically valid and still be a poor design choice.
 
-This distinction remains useful for automated recommendation. A chart may be technically valid but still be a poor design choice. For example, a pie chart may encode categories and values correctly, but it may be ineffective when there are many categories or when precise differences matter.
+For example, a pie chart can represent category proportions without a data error. It may nevertheless be ineffective when many categories are present or when users need to compare values that are close to one another. A bar chart may support that comparison more directly because the values can be judged by aligned positions and lengths. This example illustrates why the output of the system should include a rationale and not only a chart name.
 
 ### 2.2.3 Task–Chart Fit
 
-Visualization recommendations should be driven by analytical tasks. Saket et al. (2018) provide evidence that the effectiveness of common chart types varies by task. This supports task-aware recommendation rather than a universal ranking of charts.
+The fit between an analytical task and a chart is central to visualization design. Saket et al. (2019) show that the effectiveness of basic visualizations changes across tasks. Kim and Heer (2018) likewise show that task and data distribution can affect the effectiveness of visual encodings. These findings support a context-dependent recommendation process instead of a universal ranking such as “bar charts are always best.”
 
-Typical analytical intentions include:
-
-- comparison,
-- ranking,
-- trend,
-- distribution,
-- correlation,
-- composition or part-to-whole,
-- deviation,
-- lookup or retrieval,
-- flow or relationship.
-
-Mappings between these tasks and chart types are useful, but they are context-dependent. A line chart is often appropriate for ordered temporal trends, a bar chart for categorical comparisons, and a scatter plot for relationships between two quantitative variables. However, valid exceptions exist. For this reason, this thesis treats task–chart mappings as design guidance and source-grounded evidence, not as absolute universal laws.
+In practice, an ordered temporal trend is often represented with a line chart because connected positions make continuity and direction visible. A categorical comparison or ranking is often represented with bars because aligned lengths support comparison. A relationship between two quantitative variables is often represented with a scatter plot. These mappings are useful starting points, but they still require checks on data semantics, scale, cardinality, and the user's goal. The project consequently represents task type and chart type as explicit fields and leaves the final choice to the model under the constraints of the brief.
 
 ### 2.2.4 Visual Hierarchy and Information Density
 
-A dashboard must guide attention. Important information should be visually prominent, while secondary detail should be available without competing with primary signals. Practical techniques include grouping related views, using consistent alignment, limiting unnecessary decoration, and emphasizing the most decision-relevant KPIs.
+A dashboard must guide the user's attention. High-priority information should be easy to find, while secondary detail should remain available without competing with the main message. Visual hierarchy can be created through position, size, grouping, whitespace, contrast, and consistent alignment. The dashboard design-pattern literature describes these choices as recurring solutions to common interface problems (Bach et al., 2023).
 
-Information density also requires balance. Too little information can make a dashboard uninformative, while too much can create clutter and increase cognitive effort. In this thesis, layout recommendations are therefore part of the structured output rather than an afterthought.
+Information density requires a balance. A dashboard with too little information may not support the intended decision. A dashboard with too much information may increase search time and make important changes harder to detect. Density is therefore not simply a matter of counting charts. It also depends on the complexity of each view, the number of encodings, the amount of text, the interaction model, and the user's familiarity with the domain. In this thesis, layout and styling are part of the output because they influence how the selected charts are interpreted together.
 
 ### 2.2.5 Readability, Labels, and Scales
 
-Readable charts use clear titles, meaningful axis labels, suitable number formats, and scales that do not distort interpretation. Scale choices are especially important because visual changes can exaggerate or hide differences. Labels should use terminology understandable to the target user rather than internal database names whenever possible.
+Readable charts use titles, labels, legends, annotations, and number formats that match the target audience. Axis labels should communicate the meaning and unit of a measure. Category labels should be understandable and should not expose database names without explanation. A scale should preserve the intended comparison and should not exaggerate or hide a difference through an inappropriate axis range or transformation.
+
+Readability also depends on the available space. A design that works on a large screen may become difficult to read when several views are placed in a small dashboard. This is another reason to treat layout as a design decision rather than as a final decoration. The system should make a reasonable connection between the amount of information, the expected display, and the level of detail required by the user.
 
 ### 2.2.6 Color and Accessibility
 
-Color can encode categories, magnitude, status, or emphasis. However, excessive or inconsistent color reduces readability. Accessibility also matters: designs should not rely on color alone for critical distinctions, and text/background contrast should be sufficient for legibility. These principles are widely accepted in visualization and interface design, even though exact palette recommendations depend on the application context.
+Color can distinguish categories, show magnitude, communicate status, or draw attention to an important value. It can also create problems when too many colors are used, when similar colors are difficult to separate, or when a critical distinction is communicated only through color. The Web Content Accessibility Guidelines (WCAG) 2.2 require, among other things, that information and relationships are not communicated through color alone and that text has sufficient contrast for reading (World Wide Web Consortium, 2024).
+
+For dashboard design, this means that color should usually be supported by labels, position, shape, text, or another redundant cue. Color palettes should be selected with the audience and display conditions in mind. Accessibility is not a separate visual layer that can be added after chart selection. It can change the suitability of an encoding and should therefore be included in the recommendation and its rationale.
 
 ## 2.3 Analytical Tasks and Chart Types
 
-A useful visualization system needs a vocabulary of analytical tasks. Munzner’s visualization framework emphasizes that visualization design depends on what users need to do with data, not only on the data itself (Munzner, 2014). Natural-language visualization systems similarly attempt to infer analytical tasks before recommending charts (Narechania et al., 2021; Fu et al., 2020).
+An analytical task describes what a user wants to do with data. Brehmer and Munzner (2013) distinguish the purpose of a task from the means used to perform it and from the data involved. This distinction is useful because a column type alone does not reveal the user's intention. A date column can support a trend, a comparison between periods, a lookup, or a deviation from a target. The same field can therefore lead to different visual designs depending on the question.
 
-For this thesis, the most relevant task families are the following.
+The task vocabulary used in this thesis is informed by visualization task literature and adapted to the project's structured schema. It includes trend, comparison, composition, distribution, correlation, ranking, deviation, part-to-whole, and flow. The vocabulary is an implementation choice that makes evaluation possible. It should not be interpreted as a complete or universal taxonomy of all analytical work.
 
 ### 2.3.1 Comparison and Ranking
 
-Comparison asks how values differ between categories, while ranking focuses on ordering. Bar charts are common because aligned positions and lengths make differences easy to judge. Sorting can further support ranking tasks.
+Comparison asks how values differ between categories, groups, or periods. Ranking adds the requirement that the values should be ordered. Bar charts are common choices because the lengths share a baseline and the categories can be sorted. Grouped bars can support comparison between several series, while a table may be more appropriate when exact values are more important than visual pattern recognition. The number of categories and the available screen space can change which option is readable.
 
 ### 2.3.2 Trend
 
-Trend tasks examine change over an ordered dimension, most commonly time. Line charts are often effective because connected positions emphasize continuity and direction. Time grain matters: daily, monthly, and yearly aggregation can lead to very different interpretations.
+Trend tasks examine change along an ordered dimension, most often time. Line charts are often useful because the connected marks emphasize continuity and direction. Area charts can add a sense of volume, but overlapping or stacked areas can make individual series harder to compare. The time grain must also be considered. Daily, monthly, and yearly aggregation can show different patterns and can lead to different decisions.
 
 ### 2.3.3 Composition and Part-to-Whole
 
-Composition asks how components contribute to a total. Stacked bars, normalized stacked bars, treemaps, and in limited cases pie or donut charts may support this task. Pie charts become difficult to interpret when categories are numerous or values are close, so their use should be conservative.
+Composition tasks ask how components contribute to a total. Stacked bars can show composition across several groups, and normalized stacked bars can show relative proportions. Treemaps can use space to represent parts of a hierarchy. Pie and donut charts can be suitable for a small number of clearly different parts, but they are less suitable when categories are numerous or values are close. The choice is therefore influenced by whether the user needs to compare individual parts, inspect a total, or understand changes in composition.
 
 ### 2.3.4 Distribution
 
-Distribution tasks focus on the shape, spread, frequency, and outliers of a variable. Histograms, box plots, density plots, and related charts can support such questions. A simple bar chart may also be sufficient when the data are already aggregated into categorical frequencies.
+Distribution tasks focus on frequency, spread, shape, and outliers. Histograms can show the frequency of binned values, while box plots provide a compact view of median, spread, and possible outliers. Density plots can show the shape of a distribution when the display and audience support that level of detail. A categorical bar chart may be enough when the input already contains aggregated frequencies. The data representation and the intended question must be checked before selecting the chart.
 
 ### 2.3.5 Correlation and Relationship
 
-Scatter plots are a standard representation when the task is to inspect the relationship between two quantitative variables. This assumes that both axes have meaningful quantitative semantics. Identifier-like fields should not be treated as measurements simply because they are stored as numbers.
+Correlation or relationship tasks examine how two or more variables change together. A scatter plot is a standard choice for two quantitative variables because each observation can be represented by a position in a two-dimensional coordinate system. Additional encodings may show groups or a third variable, but they also increase visual complexity. Identifier-like fields should not be treated as measurements only because they are stored as numbers.
 
 ### 2.3.6 Deviation
 
-Deviation focuses on difference from a reference, target, baseline, or zero. Diverging bars, variance indicators, and annotated line charts may be useful depending on the context.
+Deviation tasks focus on the difference from a reference value, target, baseline, or zero. A diverging bar chart can show positive and negative differences, while an annotated line chart can show when a measure moves above or below a target. KPI cards can provide a compact status view when the deviation itself is the primary message. The reference must be explicit; otherwise, the viewer cannot determine what the displayed difference means.
 
 ### 2.3.7 Flow and Network Relationships
 
-Flow tasks concern movement between categories, stages, or entities. Sankey diagrams, node-link diagrams, and flow maps can be appropriate, although these structures are outside the main chart families represented in the project’s current source dataset.
+Flow tasks concern movement between stages, categories, or entities. Sankey diagrams can represent quantities moving between connected nodes, and node-link diagrams can represent relationships in a network. These charts can be useful when the connections are the main subject of analysis, but they can become difficult to read as the number of nodes and links grows. In the current project, flow is part of the task vocabulary, while the available training and evaluation data determine how often this task can be assessed.
 
-Overall, task-to-chart mapping should be interpreted as a constrained design decision rather than a deterministic rule. This distinction is important because the thesis evaluates whether LLM-based methods can produce context-aware recommendations rather than memorize a fixed lookup table.
+These examples are literature-informed design guidance, not fixed rules. A line chart is not automatically correct for every temporal field, and a bar chart is not automatically correct for every comparison. A final recommendation should take the user's goal, the data semantics, the number of values, accessibility, and dashboard context into account. This distinction is important for the thesis because the system is evaluated on context-aware structured recommendations rather than on memorization of a chart lookup table.
 
 ## 2.4 Large Language Models
 
-Large language models are neural language models trained on large text corpora to predict and generate sequences of tokens. Modern LLMs are largely based on the Transformer architecture introduced by Vaswani et al. (2017). Transformers replace recurrence with self-attention, allowing each token representation to incorporate information from other positions in the sequence.
+Large language models are neural models that learn statistical patterns in sequences of tokens and use those patterns to generate text. Modern LLMs are commonly based on the Transformer architecture introduced by Vaswani et al. (2017). The model receives a sequence of tokens, represents their relationships, and predicts a continuation. In this thesis, the LLM is used as a conditional generator: it receives a dashboard brief and produces a structured design recommendation.
 
 ### 2.4.1 Transformer Architecture
 
-The central mechanism is attention. In simplified form, a token representation is transformed into query, key, and value vectors. Attention weights are computed from query–key similarity, and these weights determine how value vectors are combined. Multi-head attention allows a model to learn several interaction patterns in parallel.
+The main operation in a Transformer is self-attention. In simplified form, each token representation is transformed into a query, a key, and a value. The similarity between a query and the keys determines how strongly the corresponding values contribute to the updated representation. Multi-head attention allows the model to learn several types of relationships in parallel. Transformer blocks also contain feed-forward layers, residual connections, and normalization.
 
-Transformer blocks also contain feed-forward layers, residual connections, and normalization. Decoder-only LLMs generate text autoregressively: each next token is predicted from the previously generated context.
+The thesis does not require a mathematical treatment of every Transformer component. The important point is that self-attention allows a model to condition its output on different parts of the input sequence. A dashboard brief can therefore contain user information, goals, KPIs, data columns, and constraints in the same context. The model can use these elements when generating a recommendation, but the architecture alone does not guarantee that the recommendation is correct or that it follows the available data.
 
-For this thesis, the most important consequence is that an LLM can condition on a structured dashboard brief and generate a multi-field recommendation. However, the model does not inherently guarantee that all fields are correct, grounded, or valid JSON.
+### 2.4.2 Autoregressive Generation
 
-### 2.4.2 Instruction Following
+Decoder-only LLMs usually generate text autoregressively. At each step, the model predicts a probability distribution for the next token based on the tokens that have already been provided or generated. The selected token is appended to the context, and generation continues until a stopping condition is reached. Sampling settings can change the output, which is relevant when the same prompt is evaluated under different methods or random seeds.
 
-Instruction-tuned models are adapted to respond to natural-language instructions rather than only continue text. This makes them suitable for tasks such as structured extraction, recommendation, and JSON generation. Prompt-only systems rely primarily on this general instruction-following capability.
+Autoregressive generation is flexible because the output can contain several related fields instead of one classification label. It also creates failure modes. A model can stop too early, repeat content, omit a field, or generate text that looks plausible but is unsupported by the input. These failures motivate the use of explicit output constraints and separate validation steps later in the thesis.
 
-### 2.4.3 Limitations and Hallucination
+### 2.4.3 Instruction Tuning
 
-LLMs can produce plausible but unsupported content. In this thesis, hallucination includes inventing a field, KPI, filter, chart change, or design claim that is not supported by the dashboard brief or source evidence. This is particularly important because a syntactically valid output can still be semantically wrong.
+Instruction tuning adapts a pretrained language model using examples in which tasks are described through natural-language instructions. Wei et al. (2022) show that instruction tuning can improve performance on tasks that were not included in the same form during training. The method is important for this thesis because a dashboard brief is expressed as an instruction rather than as a fixed classification input.
 
-The project therefore separates structural validity from semantic correctness. JSON parsing and schema compliance are necessary, but they do not by themselves prove that a recommendation is useful or source-faithful.
+Instruction tuning should not be confused with a guarantee of domain expertise. An instruction-tuned model may follow the requested format while still making a poor chart choice or inventing a field. Prompt-only generation therefore provides a useful baseline for measuring how much of the task can be solved from the pretrained and instruction-tuned model without retrieval or task-specific adapter training.
+
+### 2.4.4 Limitations and Hallucination
+
+LLMs can produce fluent statements that are not supported by the input or by an external source. The literature commonly refers to this problem as hallucination in natural-language generation (Ji et al., 2023). In the present use case, a hallucination can be an invented data column, an unsupported KPI, an interaction that is not possible with the given data, or a rationale that cites a principle without applying it to the current brief.
+
+A syntactically valid JSON object does not remove this problem. It only means that the output can be parsed according to a format. The project therefore separates structural validity from semantic correctness and grounding. These distinctions are needed when comparing prompt-only, RAG, fine-tuned, and combined methods.
 
 ## 2.5 Parameter-Efficient Fine-Tuning
 
-Full fine-tuning updates all model parameters. For modern LLMs, this can require large GPU memory and storage. Parameter-efficient fine-tuning (PEFT) instead adapts a relatively small subset of parameters while keeping most pretrained weights fixed.
+Full fine-tuning updates all trainable parameters of a pretrained model for a downstream task. This can be expensive for LLMs because the optimizer must maintain additional states and because a separate model copy may be needed for each task. PEFT reduces this cost by keeping most pretrained parameters fixed and learning only a small task-specific component. Adapter-based transfer learning established this general idea by inserting small trainable modules while sharing the original model parameters across tasks (Houlsby et al., 2019).
+
+PEFT is especially relevant when a study compares several models, methods, or random seeds. The learned task-specific component can be stored separately from the base model, and the same base model can be reused across conditions. This reduces storage and makes the intervention easier to describe. It does not mean that PEFT is always as accurate as full fine-tuning. The result depends on the task, the data, the model, and the chosen PEFT method.
 
 ### 2.5.1 LoRA
 
-Low-Rank Adaptation (LoRA) was introduced by Hu et al. (2021). Instead of directly updating a full weight matrix, LoRA learns a low-rank update. If a pretrained weight matrix is \(W\), the adapted transformation can be written conceptually as:
+Low-Rank Adaptation (LoRA) learns a low-rank update to selected weight matrices while keeping the pretrained weights frozen (Hu et al., 2022). Let \(W_0\) be a pretrained weight matrix. A LoRA update can be written as
 
 \[
-W' = W + BA
+W' = W_0 + \frac{\alpha}{r}BA,
 \]
 
-where \(A\) and \(B\) are small trainable matrices whose rank is much lower than the original matrix dimensions.
+where \(A \in \mathbb{R}^{r \times d*{\mathrm{in}}}\) and \(B \in \mathbb{R}^{d*{\mathrm{out}} \times r}\) are trainable matrices, \(r\) is the adapter rank, and \(\alpha\) is a scaling factor. The rank \(r\) is chosen to be much smaller than the dimensions of the original matrix. During training, \(W_0\) is frozen and only \(A\) and \(B\) are updated.
 
-The pretrained weights remain frozen. This reduces the number of trainable parameters and makes it practical to store separate adapters for different tasks. Hu et al. report that LoRA can achieve performance comparable to full fine-tuning while using far fewer trainable parameters.
+This factorization reduces the number of trainable parameters and allows a task-specific adapter to be saved without copying the entire base model. It also defines a clear experimental intervention: the base model remains the same, while the learned low-rank update changes the model's behaviour for the target task. LoRA was originally evaluated in several language-model settings, but its performance is not independent of rank, target modules, data, and training configuration.
 
 ### 2.5.2 QLoRA
 
-QLoRA extends this idea by combining LoRA with low-bit quantization (Dettmers et al., 2023). The base model is stored in 4-bit precision while gradients are propagated to LoRA adapters. The method introduced techniques such as NormalFloat4 (NF4), double quantization, and paged optimizers to reduce memory use.
+QLoRA combines LoRA with low-bit storage of the frozen base model (Dettmers et al., 2023). The base weights are stored in a 4-bit representation and are dequantized for the computation needed during forward and backward passes. The gradients are used to update the LoRA adapters rather than the quantized base weights. QLoRA therefore does not mean that the adapter itself is trained as a 4-bit copy of the model; the important distinction is between the frozen quantized base and the trainable adapter parameters.
 
-For this thesis, QLoRA is important because it enables experiments with larger open models on limited GPU resources. It also makes multi-seed experiments more feasible than full-parameter fine-tuning.
+The method introduces several techniques to reduce memory use. NormalFloat4 (NF4) is used for the quantized base weights, double quantization reduces the storage needed for quantization constants, and paged optimizers help manage memory peaks during training. The original QLoRA paper reports that this combination can make fine-tuning much larger models possible on a single GPU while retaining strong task performance. Those reported results motivate the method, but they are not a guarantee for every model, dataset, or hardware setup.
 
-### 2.5.3 Relevance to This Thesis
+QLoRA is therefore best understood as a resource-aware implementation of low-rank adaptation. It retains the parameter-sharing and adapter-storage properties of LoRA while lowering the memory required to load the frozen base model. Quantization can also introduce approximation effects, and the final outcome remains sensitive to rank, learning rate, sequence length, data quality, and hardware precision.
 
-Fine-tuning is expected to help the model learn:
+### 2.5.3 Why PEFT for This Thesis
 
-- the project’s output schema,
-- recurring dashboard-design structures,
-- task and chart vocabulary,
-- relations between goals, KPIs, and encodings,
-- style and interaction conventions represented in the training data.
+The research task has three properties that support a PEFT design. First, the target is a structured recommendation task rather than the training of a new language model. The model must learn a project-specific mapping from a dashboard brief to a multi-field design object. Second, the study compares separate interventions, including prompt-only generation, retrieval, fine-tuning, and fine-tuning with retrieval. Third, the project is intended to run several model and seed conditions under finite GPU memory and storage. PEFT addresses these properties by keeping the base model reusable and by representing the task-specific intervention as a separate adapter. The decision is therefore supported by both the transfer-learning literature and the experimental design of this thesis.
 
-However, fine-tuning does not automatically guarantee better factual grounding. This motivates comparing fine-tuning both with and without retrieval.
+#### Other PEFT and Memory-Efficient Fine-Tuning Algorithms
+
+LoRA and QLoRA are part of a larger family of adaptation methods. Adapter tuning adds small bottleneck modules to the network while leaving the original parameters fixed (Houlsby et al., 2019). Prefix tuning learns continuous task-specific vectors that are treated as virtual tokens in the Transformer's activations (Li and Liang, 2021). Prompt tuning is a simpler related approach that learns soft prompt embeddings and conditions a frozen model through those embeddings (Lester et al., 2021). These methods store a small task-specific component, but they modify different parts of the computation than LoRA.
+
+Sparse methods update only a selected subset of existing parameters. BitFit, for example, updates bias terms while keeping the remaining Transformer parameters fixed (Ben Zaken et al., 2022). IA3 instead learns vectors that rescale internal activations in attention and feed-forward blocks (Liu et al., 2022). These methods can use very few trainable parameters, but their restricted update structure may or may not be sufficient for a task that requires changes to chart selection, layout, styling, and rationale generation at the same time.
+
+Several methods change how the low-rank budget is allocated or how the update is scaled. AdaLoRA allocates different ranks to different weight matrices according to their estimated importance (Zhang et al., 2023). DoRA decomposes a weight into magnitude and direction and uses LoRA for the directional update (Liu et al., 2024). Its purpose is to reduce the gap between low-rank adaptation and full fine-tuning by giving the update a separate magnitude component. Rank-Stabilized LoRA (RSLoRA) changes the scaling of the low-rank update from a form based on \(\alpha/r\) to a form based on \(\alpha/\sqrt{r}\), with the goal of improving stability at higher ranks (Kalajdzievski, 2023). These methods address different limitations of standard LoRA; they should not be treated as interchangeable names for the same algorithm.
+
+GaLore takes a different approach. It projects gradients into a low-rank subspace to reduce optimizer memory while still allowing full-parameter learning (Zhao et al., 2024). Because the model parameters are not frozen in the same way as in LoRA, GaLore is a memory-efficient full-parameter training strategy rather than a PEFT method in the strict sense. This distinction matters for experimental interpretation: a GaLore comparison changes both the adaptation mechanism and the set of parameters that can be updated.
+
+The project contains configuration support for QLoRA, DoRA, RSLoRA, and an optional GaLore training path. These alternatives are useful for ablation studies because they represent different resource and update assumptions. The main experimental comparison, however, uses QLoRA for the fine-tuned condition and combines the resulting adapter with RAG in the combined condition. Keeping this main matrix fixed makes it possible to interpret the effect of retrieval separately from the effect of task-specific adaptation. The alternatives are not presented as universally better methods; their suitability must be tested on the same data and evaluation protocol.
+
+### 2.5.4 Why QLoRA for This Thesis
+
+QLoRA is selected as the main PEFT method because it combines the low-rank task update with a quantized frozen base model. This combination is directly relevant to the resource constraint of the project. The 4-bit base loading, NF4 representation, double quantization, and paged optimizer techniques reduce the memory needed during training, while the LoRA adapter keeps the learned task component small and separable (Dettmers et al., 2023). This makes the planned comparison of models, methods, and seeds more feasible than a full-parameter training setup under the same hardware budget. The claim is a feasibility and experimental-control argument; it is not a claim that QLoRA is the best fine-tuning algorithm for all tasks.
+
+QLoRA also supports a clean comparison between the main conditions. Method A uses the base model with the shared prompt. Method B adds retrieved context without an adapter. Method C adds a QLoRA adapter to the base model. Method D reuses the compatible adapter from Method C and adds the same retrieval procedure used by Method B. This factorization makes the intended comparison explicit: retrieval is an inference-time source of context, while QLoRA changes the learned parameters. Reusing an adapter with the same seed for C and D removes one unnecessary source of variation.
+
+The alternative methods remain scientifically relevant. DoRA may change the capacity of the low-rank update by separating magnitude and direction. RSLoRA changes the rank scaling and is relevant when different ranks are compared. AdaLoRA changes the distribution of the parameter budget, and GaLore changes the memory strategy while allowing full-parameter learning. Choosing one of these methods as the main intervention would answer a different research question or introduce a different control problem. They are therefore better treated as optional ablations in this thesis unless the experimental plan is expanded explicitly.
+
+The choice also has limitations. QLoRA can be sensitive to quantization settings, adapter rank, target modules, learning rate, sequence length, and the quality of the supervision. A small adapter may reproduce the formatting and recurring patterns of the training data without learning a robust design principle. In addition, the project-specific training data may contain regularities that make internal diagnostic scores look strong without proving dashboard quality. These limitations motivate the separate evaluation of format, chart and encoding behaviour, grounding, robustness, and usefulness in human evaluation.
 
 ## 2.6 Retrieval-Augmented Generation
 
-Retrieval-Augmented Generation (RAG) combines a generative model with an external knowledge source. Lewis et al. (2020) introduced a general RAG architecture in which a model retrieves relevant documents from non-parametric memory and conditions generation on them.
+Retrieval-Augmented Generation (RAG) combines a generative model with an external knowledge source. Lewis et al. (2020) describe RAG as a framework in which a generator conditions its output on information retrieved from non-parametric memory in addition to its learned parameters. The central idea is that information needed for a response does not have to be stored only in the model weights. It can be selected from a collection of documents at inference time.
 
-A typical RAG pipeline contains:
+A typical RAG pipeline starts with a document or guideline corpus. The documents are cleaned and divided into passages, and the passages are stored in an index. For a new input, a retriever scores the passages and selects a small set of candidates. These passages are inserted into the model context together with the original user input. The LLM then generates an answer conditioned on both sources. Each step affects the final result: missing documents, poor chunk boundaries, an unsuitable query, or irrelevant retrieved passages can reduce the usefulness of the generated answer (Lewis et al., 2020).
 
-1. a document or guideline corpus,
-2. preprocessing and chunking,
-3. an index,
-4. a retrieval method,
-5. selection of the top-\(k\) passages,
-6. insertion of the retrieved passages into the generation context.
+The current project uses a small, repository-local collection of visualization guidance and a lexical retrieval procedure. This choice is appropriate for a controlled experiment because the corpus can be inspected, versioned, and kept constant across runs. It also makes the retrieved evidence visible in the run artifacts. The use of a simple retriever is not a claim that lexical retrieval is universally superior to dense retrieval. It is a controlled implementation decision for testing whether explicit design guidance changes the generated recommendation.
 
-### 2.6.1 Sparse and Dense Retrieval
+### 2.6.1 RAG and Fine-Tuning as Different Interventions
 
-Sparse retrieval methods, such as TF-IDF or BM25, rely mainly on lexical overlap. They are transparent and inexpensive but can miss semantic matches that use different wording.
+Fine-tuning and RAG add information to a model in different ways. Fine-tuning changes model parameters and can teach recurring task formats, domain patterns, and output behaviour. RAG leaves the base parameters unchanged during inference and supplies explicit context for the current input. The two mechanisms can therefore complement each other, but they can also fail differently. A fine-tuned model may learn a useful pattern but apply it incorrectly, while a RAG system may retrieve the right passage but fail to use it in the final answer.
 
-Dense retrieval uses learned vector embeddings and similarity in embedding space. It can capture semantic similarity beyond exact terms, but it introduces additional models and implementation complexity.
+This distinction motivates the A/B/C/D design of the thesis. The prompt-only condition provides a base reference. The RAG condition tests the addition of retrieved guidance. The fine-tuned condition tests the addition of a QLoRA adapter. The combined condition tests whether retrieval remains useful after task-specific adaptation. The comparison is meaningful only when the prompt construction, model, generation settings, corpus, retriever, and adapter provenance are controlled as described in the methods chapter.
 
-The retrieval method is only one part of RAG quality. Poorly chosen or poorly chunked source documents can produce irrelevant context even with a strong retriever.
+### 2.6.2 RAG Limitations and Grounding
 
-### 2.6.2 RAG for Dashboard Design Guidance
+RAG does not guarantee that an answer is grounded. A relevant passage may be absent from the corpus, or retrieval may return an irrelevant passage. The model may ignore a relevant passage, combine several passages incorrectly, or add an unsupported claim. A response can also mention retrieved concepts without applying them to the actual data columns and goals in the brief.
 
-In this thesis, RAG is used to provide external visualization-design knowledge during inference. Relevant passages may describe chart-selection principles, labeling, color use, hierarchy, or accessibility.
-
-The motivation is complementary to fine-tuning:
-
-- fine-tuning changes model behavior through learned parameters;
-- RAG provides explicit information at inference time.
-
-The A/B/C/D experimental design therefore isolates these two mechanisms.
-
-### 2.6.3 RAG Limitations
-
-Retrieval can fail in several ways:
-
-- the relevant guideline is missing from the corpus;
-- retrieval selects irrelevant passages;
-- context is relevant but the LLM ignores it;
-- the model combines retrieved evidence incorrectly;
-- the answer appears grounded but contains unsupported claims.
-
-Therefore, RAG should not be evaluated only by output fluency. Retrieval quality and grounding must also be considered.
+For this reason, retrieval availability and retrieval usefulness should be reported separately. The project records retrieved passages and evaluates grounding as a separate dimension. A grounding score should be interpreted as evidence about support for claims under the chosen corpus and metric. It should not be treated as a complete measure of visual-design quality or as proof that RAG improves every recommendation (Lewis et al., 2020).
 
 ## 2.7 Structured LLM Outputs
 
-Many software applications require machine-readable output rather than free-form text. JSON is common because it can be parsed, validated, and integrated with downstream systems.
+Many applications cannot use free-form text directly. They require an output that can be parsed and passed to another software component. JSON is widely used for this purpose because it represents nested objects and arrays in a machine-readable format. A structured output contract makes the expected interface explicit, but it does not make the content automatically correct.
 
-### 2.7.1 Schema-Based Generation
+### 2.7.1 JSON Schema and Schema-Constrained Generation
 
-A schema specifies the required fields, field types, and sometimes enumerated values. For this thesis, the output schema allows automatic checks such as:
+A JSON Schema describes the expected structure of a JSON instance. It can specify property names, data types, required fields, arrays, nested objects, and allowed values. The JSON Schema Draft 2020-12 specification defines the vocabulary and validation rules used to describe such instances (JSON Schema, 2022). A schema can therefore be used after generation to check whether an output is structurally valid.
 
-- whether valid JSON was generated,
-- whether required sections are present,
-- whether chart and task types use accepted values,
-- whether nested fields are structurally valid.
+Schema-constrained generation applies these restrictions during decoding or through a generation library so that the model is less likely to produce invalid structures. Post-hoc validation applies the schema after the model has generated text. The two approaches are related but not identical. Constrained decoding can reduce syntax errors, while post-hoc validation remains necessary when the output is produced by an unconstrained model or when application-specific semantic checks are required.
 
-Structured-output research has shown that constrained decoding can strongly improve syntactic validity, but syntactic validity should be separated from semantic correctness. Recent benchmarks such as JSONSchemaBench explicitly evaluate both coverage of schema constraints and output quality (Geng et al., 2025).
+Recent work on structured generation, including JSONSchemaBench, evaluates structured-output systems across many real-world schemas and separates schema coverage, efficiency, and output quality (Geng et al., 2025). This distinction is important for the thesis. A system can satisfy the formal shape of a schema while producing a chart type that does not fit the task or a rationale that is not supported by the brief.
 
-### 2.7.2 Parsing and Validation
+### 2.7.2 Parsing, Validation, and Semantic Correctness
 
-A robust system should distinguish at least three cases:
+The evaluation should distinguish between an output that cannot be parsed, an output that parses but violates the schema, and an output that is schema-valid but semantically incorrect. The first case is a generation or parsing failure. The second case is a structural failure. The third case is a content failure that requires task-specific checks or human judgment.
 
-1. output cannot be parsed,
-2. output parses but violates the schema,
-3. output is schema-valid but semantically incorrect.
+In this project, the typed models in `src/core/schemas.py` define the expected recommendation object and the parser records failures. The prompt also restricts task and chart values to the project's controlled vocabulary. These checks make the output comparable across methods, but they do not prove that the model selected a good chart, used an available column, or gave a useful rationale. Those questions require additional evaluation layers.
 
-This separation is essential in the thesis evaluation. A model that produces 100% valid JSON may still recommend the wrong chart or invent unsupported interactions.
+### 2.7.3 Structured Outputs in This Thesis
 
-### 2.7.3 Why Structured Output Matters Here
+The target of the thesis is a structured dashboard recommendation, not an open-ended design essay. The six top-level fields provide a stable interface for comparing prompt-only generation, RAG, QLoRA fine-tuning, and the combined condition. They also make it possible to evaluate different aspects separately: chart and encoding choices, layout and styling, interactions, rationales, and structural validity.
 
-The thesis does not aim to produce open-ended design commentary. The target is a structured dashboard recommendation that can be evaluated consistently and potentially consumed by software. This design choice enables reproducible automatic evaluation and makes the comparison between prompting, RAG, fine-tuning, and fine-tuning+RAG clearer.
-
-## 2.8 Chapter Summary
-
-This chapter introduced the concepts needed for the remainder of the thesis. Dashboard design was framed as the translation of user goals, KPIs, data context, and analytical tasks into coordinated visual and interactive decisions. Visualization research provides empirical and heuristic guidance for graphical perception, task–chart fit, hierarchy, readability, and accessibility. Large language models offer a flexible mechanism for generating such recommendations, but they require controls for structure and grounding. LoRA and QLoRA enable efficient adaptation, while RAG provides access to explicit external knowledge. Finally, structured output and schema validation provide the technical basis for reproducible evaluation.
-
-The next chapter reviews prior work that addresses these components and explains how the present thesis is positioned relative to visualization recommendation, NL-to-visualization systems, modern LLM-based chart generation, fine-tuning, RAG, and structured-output evaluation.
+The schema should therefore be understood as an interface contract. It controls how the recommendation is represented and how it can be evaluated or consumed by software. It does not replace visualization knowledge, retrieval evidence, or human assessment. This separation between structure and meaning is carried into the evaluation and results chapters.
 
 ---
 
 ## References Used in Chapter 2
 
+Bach, B., Freeman, E., Abdul-Rahman, A., Turkay, C., Khan, S., Fan, Y., & Chen, M. (2023). Dashboard design patterns. _IEEE Transactions on Visualization and Computer Graphics, 29_(1), 342–352. https://doi.org/10.1109/TVCG.2022.3209448
+
+Ben Zaken, E., Goldberg, Y., & Ravfogel, S. (2022). BitFit: Simple parameter-efficient fine-tuning for Transformer-based masked language-models. In _Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers)_, 1–9. https://doi.org/10.18653/v1/2022.acl-short.1
+
+Brehmer, M., & Munzner, T. (2013). A multi-level typology of abstract visualization tasks. _IEEE Transactions on Visualization and Computer Graphics, 19_(12), 2376–2385. https://doi.org/10.1109/TVCG.2013.124
+
 Cleveland, W. S., & McGill, R. (1984). Graphical perception: Theory, experimentation, and application to the development of graphical methods. _Journal of the American Statistical Association, 79_(387), 531–554. https://doi.org/10.1080/01621459.1984.10478080
 
-Dettmers, T., Pagnoni, A., Holtzman, A., & Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. _Advances in Neural Information Processing Systems, 36_. https://arxiv.org/abs/2305.14314
+Dettmers, T., Pagnoni, A., Holtzman, A., & Zettlemoyer, L. (2023). QLoRA: Efficient finetuning of quantized LLMs. _Advances in Neural Information Processing Systems, 36_, 10088–10115. https://doi.org/10.52202/075280-0441
 
-Geng, S., Cooper, H., Moskal, M., Jenkins, S., Berman, J., Ranchin, N., West, R., Horvitz, E., & Nori, H. (2025). Generating structured outputs from language models: Benchmark and studies. arXiv:2501.10868. https://arxiv.org/abs/2501.10868
+Geng, S., Cooper, H., Moskal, M., Jenkins, S., Berman, J., Ranchin, N., West, R., Horvitz, E., & Nori, H. (2025). JSONSchemaBench: A rigorous benchmark of structured outputs for language models. arXiv preprint arXiv:2501.10868. https://arxiv.org/abs/2501.10868
 
-Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2021). LoRA: Low-rank adaptation of large language models. arXiv:2106.09685. https://arxiv.org/abs/2106.09685
+Houlsby, N., Giurgiu, A., Jastrzebski, S., Morrone, B., De Laroussilhe, Q., Gesmundo, A., Attariyan, M., & Gelly, S. (2019). Parameter-efficient transfer learning for NLP. In _Proceedings of the 36th International Conference on Machine Learning_ (Vol. 97, pp. 2790–2799). PMLR. https://proceedings.mlr.press/v97/houlsby19a.html
 
-Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W.-t., Rocktäschel, T., Riedel, S., & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. _Advances in Neural Information Processing Systems, 33_. https://arxiv.org/abs/2005.11401
+Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., & Chen, W. (2022). LoRA: Low-rank adaptation of large language models. In _International Conference on Learning Representations_. https://arxiv.org/abs/2106.09685
+
+Ji, Z., Lee, N., Frieske, R., Yu, T., Su, D., Xu, Y., Ishii, E., Bang, Y., Madotto, A., & Fung, P. (2023). Survey of hallucination in natural language generation. _ACM Computing Surveys, 55_(12), Article 248, 1–38. https://doi.org/10.1145/3571730
+
+JSON Schema. (2022). _JSON Schema Draft 2020-12_. https://json-schema.org/draft/2020-12
+
+Kalajdzievski, D. (2023). A rank stabilization scaling factor for fine-tuning with LoRA. arXiv preprint arXiv:2312.03732. https://arxiv.org/abs/2312.03732
+
+Kim, Y., & Heer, J. (2018). Assessing effects of task and data distribution on the effectiveness of visual encodings. _Computer Graphics Forum, 37_(3), 157–167. https://doi.org/10.1111/cgf.13409
+
+Lester, B., Al-Rfou, R., & Constant, N. (2021). The power of scale for parameter-efficient prompt tuning. In _Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing_, 3045–3059. https://doi.org/10.18653/v1/2021.emnlp-main.243
+
+Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Küttler, H., Lewis, M., Yih, W.-T., Rocktäschel, T., Riedel, S., & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. _Advances in Neural Information Processing Systems, 33_, 9459–9474. https://arxiv.org/abs/2005.11401
+
+Li, X. L., & Liang, P. (2021). Prefix-tuning: Optimizing continuous prompts for generation. In _Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers)_, 4582–4597. https://doi.org/10.18653/v1/2021.acl-long.353
+
+Liu, H., Tam, D., Muqeeth, M., Mohta, J., Huang, T., Bansal, M., & Raffel, C. A. (2022). Few-shot parameter-efficient fine-tuning is better and cheaper than in-context learning. _Advances in Neural Information Processing Systems, 35_, 1950–1965. https://doi.org/10.52202/068431-0142
+
+Liu, S.-Y., Wang, C.-Y., Yin, H., Molchanov, P., Wang, Y.-C. F., Cheng, K.-T., & Chen, M.-H. (2024). DoRA: Weight-decomposed low-rank adaptation. In _Proceedings of the 41st International Conference on Machine Learning_ (Vol. 235, pp. 32100–32121). PMLR. https://proceedings.mlr.press/v235/liu24bn.html
 
 Mackinlay, J. (1986). Automating the design of graphical presentations of relational information. _ACM Transactions on Graphics, 5_(2), 110–141. https://doi.org/10.1145/22949.22950
 
@@ -268,12 +270,16 @@ Moritz, D., Wang, C., Nelson, G. L., Lin, H., Smith, A. M., Howe, B., & Heer, J.
 
 Munzner, T. (2014). _Visualization Analysis and Design_. CRC Press. https://doi.org/10.1201/b17511
 
-Narechania, A., Srinivasan, A., & Stasko, J. (2021). NL4DV: A toolkit for generating analytic specifications for data visualization from natural language queries. _IEEE Transactions on Visualization and Computer Graphics_. https://doi.org/10.1109/TVCG.2020.3030378
+Saket, B., Endert, A., & Demiralp, C. (2019). Task-based effectiveness of basic visualizations. _IEEE Transactions on Visualization and Computer Graphics, 25_(7), 2505–2512. https://doi.org/10.1109/TVCG.2018.2829750
 
-Saket, B., Endert, A., & Stasko, J. (2018). Task-based effectiveness of basic visualizations. _IEEE Transactions on Visualization and Computer Graphics_. https://doi.org/10.1109/TVCG.2018.2865020
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. _Advances in Neural Information Processing Systems, 30_, 5998–6008. https://arxiv.org/abs/1706.03762
 
-Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. _Advances in Neural Information Processing Systems, 30_. https://arxiv.org/abs/1706.03762
+Wei, J., Bosma, M., Zhao, V. Y., Guu, K., Yu, A. W., Lester, B., Du, N., Dai, A. M., & Le, Q. V. (2022). Finetuned language models are zero-shot learners. In _International Conference on Learning Representations_. https://arxiv.org/abs/2109.01652
 
-Wongsuphasawat, K., Moritz, D., Anand, A., Mackinlay, J., Howe, B., & Heer, J. (2016). Voyager: Exploratory analysis via faceted browsing of visualization recommendations. _IEEE Transactions on Visualization and Computer Graphics, 22_(1), 649–658.
+World Wide Web Consortium (W3C). (2024). _Web Content Accessibility Guidelines (WCAG) 2.2_. https://www.w3.org/TR/WCAG22/
 
-Wongsuphasawat, K., Qu, Z., Moritz, D., Chang, R., Ouk, F., Anand, A., Mackinlay, J., Howe, B., & Heer, J. (2017). Voyager 2: Augmenting visual analysis with partial view specifications. _CHI 2017_. https://doi.org/10.1145/3025453.3025768
+Yigitbasioglu, O. M., & Velcu, O. (2012). A review of dashboards in performance management: Implications for design and research. _International Journal of Accounting Information Systems, 13_(1), 41–59. https://doi.org/10.1016/j.accinf.2011.08.002
+
+Zhang, Q., Chen, M., Bukharin, A., Karampatziakis, N., He, P., Cheng, Y., Chen, W., & Zhao, T. (2023). AdaLoRA: Adaptive budget allocation for parameter-efficient fine-tuning. In _International Conference on Learning Representations_. https://arxiv.org/abs/2303.10512
+
+Zhao, J., Zhang, Z., Chen, B., Wang, Z., Anandkumar, A., & Tian, Y. (2024). GaLore: Memory-efficient LLM training by gradient low-rank projection. In _Proceedings of the 41st International Conference on Machine Learning_ (Vol. 235, pp. 61121–61143). PMLR. https://proceedings.mlr.press/v235/zhao24s.html
