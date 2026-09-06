@@ -366,6 +366,77 @@ computation. Inference loads a model and is not metrics-only work.
 Inference is cached per item. Re-running same command fills missing items
 instead of discarding completed predictions.
 
+### L1. Batched inference (optional, off by default)
+
+Applies to inference for A, B, C (after the adapter is loaded) and D.
+
+**Default safe mode.** Inference generates one item per `generate` call
+(`batch_size = 1`). This is the regime every existing result was produced under.
+No command changes, no config changes, and the composed config — and therefore
+`config_hash` — is byte-identical to before the feature existed. Nothing needs
+to be set to stay here.
+
+**Optional batch mode.** Batching is configured under the method's existing
+`inference` group and requires two keys, because one of them is an
+acknowledgement:
+
+```powershell
+python experiments/scripts/run_experiment.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/final +method.inference.batch_size=4 +method.inference.allow_nonequivalent_batching=true
+```
+
+The runner and the shell launcher expose the same thing as flags:
+`--inference-batch-size 4 --allow-nonequivalent-batching`. Setting the batch
+size without the acknowledgement is a hard error, not a silent fallback.
+
+**Scientific limitations.** Batched output is *not* item-identical to sequential
+output, for two independent reasons:
+
+- **Sampling.** The methods run `do_sample: true`. Every row of a batch draws
+  from one shared RNG stream inside `generate`, so an item's sample depends on
+  which items sit next to it. Measured on 20 items of
+  `data/frozen/dashboard_v4/test.jsonl` with Qwen2.5-0.5B-Instruct:
+  **6 of 20 items produced different text** at `batch_size=4`. With
+  `do_sample=false` the same fixture matched byte-for-byte.
+- **Numerics.** Batching left-pads prompts and changes every matmul shape, so
+  even greedy decoding is only usually — never provably — identical.
+
+Control measurement on the same fixture: two *sequential* passes over those 20
+items also differed on 6 of 20 items, because inference does not set a torch
+seed (`set_seeds` is called by `train.py` only). Under `do_sample: true` no
+per-item equality claim can be made for any two runs, batched or not — which is
+why the equality check above is only meaningful with `--greedy`, and why
+batching stays opt-in regardless of what it measures.
+
+Two further consequences: `latency_ms` in batch mode is the batch wall time
+divided by the batch size (amortized, not measured per item), so the latency
+metric is not comparable with sequential runs; and enabling batching changes
+`config_hash`, so batched predictions can never be appended to a sequential
+result file — the cache guard refuses the mix. The resolved regime is recorded
+in `manifest.json` under `inference_batching`.
+
+**Smoke benchmark** (small, local, no run directory is touched):
+
+```powershell
+python experiments/scripts/benchmark_batch_inference.py --experiment E01_qwen0_5b_prompt --model qwen2_5_0_5b --n-items 8 --batch-size 4 --max-new-tokens 32 --greedy
+```
+
+**Validation before enabling.** Run the 20-item fixture with the *real*
+generation settings and require exact equality (exit code 0; exit code 2 means
+outputs differ):
+
+```powershell
+python experiments/scripts/benchmark_batch_inference.py --experiment E01_qwen0_5b_prompt --model qwen2_5_0_5b --n-items 20 --batch-size 4
+```
+
+Only if that reports `EXACT MATCH` may the feature be enabled for a real run:
+
+```powershell
+./run_experiment.sh --profile final --model qwen3_8b --all-methods --seeds 42 43 44 --with-dependencies --resume --inference-batch-size 4 --allow-nonequivalent-batching
+```
+
+With `do_sample: true` that check does not pass, so batching is a development
+and throughput-experiment tool here, not a final-thesis-run setting.
+
 ## M. Evaluation only / re-evaluation
 
 Evaluate existing predictions without model loading or inference:
@@ -850,6 +921,9 @@ Do not delete historical scripts. Do not use them to modify frozen data.
 - `run_human_eval.py`: Streamlit rating app.
 - `compute_irr.py`: human-rating reliability and statistics.
 - `package_results.py`: filtered professor/thesis ZIP.
+- `benchmark_batch_inference.py`: sequential vs. batched inference on a fixed
+  item slice; reports speedup, peak GPU memory and per-item output equality.
+  Writes no predictions and touches no run directory (section L1).
 
 ### Batch/remote convenience wrappers
 

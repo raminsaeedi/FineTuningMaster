@@ -10,15 +10,36 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Mapping, Optional
+from dataclasses import dataclass
+from typing import Any, List, Mapping, Optional
 
 from src.core.interfaces import BaseMethod
 from src.core.prompts import SYSTEM_PROMPT, build_user_message
 from src.core.schemas import DashboardBrief, GenerationResult
+from src.inference.batching import resolve_batch_plan
 from src.inference.postprocess import parse_json_safe
 from src.models.hf_causal import HFCausalModel
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PreparedItem:
+    """Everything one brief needs before generation, and after it.
+
+    Splitting preparation from generation is what makes batching possible at
+    all: prompt building, retrieval and the input-token budget check stay
+    per item and unchanged, while only the ``generate`` call is shared.
+    """
+
+    brief: DashboardBrief
+    system: str
+    user: str
+    inputs: Optional[Mapping[str, Any]]
+    prompt_tokens: int
+    prompt_budget: int
+    passages: Optional[List[dict]] = None
+    context_truncated: bool = False
 
 
 def _get(cfg: Mapping[str, Any], key: str, default: Any = None) -> Any:
@@ -56,6 +77,10 @@ class HFMethod(BaseMethod):
         self._gen_kwargs = _to_plain_dict(_get(self.method_cfg, "generate", {}))
         self._constrained = bool(self._gen_kwargs.get("constrained", False))
         self._decoder = None
+        # Validated here, before anything is loaded: an unsafe batching request
+        # must fail before it can touch a GPU or a prediction file.
+        self.batch_plan = resolve_batch_plan(self.method_cfg)
+        self.inference_batch_size = self.batch_plan.batch_size
 
     # Subclasses override to point at an adapter folder (method C).
     def _adapter_path(self) -> Optional[str]:
@@ -92,7 +117,8 @@ class HFMethod(BaseMethod):
             return self.model.generate_prepared(prepared_inputs, **self._gen_kwargs)
         return self.model.chat(system, user, **self._gen_kwargs)
 
-    def generate(self, brief: DashboardBrief) -> GenerationResult:
+    def _prepare_item(self, brief: DashboardBrief) -> PreparedItem:
+        """Build the prompt and validate its token budget for one brief."""
         system = self._system_prompt()
         user = build_user_message(brief)
         max_new = int(self._gen_kwargs.get("max_new_tokens", 1024))
@@ -104,23 +130,101 @@ class HFMethod(BaseMethod):
             _prompt, prepared_inputs, prompt_tokens, prompt_budget = self.model.prepare_prompt(
                 system, user, max_new
             )
-        t0 = time.perf_counter()
-        raw = self._raw_generate(system, user, prepared_inputs)
+        return PreparedItem(
+            brief=brief,
+            system=system,
+            user=user,
+            inputs=prepared_inputs,
+            prompt_tokens=prompt_tokens,
+            prompt_budget=prompt_budget,
+        )
+
+    def _finish(
+        self,
+        prepared: PreparedItem,
+        raw: str,
+        *,
+        started_at: Optional[float] = None,
+        latency_ms: Optional[float] = None,
+    ) -> GenerationResult:
+        """Parse raw output into the result row (shared by both code paths)."""
         parsed, err = parse_json_safe(raw)
+        if latency_ms is None:
+            latency_ms = (time.perf_counter() - float(started_at)) * 1000.0
         return GenerationResult(
-            item_id=brief.item_id or "",
+            item_id=prepared.brief.item_id or "",
             method_name=self.name,
             model_name=str(_get(self.model_cfg, "name", "")),
             config_hash=self.config_hash,
             raw_text=raw,
             parsed=parsed,
             parse_error=err,
-            prompt_input_tokens=prompt_tokens,
-            prompt_input_budget=prompt_budget,
-            rag_context_truncated=False,
-            latency_ms=(time.perf_counter() - t0) * 1000.0,
+            retrieved_docs=prepared.passages,
+            prompt_input_tokens=prepared.prompt_tokens,
+            prompt_input_budget=prepared.prompt_budget,
+            rag_context_truncated=prepared.context_truncated,
+            latency_ms=latency_ms,
             seed=self.seed,
         )
+
+    def generate(self, brief: DashboardBrief) -> GenerationResult:
+        prepared = self._prepare_item(brief)
+        t0 = time.perf_counter()
+        raw = self._raw_generate(prepared.system, prepared.user, prepared.inputs)
+        return self._finish(prepared, raw, started_at=t0)
+
+    def generate_batch(
+        self, briefs: List[DashboardBrief]
+    ) -> List[GenerationResult | BaseException]:
+        """Generate one padded batch, preserving order and per-item failures.
+
+        Only reachable when ``method.inference.batch_size > 1`` was explicitly
+        acknowledged (see :mod:`src.inference.batching`). Preparation stays per
+        item, so a prompt that busts its token budget still raises for that item
+        alone and is logged like any other failure; the rest of the batch runs.
+        """
+        if self.inference_batch_size <= 1 or self._decoder is not None:
+            return super().generate_batch(briefs)
+
+        prepared: List[Optional[PreparedItem]] = []
+        outcomes: List[Any] = []
+        for brief in briefs:
+            try:
+                item = self._prepare_item(brief)
+            except Exception as exc:  # e.g. prompt over the input-token budget
+                prepared.append(None)
+                outcomes.append(exc)
+                continue
+            prepared.append(item)
+            outcomes.append(None)
+
+        live = [index for index, item in enumerate(prepared) if item is not None]
+        if not live:
+            return outcomes
+
+        t0 = time.perf_counter()
+        try:
+            raw_texts = self.model.generate_prepared_batch(
+                [prepared[index].inputs for index in live], **self._gen_kwargs
+            )
+        except Exception as exc:
+            # The whole batch shares one generate call: attribute the failure to
+            # every item in it so none is silently dropped from the run.
+            for index in live:
+                outcomes[index] = exc
+            return outcomes
+        # One fused call cannot report a per-item duration. Amortize it, and
+        # record the semantics in the manifest rather than pretending otherwise.
+        per_item_ms = ((time.perf_counter() - t0) * 1000.0) / len(live)
+
+        for position, index in enumerate(live):
+            try:
+                outcomes[index] = self._finish(
+                    prepared[index], raw_texts[position], latency_ms=per_item_ms
+                )
+            except Exception as exc:
+                outcomes[index] = exc
+        return outcomes
 
     def teardown(self) -> None:
         if self.model is not None:
@@ -223,7 +327,12 @@ class RAGHFMethod(HFMethod):
         )
         return fitted, True
 
-    def generate(self, brief: DashboardBrief) -> GenerationResult:
+    def _prepare_item(self, brief: DashboardBrief) -> PreparedItem:
+        """Retrieve, fit the context to the budget, then tokenize — per item.
+
+        Retrieval is unchanged and stays sequential: it is cheap next to
+        generation, and batching it would change what each item retrieves.
+        """
         passages = self.retriever.retrieve(self._brief_to_query(brief), self.top_k)
         user = build_user_message(brief)
         system, context_truncated = self._fit_system_prompt(passages, user)
@@ -236,21 +345,13 @@ class RAGHFMethod(HFMethod):
             _prompt, prepared_inputs, prompt_tokens, prompt_budget = self.model.prepare_prompt(
                 system, user, max_new
             )
-        t0 = time.perf_counter()
-        raw = self._raw_generate(system, user, prepared_inputs)
-        parsed, err = parse_json_safe(raw)
-        return GenerationResult(
-            item_id=brief.item_id or "",
-            method_name=self.name,
-            model_name=str(_get(self.model_cfg, "name", "")),
-            config_hash=self.config_hash,
-            raw_text=raw,
-            parsed=parsed,
-            parse_error=err,
-            retrieved_docs=passages,
-            prompt_input_tokens=prompt_tokens,
-            prompt_input_budget=prompt_budget,
-            rag_context_truncated=context_truncated,
-            latency_ms=(time.perf_counter() - t0) * 1000.0,
-            seed=self.seed,
+        return PreparedItem(
+            brief=brief,
+            system=system,
+            user=user,
+            inputs=prepared_inputs,
+            prompt_tokens=prompt_tokens,
+            prompt_budget=prompt_budget,
+            passages=passages,
+            context_truncated=context_truncated,
         )

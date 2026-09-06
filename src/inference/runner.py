@@ -8,6 +8,13 @@ unnecessarily. Predictions are appended to a JSONL file keyed by ``item_id``:
 
 The runner depends only on the method interface, so it works unchanged for all
 four methods.
+
+Generation is sequential by default — one item per ``generate`` call, which is
+what every existing result file was produced with. A method may declare
+``inference_batch_size > 1`` (opt-in only; see :mod:`src.inference.batching`),
+in which case items are handed over in ordered chunks instead. Item order, item
+ids, the JSONL format, the resume set and the error file are identical either
+way.
 """
 
 from __future__ import annotations
@@ -102,14 +109,18 @@ class InferenceRunner:
         """Sibling of ``predictions*.jsonl`` recording items that raised."""
         return self.out_path.parent / self.out_path.name.replace("predictions", "errors")
 
-    def _record_error(self, brief, variant: str, exc: Exception) -> None:
+    def _record_error(self, brief, variant: str, exc: BaseException) -> None:
         """Append one failed item to the errors file so it is never silently lost."""
+        # Formatted from the exception object, not from sys.exc_info(): a batched
+        # item's failure is reported after its except block has already exited.
         rec = {
             "item_id": brief.item_id or "",
             "variant": variant,
             "error_type": type(exc).__name__,
             "error": str(exc),
-            "traceback": traceback.format_exc(),
+            "traceback": "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            ),
         }
         self.errors_path.parent.mkdir(parents=True, exist_ok=True)
         with self.errors_path.open("a", encoding="utf-8") as ef:
@@ -137,35 +148,87 @@ class InferenceRunner:
             print(f"[CACHE HIT] {self.out_path.name}: {len(done)} items already done.")
         return remaining
 
+    def _batch_size(self) -> int:
+        """Items per generate call. 1 (the default) keeps the sequential path."""
+        try:
+            size = int(getattr(self.method, "inference_batch_size", 1) or 1)
+        except (TypeError, ValueError):
+            return 1
+        return max(1, size)
+
     def _run_remaining(self, remaining: List[Any], variant: str) -> List[GenerationResult]:
         """Generate prepared items; caller owns method setup/teardown lifecycle."""
         self.out_path.parent.mkdir(parents=True, exist_ok=True)
-        n_errors = 0
+        batch_size = self._batch_size()
         n = len(remaining)
         with self.out_path.open("a", encoding="utf-8") as f:
-            for i, brief in enumerate(remaining, start=1):
-                try:
-                    result = self.method.generate(brief)
-                    result.variant = variant
-                    f.write(result.model_dump_json() + "\n")
-                    f.flush()
-                    status = "ok" if result.parse_error is None else result.parse_error
-                    print(f"  [{i:>3}/{n}] {brief.item_id} {status} ({result.latency_ms:.0f} ms)")
-                except Exception as exc:  # recoverable item errors do not abort the run
-                    # Record it instead of dropping it: otherwise n_predictions
-                    # silently differs across methods and a crashing method looks
-                    # artificially better. See errors*.jsonl next to predictions.
-                    logger.exception("Generation failed for %s: %s", brief.item_id, exc)
-                    self._record_error(brief, variant, exc)
-                    n_errors += 1
-                    print(f"  [{i:>3}/{n}] {brief.item_id} ERROR: {exc}")
-                    if _is_fatal_cuda_error(exc):
-                        raise
+            if batch_size <= 1:
+                n_errors = self._generate_sequential(f, remaining, variant, n)
+            else:
+                n_errors = self._generate_batched(f, remaining, variant, n, batch_size)
 
         if n_errors:
             print(f"  {n_errors} item(s) failed — logged to {self.errors_path.name}")
 
         return self._load_existing()
+
+    def _generate_sequential(self, f, remaining: List[Any], variant: str, n: int) -> int:
+        """The default path: one item per generate call, unchanged."""
+        n_errors = 0
+        for i, brief in enumerate(remaining, start=1):
+            try:
+                result = self.method.generate(brief)
+                self._write(f, result, variant, brief, i, n)
+            except Exception as exc:  # recoverable item errors do not abort the run
+                # Record it instead of dropping it: otherwise n_predictions
+                # silently differs across methods and a crashing method looks
+                # artificially better. See errors*.jsonl next to predictions.
+                n_errors += self._handle_item_error(brief, variant, exc, i, n)
+        return n_errors
+
+    def _generate_batched(
+        self, f, remaining: List[Any], variant: str, n: int, batch_size: int
+    ) -> int:
+        """Opt-in throughput path: several items per generate call.
+
+        Items are consumed in their original order, and each batch's results are
+        written in that same order before the next batch starts, so the output
+        file, the resume set and the error file are indistinguishable in shape
+        from the sequential path. Only the generated text and the latency
+        semantics differ — see :mod:`src.inference.batching`.
+        """
+        n_errors = 0
+        for start in range(0, n, batch_size):
+            chunk = remaining[start : start + batch_size]
+            outcomes = self.method.generate_batch(chunk)
+            if len(outcomes) != len(chunk):
+                raise RuntimeError(
+                    f"{type(self.method).__name__}.generate_batch returned "
+                    f"{len(outcomes)} outcomes for {len(chunk)} items; item "
+                    "identity could not be preserved."
+                )
+            for offset, (brief, outcome) in enumerate(zip(chunk, outcomes)):
+                i = start + offset + 1
+                if isinstance(outcome, BaseException):
+                    n_errors += self._handle_item_error(brief, variant, outcome, i, n)
+                else:
+                    self._write(f, outcome, variant, brief, i, n)
+        return n_errors
+
+    def _write(self, f, result: GenerationResult, variant: str, brief, i: int, n: int) -> None:
+        result.variant = variant
+        f.write(result.model_dump_json() + "\n")
+        f.flush()
+        status = "ok" if result.parse_error is None else result.parse_error
+        print(f"  [{i:>3}/{n}] {brief.item_id} {status} ({result.latency_ms:.0f} ms)")
+
+    def _handle_item_error(self, brief, variant: str, exc: BaseException, i: int, n: int) -> int:
+        logger.error("Generation failed for %s: %s", brief.item_id, exc, exc_info=exc)
+        self._record_error(brief, variant, exc)
+        print(f"  [{i:>3}/{n}] {brief.item_id} ERROR: {exc}")
+        if _is_fatal_cuda_error(exc):
+            raise exc
+        return 1
 
     def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
         """Run one file, loading and releasing method resources around it."""

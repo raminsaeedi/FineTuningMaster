@@ -100,6 +100,12 @@ N_EVAL_ITEMS="${N_EVAL_ITEMS:-2}"
 N_TRAIN_ITEMS="${N_TRAIN_ITEMS:-2}"
 MAX_STEPS="${MAX_STEPS:-1}"
 
+# Optional inference throughput mode. 1 = the sequential default that produced
+# every existing result. Above 1, batched generation is NOT item-identical to
+# sequential generation, so it must be acknowledged explicitly.
+INFERENCE_BATCH_SIZE="${INFERENCE_BATCH_SIZE:-1}"
+ALLOW_NONEQUIVALENT_BATCHING="${ALLOW_NONEQUIVALENT_BATCHING:-0}"
+
 declare -a EXTRA_OVERRIDES=()
 # EXTRA_OVERRIDES_STR lets the paths file add Hydra overrides (an array cannot
 # be expressed in a plain env file), e.g. training.sft.save_total_limit=1.
@@ -152,6 +158,10 @@ Other:
   --n-eval-items N            Smoke evaluation items (default: 2)
   --n-train-items N           Smoke training items (default: 2)
   --max-steps N               Smoke training max steps (default: 1)
+  --inference-batch-size N    Items per generate call (default: 1 = sequential)
+  --allow-nonequivalent-batching
+                              Acknowledge that batch size > 1 is not
+                              item-identical to sequential inference
   --override KEY=VALUE        Additional Hydra override; repeat it
   --dry-run                   Print resolved commands without running them
   --force                     Re-run compatible cached stages
@@ -306,6 +316,8 @@ while [[ $# -gt 0 ]]; do
     --n-eval-items) need_value "$@" ; N_EVAL_ITEMS="$2"; shift 2 ;;
     --n-train-items) need_value "$@" ; N_TRAIN_ITEMS="$2"; shift 2 ;;
     --max-steps) need_value "$@" ; MAX_STEPS="$2"; shift 2 ;;
+    --inference-batch-size) need_value "$@" ; INFERENCE_BATCH_SIZE="$2"; shift 2 ;;
+    --allow-nonequivalent-batching) ALLOW_NONEQUIVALENT_BATCHING=1; shift ;;
     --override) need_value "$@" ; EXTRA_OVERRIDES+=("$2"); shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --force) FORCE=1; shift ;;
@@ -375,6 +387,18 @@ read -r -a SEED_LIST <<< "$SEEDS"
 for seed in "${SEED_LIST[@]}"; do
   [[ "$seed" =~ ^[0-9]+$ ]] || die "Invalid seed '$seed'."
 done
+
+# Inference batching is opt-in and must be acknowledged: batched generation is
+# not item-identical to the sequential regime that produced every result so far.
+[[ "$INFERENCE_BATCH_SIZE" =~ ^[0-9]+$ && "$INFERENCE_BATCH_SIZE" -ge 1 ]] \
+  || die "--inference-batch-size must be a positive integer, got '$INFERENCE_BATCH_SIZE'."
+if [[ "$INFERENCE_BATCH_SIZE" -gt 1 && "$ALLOW_NONEQUIVALENT_BATCHING" != 1 ]]; then
+  die "--inference-batch-size $INFERENCE_BATCH_SIZE requires --allow-nonequivalent-batching.
+       Batched generation shares one sampling RNG stream and pads the prompts, so
+       per-item outputs are not identical to sequential inference.
+       Validate first:
+         python experiments/scripts/benchmark_batch_inference.py --batch-size $INFERENCE_BATCH_SIZE --n-items 20"
+fi
 
 [[ -n "$OUTPUT_DATA_PATH" ]] || OUTPUT_DATA_PATH="experiments/outputs/$PROFILE"
 [[ -n "$OUTPUT_MODEL_PATH" ]] || OUTPUT_MODEL_PATH="$OUTPUT_DATA_PATH"
@@ -565,6 +589,11 @@ print_config() {
   printf '  output model path  : %s\n' "$OUTPUT_MODEL_PATH"
   printf '  results path       : %s\n' "$RESULTS_PATH"
   printf '  HF_TOKEN           : %s\n' "$hf_auth"
+  if [[ "$INFERENCE_BATCH_SIZE" -gt 1 ]]; then
+    printf '  inference batching : batch_size=%s (NOT item-identical to sequential)\n' "$INFERENCE_BATCH_SIZE"
+  else
+    printf '  inference batching : off (sequential, batch_size=1)\n'
+  fi
   printf '  resume/dependencies: %s / %s\n' "$RESUME" "$WITH_DEPENDENCIES"
   printf '  extra overrides    : %s\n' "${EXTRA_OVERRIDES[*]:-<none>}"
   echo "======================================================================"
@@ -654,6 +683,9 @@ if [[ "${#SEED_LIST[@]}" -eq 1 ]]; then
   command+=(--seed "${SEED_LIST[0]}")
 else
   command+=(--seeds "${SEED_LIST[@]}")
+fi
+if [[ "$INFERENCE_BATCH_SIZE" -gt 1 ]]; then
+  command+=(--inference-batch-size "$INFERENCE_BATCH_SIZE" --allow-nonequivalent-batching)
 fi
 [[ "$WITH_DEPENDENCIES" == 1 && "$MODE" == full ]] && command+=(--with-dependencies)
 [[ "$RESUME" == 1 ]] && command+=(--resume)

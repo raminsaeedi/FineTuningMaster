@@ -20,6 +20,13 @@ class BaseMethod(ABC):
 
     name: str = "base"
 
+    #: Items handed to one ``generate_batch`` call. ``1`` — the default — means
+    #: the runner keeps its sequential per-item path, which is what every
+    #: existing result was produced with. Only a method that implements a real
+    #: batched path and whose config explicitly opts in raises this above 1.
+    #: See :mod:`src.inference.batching` for why that opt-in is required.
+    inference_batch_size: int = 1
+
     def __init__(self, cfg: Any) -> None:
         self.cfg = cfg
 
@@ -30,6 +37,26 @@ class BaseMethod(ABC):
     @abstractmethod
     def generate(self, brief: DashboardBrief) -> GenerationResult:
         """Produce a structured recommendation for a single brief."""
+
+    def generate_batch(
+        self, briefs: list[DashboardBrief]
+    ) -> list[GenerationResult | BaseException]:
+        """Produce results for several briefs, in the order they were given.
+
+        Returns one entry per brief: a ``GenerationResult``, or the exception
+        that item raised. Returning failures instead of raising keeps a bad item
+        from taking its whole batch down — the runner logs each one to
+        ``errors*.jsonl`` exactly as it does in the sequential path.
+
+        The default is a plain loop, so every method is safe to call this way.
+        """
+        outcomes: list[GenerationResult | BaseException] = []
+        for brief in briefs:
+            try:
+                outcomes.append(self.generate(brief))
+            except Exception as exc:  # per-item failure, recorded by the runner
+                outcomes.append(exc)
+        return outcomes
 
     def teardown(self) -> None:
         """Release resources (GPU memory, file handles). Optional override."""

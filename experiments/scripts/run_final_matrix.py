@@ -321,6 +321,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="Knowledge-base chunks file for methods B/D (default: $FTM_KB_CHUNKS_PATH)")
     p.add_argument("--smoke-source", default=None,
                    help="Validation JSONL used to build the smoke slice")
+    p.add_argument(
+        "--inference-batch-size", type=int, default=1, metavar="N",
+        help="Items per generate call during inference (default: 1 = sequential, "
+             "the regime every existing result was produced with). Any value > 1 "
+             "also requires --allow-nonequivalent-batching.",
+    )
+    p.add_argument(
+        "--allow-nonequivalent-batching", action="store_true",
+        help="Acknowledge that batched generation is not item-identical to "
+             "sequential generation. Required by --inference-batch-size > 1; "
+             "recorded in manifest.json.",
+    )
     p.add_argument("--force", action="store_true")
     p.add_argument("--skip-training", action="store_true")
     p.add_argument("--dry-run", action="store_true")
@@ -474,6 +486,35 @@ def _base_overrides(
     return values
 
 
+def _batching_overrides(batch_size: int, acknowledged: bool) -> list[str]:
+    """Hydra overrides for the opt-in batched inference mode.
+
+    The default emits nothing on purpose: every key in the composed config feeds
+    ``config_hash``, so a sequential run must compose exactly the config that
+    produced the existing predictions. Enabling batching does change the hash,
+    which is correct — batched and sequential outputs must never land in one
+    result file.
+    """
+    if batch_size < 1:
+        raise SystemExit(f"--inference-batch-size must be >= 1, got {batch_size}.")
+    if batch_size == 1:
+        return []
+    if not acknowledged:
+        raise SystemExit(
+            f"--inference-batch-size {batch_size} changes generation from the "
+            "sequential regime every existing result used, and batched output is "
+            "not item-identical (shared sampling RNG stream, padded numerics).\n"
+            "Validate first:\n"
+            "  python experiments/scripts/benchmark_batch_inference.py "
+            f"--batch-size {batch_size} --n-items 20\n"
+            "Then re-run this command with --allow-nonequivalent-batching."
+        )
+    return [
+        f"+method.inference.batch_size={batch_size}",
+        "+method.inference.allow_nonequivalent_batching=true",
+    ]
+
+
 def _planned_hashes(experiment: str, overrides: list[str]) -> tuple[str, str]:
     cfg = load_cfg(experiment=experiment, overrides=overrides)
     return hash_config(cache_identity(cfg)), hash_config(cfg)
@@ -613,6 +654,10 @@ def main(argv: list[str] | None = None) -> None:
     models = _selected_models(args, matrix)
     methods = _selected_methods(args)
     seeds = _selected_seeds(args, matrix)
+    # Validated before any subprocess starts; empty unless batching is opted in.
+    batching_overrides = _batching_overrides(
+        int(args.inference_batch_size), bool(args.allow_nonequivalent_batching)
+    )
     # Direct runner calls also honor the machine-specific HPC environment;
     # explicit CLI paths remain highest priority.
     output_root_arg = args.output_root or os.environ.get("FTM_OUTPUT_DATA_PATH") or (
@@ -661,6 +706,11 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  output data  : {output_root}")
     print(f"  output model : {output_model_root}")
     print(f"  results dir  : {results_dir}")
+    print(
+        "  inference    : sequential (batch_size=1)" if not batching_overrides
+        else f"  inference    : BATCHED batch_size={args.inference_batch_size} "
+             "- not item-identical to sequential runs"
+    )
     _print_runtime_profile(models)
     print("=" * 70)
 
@@ -791,6 +841,9 @@ def main(argv: list[str] | None = None) -> None:
                         "method.adapter_source_experiment=E03_qwen0_5b_ft",
                         "method.adapter_source_method_key=C",
                     ])
+                # Inference-only: training never sees these, so a C adapter keeps
+                # the same training config hash whether or not batching is used.
+                extra.extend(batching_overrides)
                 overrides = _base_overrides(
                     profile=args.profile,
                     output_root_arg=str(output_root_arg),

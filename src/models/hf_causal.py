@@ -40,6 +40,51 @@ def _get(cfg: Mapping[str, Any], key: str, default: Any = None) -> Any:
         return getattr(cfg, key, default)
 
 
+def _as_row(value: Any) -> list[int]:
+    """Return the first (and only) sequence of a ``[1, L]`` tensor or list."""
+    row = value[0]
+    if hasattr(row, "tolist"):
+        row = row.tolist()
+    return [int(token) for token in row]
+
+
+def _real_token_ids(inputs: Mapping[str, Any]) -> list[int]:
+    """Token ids of one prepared prompt, with any masked positions removed.
+
+    ``prepare_prompt`` tokenizes a single prompt, so the mask is all ones and
+    this is an identity. Honouring the mask anyway keeps the batch correct if a
+    caller ever hands over already-padded inputs.
+    """
+    ids = _as_row(inputs["input_ids"])
+    mask = inputs.get("attention_mask")
+    if mask is None:
+        return ids
+    keep = _as_row(mask)
+    return [token for token, flag in zip(ids, keep) if flag == 1]
+
+
+def left_pad_batch(token_id_rows: list[list[int]], pad_id: int):
+    """Left-pad rows to equal length; return ``(input_ids, attention_mask)``.
+
+    Padding sits on the left and is masked out with 0, so the model attends to
+    exactly the real prompt tokens and continues from the true last token of
+    every row.
+    """
+    import torch
+
+    max_len = max((len(row) for row in token_id_rows), default=0)
+    padded = []
+    masks = []
+    for row in token_id_rows:
+        n_pad = max_len - len(row)
+        padded.append([pad_id] * n_pad + list(row))
+        masks.append([0] * n_pad + [1] * len(row))
+    return (
+        torch.tensor(padded, dtype=torch.long),
+        torch.tensor(masks, dtype=torch.long),
+    )
+
+
 class HFCausalModel:
     """Thin wrapper around a HuggingFace causal LM + tokenizer."""
 
@@ -233,6 +278,59 @@ class HFCausalModel:
 
         new_ids = out_ids[0][inputs["input_ids"].shape[1]:]
         return self.tokenizer.decode(new_ids, skip_special_tokens=True)
+
+    # ------------------------------------------------------------------
+    # Optional batched generation (see src/inference/batching.py for the
+    # scientific caveats). Nothing calls this unless batch_size > 1 is both
+    # configured and explicitly acknowledged.
+    def _pad_token_id(self) -> int:
+        pad = getattr(self.tokenizer, "pad_token_id", None)
+        if pad is None:
+            pad = self.tokenizer.eos_token_id
+        return int(pad)
+
+    def generate_prepared_batch(
+        self, inputs_list: list[Mapping[str, Any]], **gen_kwargs: Any
+    ) -> list[str]:
+        """Generate for several pre-tokenized prompts in one forward pass.
+
+        Prompts are LEFT-padded: a decoder-only model continues from the last
+        position of the row, so padding on the right would make the model
+        continue from a pad token. Left padding also puts every real prompt's
+        final token at the same index, which is why the new tokens of every row
+        start at ``input_ids.shape[1]``.
+
+        Returns one decoded string per input, in the input order.
+        """
+        import torch
+
+        if not inputs_list:
+            return []
+
+        rows = [_real_token_ids(inputs) for inputs in inputs_list]
+        input_ids, attention_mask = left_pad_batch(rows, self._pad_token_id())
+
+        device = next(self.model.parameters()).device
+        input_ids = input_ids.to(device)
+        attention_mask = attention_mask.to(device)
+        gen_args = self._generation_args(gen_kwargs)
+        with torch.inference_mode():
+            out_ids = self.model.generate(
+                input_ids=input_ids, attention_mask=attention_mask, **gen_args
+            )
+
+        if int(out_ids.shape[0]) != len(rows):
+            raise RuntimeError(
+                "Batched generation returned "
+                f"{int(out_ids.shape[0])} sequences for {len(rows)} prompts; "
+                "refusing to guess which output belongs to which item."
+            )
+
+        prompt_len = int(input_ids.shape[1])
+        return [
+            self.tokenizer.decode(out_ids[index][prompt_len:], skip_special_tokens=True)
+            for index in range(len(rows))
+        ]
 
     # ------------------------------------------------------------------
     def chat(self, system: str, user: str, **gen_kwargs: Any) -> str:

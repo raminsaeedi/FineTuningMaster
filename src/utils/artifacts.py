@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.core.constants import REPORT_SCHEMA_VERSION
+from src.inference.batching import batching_provenance
 from src.utils.config_hash import hash_config
 from src.utils.git import get_git_hash, is_git_dirty
 
@@ -391,6 +392,11 @@ def write_manifest(exp_dir: Path, cfg: Any) -> dict:
         "adapter_manifest_hash": source["adapter_manifest_hash"],
         "training_config": _redact(_plain(_nested_get(cfg, "training", {}))),
         "inference_config": _redact(_plain(_nested_get(cfg, "method.generate", {}))),
+        # Which inference regime produced this run: sequential (the default) or
+        # the opt-in batched throughput mode, whose per-item outputs are not
+        # comparable with a sequential run. Never absent, so a reader can always
+        # tell the two apart.
+        "inference_batching": batching_provenance(cfg),
         "rag_config": _redact(_plain(_nested_get(cfg, "method.retriever", {}))),
         "kb_hashes": {
             "chunks_sha256": _kb_provenance(cfg).get("chunks_sha256"),
