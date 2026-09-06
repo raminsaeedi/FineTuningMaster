@@ -20,10 +20,13 @@ Both are pure path/JSON logic and import neither torch nor peft.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from src.utils.config_hash import hash_config
+
+logger = logging.getLogger(__name__)
 
 # Files a saved PEFT adapter folder must contain to be usable.
 _REQUIRED_ADAPTER_FILES = ("adapter_config.json",)
@@ -353,6 +356,13 @@ def validate_adapter(adapter_dir: Path, cfg: Any, *, strict: bool = True) -> dic
             f"Refusing to silently reuse a mismatched adapter. Use a matching "
             f"adapter or method.adapter_path with an explicit, narrowly scoped "
             f"compatibility override."
+        )
+
+    if waived_problems:
+        logger.warning(
+            "Explicit adapter compatibility override applied for %s: %s",
+            adapter_dir,
+            "; ".join(waived_problems),
         )
 
     return {
