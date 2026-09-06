@@ -132,7 +132,10 @@ Modes and selection:
   --seeds "42 43 44"          Selected seeds (commas also accepted)
   --with-dependencies         Train C automatically when D needs it
   --no-dependencies           Do not inject C for D
-  --resume / --no-resume      Resume compatible interrupted training
+  --resume / --no-resume      Resume compatible interrupted work (default: resume).
+                              --no-resume starts training at step 0 and ignores
+                              cached predictions; previous prediction files are
+                              moved to _stale_cache/, never deleted.
 
 Paths:
   --data-path PATH            Dataset directory containing train/val/test JSONL
@@ -633,7 +636,11 @@ run_training() {
     )
   fi
   local -a command=("${PYTHON_CMD[@]}" "$TRAINER" --experiment "$TRAIN_EXPERIMENT")
-  [[ "$RESUME" == 1 ]] && command+=(--resume)
+  if [[ "$RESUME" == 1 ]]; then
+    command+=(--resume)
+  else
+    command+=(--no-resume)
+  fi
   command+=(--override "${overrides[@]}")
   echo
   echo "[launcher] TRAIN C: model=$model seed=$seed"
@@ -688,7 +695,13 @@ if [[ "$INFERENCE_BATCH_SIZE" -gt 1 ]]; then
   command+=(--inference-batch-size "$INFERENCE_BATCH_SIZE" --allow-nonequivalent-batching)
 fi
 [[ "$WITH_DEPENDENCIES" == 1 && "$MODE" == full ]] && command+=(--with-dependencies)
-[[ "$RESUME" == 1 ]] && command+=(--resume)
+if [[ "$RESUME" == 1 ]]; then
+  command+=(--resume)
+else
+  # --no-resume now reaches inference too: cached predictions are set aside
+  # under _stale_cache/ instead of being reused. Nothing is deleted.
+  command+=(--no-resume)
+fi
 [[ "$FORCE" == 1 ]] && command+=(--force)
 [[ "$DRY_RUN" == 1 ]] && command+=(--dry-run)
 [[ -n "$INPUT_MODEL_WEIGHTS" ]] && command+=(--input-model-weights "$INPUT_MODEL_WEIGHTS")

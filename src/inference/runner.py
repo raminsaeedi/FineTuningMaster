@@ -15,6 +15,14 @@ what every existing result file was produced with. A method may declare
 in which case items are handed over in ordered chunks instead. Item order, item
 ids, the JSONL format, the resume set and the error file are identical either
 way.
+
+Crash safety: an interrupted append leaves a truncated final line. Before the
+resume set is computed, that fragment — and only that fragment — is removed by
+:func:`src.utils.resume.repair_trailing_partial_line`, because the next append
+would otherwise concatenate onto it and destroy the following record as well.
+Every complete record before it is kept byte-for-byte. An item whose record was
+lost that way is regenerated and recorded as a retry: with ``do_sample: true``
+the regenerated text is a fresh sample, not a reproduction of the lost one.
 """
 
 from __future__ import annotations
@@ -28,6 +36,7 @@ from typing import Any, List, Optional, Set
 from src.core.interfaces import BaseMethod
 from src.core.schemas import GenerationResult
 from src.utils.io import read_jsonl
+from src.utils.resume import repair_trailing_partial_line
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +61,14 @@ class InferenceRunner:
         method: BaseMethod,
         out_path: str | Path,
         cache_identity: dict[str, Any] | None = None,
+        recorder: Any | None = None,
     ) -> None:
         self.method = method
         self.out_path = Path(out_path)
         self.cache_identity = cache_identity
+        # Optional observer for the run status artifact. ``None`` keeps the
+        # runner usable standalone (and keeps every existing caller working).
+        self.recorder = recorder
 
     def _expected_config_hash(self) -> str:
         return str(getattr(self.method, "config_hash", "") or "")
@@ -126,8 +139,37 @@ class InferenceRunner:
         with self.errors_path.open("a", encoding="utf-8") as ef:
             ef.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    def _prepare(self, briefs) -> List[Any]:
+    def _repair_partial_tail(self, variant: str) -> Optional[str]:
+        """Remove an interrupted trailing line; return the item id it held."""
+        repair = repair_trailing_partial_line(self.out_path)
+        if repair is None:
+            return None
+        logger.warning(
+            "Removed an incomplete trailing line from %s (%d bytes, %d complete "
+            "records kept); backup: %s",
+            self.out_path,
+            repair.removed_bytes,
+            repair.kept_records,
+            repair.backup_path,
+        )
+        print(
+            f"[RESUME] {self.out_path.name}: dropped an incomplete final line "
+            f"({repair.removed_bytes} bytes); {repair.kept_records} complete "
+            "records preserved."
+        )
+        if self.recorder is not None:
+            self.recorder.record_repair(variant, repair)
+            if repair.recovered_item_id:
+                self.recorder.record_retry(
+                    variant,
+                    repair.recovered_item_id,
+                    "record lost in an interrupted append; regenerated",
+                )
+        return repair.recovered_item_id
+
+    def _prepare(self, briefs, variant: str = "original") -> List[Any]:
         """Validate cache and return only briefs that still need generation."""
+        self._repair_partial_tail(variant)
         self._check_cache_identity()
         stale = self._stale_config_hashes()
         if stale:
@@ -141,12 +183,31 @@ class InferenceRunner:
 
         briefs = list(briefs)
         done = self._load_done()
+        # Order follows the requested items, not the file: a resumed run appends
+        # the missing ids in dataset order, exactly where an uninterrupted run
+        # would have written them.
         remaining = [b for b in briefs if (b.item_id or "") not in done]
+        self._retry_previously_failed(remaining, variant)
 
         if not remaining:
             logger.info("[CACHE HIT] %s already complete (%d items).", self.out_path, len(done))
             print(f"[CACHE HIT] {self.out_path.name}: {len(done)} items already done.")
         return remaining
+
+    def _retry_previously_failed(self, remaining: List[Any], variant: str) -> None:
+        """Record items that failed in an earlier attempt and run again now."""
+        if self.recorder is None or not remaining or not self.errors_path.exists():
+            return
+        failed = {
+            str(record.get("item_id", ""))
+            for record in read_jsonl(self.errors_path)
+            if str(record.get("variant", "")) == variant
+        }
+        for brief in remaining:
+            if (brief.item_id or "") in failed:
+                self.recorder.record_retry(
+                    variant, brief.item_id or "", "failed in an earlier attempt"
+                )
 
     def _batch_size(self) -> int:
         """Items per generate call. 1 (the default) keeps the sequential path."""
@@ -161,11 +222,19 @@ class InferenceRunner:
         self.out_path.parent.mkdir(parents=True, exist_ok=True)
         batch_size = self._batch_size()
         n = len(remaining)
-        with self.out_path.open("a", encoding="utf-8") as f:
-            if batch_size <= 1:
-                n_errors = self._generate_sequential(f, remaining, variant, n)
-            else:
-                n_errors = self._generate_batched(f, remaining, variant, n, batch_size)
+        # Last line of defence against a duplicated item_id: the resume set is
+        # computed once per job, so anything already on disk (or written earlier
+        # in this job) must never be appended a second time.
+        self._written_ids: Set[str] = self._load_done()
+        try:
+            with self.out_path.open("a", encoding="utf-8") as f:
+                if batch_size <= 1:
+                    n_errors = self._generate_sequential(f, remaining, variant, n)
+                else:
+                    n_errors = self._generate_batched(f, remaining, variant, n, batch_size)
+        finally:
+            if self.recorder is not None:
+                self.recorder.record_progress(variant, self.out_path)
 
         if n_errors:
             print(f"  {n_errors} item(s) failed — logged to {self.errors_path.name}")
@@ -216,6 +285,18 @@ class InferenceRunner:
         return n_errors
 
     def _write(self, f, result: GenerationResult, variant: str, brief, i: int, n: int) -> None:
+        item_id = result.item_id or ""
+        written = getattr(self, "_written_ids", None)
+        if written is not None:
+            if item_id in written:
+                # A completed prediction is never overwritten and never doubled.
+                logger.warning(
+                    "Refusing to append a duplicate prediction for %s to %s",
+                    item_id, self.out_path,
+                )
+                print(f"  [{i:>3}/{n}] {item_id} SKIPPED (already present)")
+                return
+            written.add(item_id)
         result.variant = variant
         f.write(result.model_dump_json() + "\n")
         f.flush()
@@ -232,8 +313,10 @@ class InferenceRunner:
 
     def run(self, briefs, variant: str = "original") -> List[GenerationResult]:
         """Run one file, loading and releasing method resources around it."""
-        remaining = self._prepare(briefs)
+        remaining = self._prepare(briefs, variant)
         if not remaining:
+            if self.recorder is not None:
+                self.recorder.record_progress(variant, self.out_path)
             return self._load_existing()
 
         logger.info("Setting up method '%s'…", self.method.name)
@@ -253,17 +336,27 @@ class InferenceRunner:
         setup, and fatal CUDA errors still stop the batch immediately.
         """
         runners = [
-            InferenceRunner(self.method, out_path, cache_identity=self.cache_identity)
+            InferenceRunner(
+                self.method,
+                out_path,
+                cache_identity=self.cache_identity,
+                recorder=self.recorder,
+            )
             for _briefs, out_path, _variant in jobs
         ]
         results: List[Optional[List[GenerationResult]]] = [None] * len(jobs)
         pending: list[tuple[int, InferenceRunner, List[Any], str]] = []
 
         for index, (briefs, _out_path, variant) in enumerate(jobs):
-            remaining = runners[index]._prepare(briefs)
+            remaining = runners[index]._prepare(briefs, variant)
             if remaining:
                 pending.append((index, runners[index], remaining, variant))
             else:
+                # A finished variant still reports its completed ids, so the
+                # status file describes the whole run, not only what this
+                # invocation had to generate.
+                if self.recorder is not None:
+                    self.recorder.record_progress(variant, runners[index].out_path)
                 results[index] = runners[index]._load_existing()
 
         if not pending:

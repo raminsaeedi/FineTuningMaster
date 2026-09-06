@@ -257,7 +257,10 @@ python experiments/scripts/train.py --experiment E03_qwen0_5b_ft --resume --over
 
 `--resume` searches expected run's `checkpoints/`, selects newest valid numeric
 `checkpoint-N`, and forwards it to native trainer resume API. Optimizer,
-scheduler, RNG, and trainer state are preserved when present.
+scheduler, RNG, and trainer state must all be present for a checkpoint to count
+as valid; an incomplete one is skipped with a logged reason and the previous
+complete checkpoint is used. Full validity rules, the OOM behaviour and
+`--no-resume`: section L2.
 
 ### Explicit checkpoint resume
 
@@ -436,6 +439,109 @@ Only if that reports `EXACT MATCH` may the feature be enabled for a real run:
 
 With `do_sample: true` that check does not pass, so batching is a development
 and throughput-experiment tool here, not a final-thesis-run setting.
+
+### L2. Crash-safe resume
+
+Applies to inference for A, B, C, D and to method C training. An interruption
+may cost the remaining work; it must never cost the finished work.
+
+**Guarantees**
+
+- Completed JSONL records are never rewritten, reordered, or duplicated. A
+  resumed run appends only the missing item ids, in dataset order.
+- An interrupted append leaves a truncated final line. That fragment — and only
+  that fragment — is removed before the resume set is computed, because the next
+  append would otherwise fuse onto it and destroy the following record too. The
+  removed bytes are kept in a `predictions.jsonl.partial-<utc>.bak` sibling.
+- Robustness variants resume independently: `predictions_paraphrased.jsonl` and
+  `predictions_missing_info.jsonl` each track their own completed ids.
+- `inference_status.json` records `running | interrupted | failed | completed`,
+  the completed item ids per variant, the config hash, the source-code hash,
+  timestamps, every repair, and every retry. It is written atomically
+  (temporary file plus `os.replace`) at job boundaries — not per generated item,
+  which would add an fsync to every generation for a file that is provenance,
+  not data. `predictions*.jsonl` stays the authority for what is done.
+- A regenerated item is recorded as a retry with
+  `"bitwise_equality_verified": false`. Under `do_sample: true` it is a fresh
+  sample, not a reproduction of the lost one (see L1).
+- `--resume` refuses artifacts from a different run. Gated fields: model
+  identity and revision, dataset version and file hashes, knowledge-base hash,
+  seed, method, config hash, and source-code hash. Runs created before this
+  feature carry no status file and are therefore never gated by it.
+- `--no-resume` always starts fresh: previous `predictions*.jsonl`,
+  `errors*.jsonl` and `inference_status.json` are **moved** to
+  `<run>/_stale_cache/fresh_<utc>/`, never deleted, and training starts at
+  step 0.
+
+**Checkpoint compatibility rules (method C)**
+
+A checkpoint is resumable only when all of these hold; anything else is skipped
+with a logged reason and the previous valid checkpoint is used instead:
+
+| Requirement | Why |
+| --- | --- |
+| `trainer_state.json` with a numeric `global_step` | otherwise the run restarts at 0 |
+| adapter or model weights | nothing to resume from |
+| `adapter_config.json` / `config.json` | the checkpoint must describe itself |
+| `optimizer.pt` | Adam moments; losing them changes the trajectory |
+| `scheduler.pt` | otherwise the LR schedule restarts |
+| `rng_state.pth` (or `rng_state_*.pth`) | otherwise the data order restarts |
+| `checkpoint_complete.json` parses, when present | written last and atomically, so a partially written checkpoint never has a valid one |
+| `resume_metadata.json` matches | experiment, model, seed, dataset version, dataset hash, training config hash |
+
+Checkpoint frequency stays at the configured default (`save_strategy: epoch`).
+Make it denser for a long or preemptible job through the normal config system:
+
+```bash
+--override training.sft.save_strategy=steps training.sft.save_steps=25
+```
+
+**Limitations after CUDA out of memory**
+
+Nothing is reconfigured automatically. Sequence length, batch size and precision
+stay exactly as configured, because silently shrinking them would produce a run
+whose results no longer match its own recorded configuration. On OOM the trainer
+keeps the last valid checkpoint, writes `training_status.json` with
+`failure_reason: cuda_out_of_memory` and the last valid `global_step`, and
+prints the exact resume command. If the run genuinely does not fit, change the
+configuration deliberately and start a **new** run — a different batch size is a
+different experiment, not a continuation of this one.
+
+**Exact smoke-test command** (2 items per method, no training, temporary output
+root — nothing under `experiments/outputs/final/` is touched):
+
+```bash
+python experiments/scripts/run_experiment.py --experiment E01_qwen0_5b_prompt --override model=qwen2_5_0_5b seed=42 output_root=experiments/outputs/_resume_smoke experiment_id=smoke_A data.eval_max_samples=2 method.generate.max_new_tokens=24 method.generate.do_sample=false data.paraphrased_file=null data.missing_info_file=null
+```
+
+**Exact resume command** — re-run the identical command. Resume is the default;
+finished items are skipped and only the missing ones are generated:
+
+```bash
+./run_experiment.sh --profile final --model qwen3_8b --all-methods --seeds 42 43 44 --with-dependencies --resume
+```
+
+For one interrupted training run, the trainer prints this itself on failure:
+
+```bash
+python experiments/scripts/train.py --experiment E03_qwen0_5b_ft --resume --override model=qwen3_8b seed=42 output_root=experiments/outputs/final
+```
+
+**Measured overhead** (Windows, CPU, 274-record / 703 KB predictions file):
+
+| Operation | Cost | Frequency |
+| --- | --- | --- |
+| truncated-line scan | 0.75 ms median | once per variant file |
+| status update (read ids + atomic write) | 7.4 ms median | once per variant file |
+| source-code hash | 40.5 ms | once per process |
+| checkpoint completion marker | 4.2 ms median, 112 bytes | once per checkpoint |
+| checkpoint validation | 1.4 ms median | once per resume, per candidate |
+
+End to end over 274 items the difference is below the noise floor: 29.4 ms
+baseline versus 28.4 ms with crash-safe resume, against a baseline spread of
+18–38 ms. Against real generation (~3.4 s per item on this CPU) the total added
+cost of roughly 80 ms per experiment is about 0.01 %. No GPU memory is added and
+no CUDA synchronization is introduced: none of the new modules import torch.
 
 ## M. Evaluation only / re-evaluation
 

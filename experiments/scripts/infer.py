@@ -30,6 +30,11 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run inference for an experiment")
     p.add_argument("--experiment", required=True)
     p.add_argument("--override", nargs="*", default=[], metavar="KEY=VALUE")
+    p.add_argument(
+        "--no-resume", action="store_true",
+        help="Ignore cached predictions and start this stage fresh. Existing "
+             "files are preserved under _stale_cache/, never deleted.",
+    )
     return p.parse_args()
 
 
@@ -41,7 +46,7 @@ def main() -> None:
                   log_file=str(exp_dir / "logs" / "infer.log"))
     write_run_metadata(exp_dir, cfg)
 
-    runner = ExperimentRunner(cfg, _PROJECT_ROOT)
+    runner = ExperimentRunner(cfg, _PROJECT_ROOT, resume=not args.no_resume)
     runner.run_inference()
     print(f"\nPredictions written under: {exp_dir}")
     print(f"Next: python scripts/eval_auto.py --experiment {args.experiment}")

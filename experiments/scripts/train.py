@@ -44,6 +44,16 @@ from src.utils.artifacts import (  # noqa: E402
 from src.utils.config import load_cfg  # noqa: E402
 from src.utils.config_hash import hash_config  # noqa: E402
 from src.utils.logging import setup_logging  # noqa: E402
+from src.utils.resume import (  # noqa: E402
+    CHECKPOINT_COMPLETE_FILENAME,
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_INTERRUPTED,
+    STATUS_RUNNING,
+    TRAINING_STATUS_FILENAME,
+    RunStatus,
+    source_code_hash,
+)
 from src.utils.seed import set_seeds  # noqa: E402
 from src.utils.adapter import resolve_adapter_output_path  # noqa: E402
 from src.models.hf_utils import (  # noqa: E402
@@ -60,10 +70,8 @@ class ResumeError(RuntimeError):
 
 
 _CHECKPOINT_RE = re.compile(r"^checkpoint-(\d+)$")
-_CHECKPOINT_MARKERS = (
-    "optimizer.pt",
-    "scheduler.pt",
-    "rng_state.pth",
+# Weight payload: PEFT writes the adapter, full fine-tuning writes the model.
+_CHECKPOINT_WEIGHT_FILES = (
     "adapter_model.safetensors",
     "adapter_model.bin",
     "model.safetensors",
@@ -71,6 +79,70 @@ _CHECKPOINT_MARKERS = (
     "pytorch_model.bin",
     "pytorch_model.bin.index.json",
 )
+# Configuration written next to the weights, so the checkpoint describes itself.
+_CHECKPOINT_CONFIG_FILES = ("adapter_config.json", "config.json")
+# Backwards-compatible alias: some callers/tests import this name.
+_CHECKPOINT_MARKERS = _CHECKPOINT_WEIGHT_FILES
+
+
+def _has_any(path: Path, names: tuple[str, ...]) -> bool:
+    return any((path / name).exists() for name in names)
+
+
+def _has_rng_state(path: Path) -> bool:
+    """Single-process writes rng_state.pth; distributed writes rng_state_<rank>.pth."""
+    return (path / "rng_state.pth").exists() or any(path.glob("rng_state_*.pth"))
+
+
+def checkpoint_problems(path: Path) -> list[str]:
+    """Why a directory is not a resumable checkpoint; empty means it is one.
+
+    Resuming needs more than weights: without optimizer, scheduler and RNG state
+    the run would restart the schedule and the data order, which is a different
+    training trajectory, not a resumption. A checkpoint interrupted mid-write is
+    missing at least one of these — and, for checkpoints written after this
+    change, its completion marker.
+    """
+    path = Path(path)
+    problems: list[str] = []
+    if not path.is_dir():
+        return [f"not a directory: {path}"]
+    if _checkpoint_number(path) is None:
+        return [f"not a checkpoint directory name: {path.name}"]
+
+    state_path = path / "trainer_state.json"
+    if not state_path.exists():
+        problems.append("missing trainer_state.json")
+    else:
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            if not isinstance(state, dict) or not isinstance(
+                state.get("global_step"), (int, float)
+            ):
+                problems.append("trainer_state.json has no numeric global_step")
+        except (OSError, ValueError, TypeError):
+            problems.append("trainer_state.json is unreadable or not valid JSON")
+
+    if not _has_any(path, _CHECKPOINT_WEIGHT_FILES):
+        problems.append("missing model or adapter weights")
+    if not _has_any(path, _CHECKPOINT_CONFIG_FILES):
+        problems.append("missing adapter_config.json / config.json")
+    if not (path / "optimizer.pt").exists():
+        problems.append("missing optimizer.pt")
+    if not (path / "scheduler.pt").exists():
+        problems.append("missing scheduler.pt")
+    if not _has_rng_state(path):
+        problems.append("missing rng_state.pth")
+
+    marker = path / CHECKPOINT_COMPLETE_FILENAME
+    if marker.exists():
+        try:
+            payload = json.loads(marker.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                problems.append(f"{CHECKPOINT_COMPLETE_FILENAME} is not an object")
+        except (OSError, ValueError):
+            problems.append(f"{CHECKPOINT_COMPLETE_FILENAME} is unreadable")
+    return problems
 
 
 def _resolve_path(raw: Any, project_root: Path) -> Path:
@@ -129,29 +201,28 @@ def _checkpoint_number(path: Path) -> Optional[int]:
 
 
 def is_valid_checkpoint(path: Path) -> bool:
-    """Return whether path has native Trainer state and checkpoint payload."""
-    path = Path(path)
-    if not path.is_dir() or _checkpoint_number(path) is None:
-        return False
-    state_path = path / "trainer_state.json"
-    if not state_path.exists():
-        return False
-    try:
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-        if not isinstance(state, dict) or not isinstance(state.get("global_step"), (int, float)):
-            return False
-    except (OSError, ValueError, TypeError):
-        return False
-    return any((path / marker).exists() for marker in _CHECKPOINT_MARKERS)
+    """Return whether path is a complete, resumable Trainer checkpoint."""
+    return not checkpoint_problems(Path(path))
 
 
 def find_latest_checkpoint(checkpoint_root: Path) -> Optional[Path]:
-    """Find newest valid checkpoint by numeric step, not filename ordering."""
+    """Newest *valid* checkpoint by numeric step, not filename ordering.
+
+    A checkpoint that was being written when the process died fails validation
+    and is skipped, so the previous complete one is selected instead. Rejections
+    are logged with their reason rather than silently ignored.
+    """
     checkpoint_root = Path(checkpoint_root)
-    candidates = [
-        path for path in checkpoint_root.glob("checkpoint-*")
-        if is_valid_checkpoint(path)
-    ]
+    candidates = []
+    for path in checkpoint_root.glob("checkpoint-*"):
+        problems = checkpoint_problems(path)
+        if problems:
+            if _checkpoint_number(path) is not None:
+                logging.getLogger(__name__).warning(
+                    "Skipping unusable checkpoint %s: %s", path, "; ".join(problems)
+                )
+            continue
+        candidates.append(path)
     return max(candidates, key=lambda path: _checkpoint_number(path) or -1) if candidates else None
 
 
@@ -352,6 +423,102 @@ def update_resume_manifest(
     })
 
 
+def _is_cuda_oom(exc: BaseException) -> bool:
+    """Recognise a CUDA out-of-memory failure without importing torch eagerly."""
+    if type(exc).__name__ in {"OutOfMemoryError", "CudaOutOfMemoryError"}:
+        return True
+    message = str(exc).lower()
+    return "out of memory" in message and "cuda" in message
+
+
+def _quote(token: str) -> str:
+    return f'"{token}"' if any(character.isspace() for character in token) else token
+
+
+def build_resume_command(args: argparse.Namespace) -> str:
+    """The exact command that continues this run from its newest checkpoint."""
+    parts = ["python", "experiments/scripts/train.py", "--experiment", args.experiment, "--resume"]
+    if args.override:
+        parts += ["--override", *[str(value) for value in args.override]]
+    return " ".join(_quote(part) for part in parts)
+
+
+def training_status(exp_dir: Path, cfg: Any, project_root: Path, resume_root: Path) -> RunStatus:
+    """Status artifact for the training stage, gated on the same identity.
+
+    Training already validates checkpoints against ``resume_metadata.json``.
+    This adds the two identities that file does not carry — the full config hash
+    and the source-code hash — and an explicit running/interrupted/failed/
+    completed state that a crashed process leaves behind.
+    """
+    return RunStatus(
+        path=Path(exp_dir) / TRAINING_STATUS_FILENAME,
+        kind="training",
+        identity={
+            "config_hash": str(cfg.get("config_hash", "") or ""),
+            "code_hash": source_code_hash(project_root),
+            "training_config_hash": hash_config(cfg.get("training", {})),
+            "model_hf_id": str(
+                cfg.get("model", {}).get("hf_id") or cfg.get("model", {}).get("name") or ""
+            ),
+            "model_revision": cfg.get("model", {}).get("revision"),
+            "seed": int(cfg.get("seed", 42)),
+            "dataset_version": cfg.get("data", {}).get("dataset_version"),
+            "checkpoint_root": str(Path(resume_root) / "checkpoints"),
+        },
+    )
+
+
+def _report_interrupted_training(
+    status: RunStatus,
+    resume_root: Path,
+    args: argparse.Namespace,
+    reason: str,
+    exc: Optional[BaseException] = None,
+) -> None:
+    """Record the failure, keep every checkpoint, and print how to continue.
+
+    Nothing is reconfigured here. After a CUDA out-of-memory error the sequence
+    length, batch size and precision stay exactly as configured: silently
+    shrinking them would produce a run whose results no longer match its own
+    recorded configuration.
+    """
+    checkpoint = find_latest_checkpoint(Path(resume_root) / "checkpoints")
+    state = STATUS_INTERRUPTED if reason == "interrupted" else STATUS_FAILED
+    try:
+        status.write(
+            state,
+            failure_reason=reason,
+            error={"type": type(exc).__name__, "message": str(exc)} if exc else None,
+            last_valid_checkpoint=str(checkpoint) if checkpoint else None,
+            last_valid_global_step=checkpoint_global_step(checkpoint) if checkpoint else 0,
+            resume_command=build_resume_command(args),
+        )
+    except Exception:  # status writing must never mask the real failure
+        logging.getLogger(__name__).exception("Could not update the training status file")
+
+    banner = "CUDA OUT OF MEMORY" if reason == "cuda_out_of_memory" else reason.upper()
+    print("\n" + "=" * 70, flush=True)
+    print(f"TRAINING {banner}", flush=True)
+    print("=" * 70, flush=True)
+    if checkpoint:
+        print(f"  Last valid checkpoint : {checkpoint}", flush=True)
+        print(f"  Global step           : {checkpoint_global_step(checkpoint)}", flush=True)
+        print("  It was preserved. Nothing was deleted or reconfigured.", flush=True)
+        print("  Resume with:", flush=True)
+        print(f"    {build_resume_command(args)}", flush=True)
+    else:
+        print("  No valid checkpoint exists yet, so there is nothing to resume from.", flush=True)
+        print("  Save checkpoints more often before retrying, e.g. add:", flush=True)
+        print("    --override training.sft.save_strategy=steps training.sft.save_steps=25",
+              flush=True)
+    if reason == "cuda_out_of_memory":
+        print("  Configuration was NOT changed automatically. If the run cannot fit,", flush=True)
+        print("  change it deliberately and start a NEW run: a different sequence", flush=True)
+        print("  length, batch size or precision is a different experiment.", flush=True)
+    print("=" * 70, flush=True)
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tune with the configured trainer")
     p.add_argument("--experiment", required=True,
@@ -364,7 +531,13 @@ def parse_args() -> argparse.Namespace:
                    help="Resume from newest valid checkpoint in this run")
     p.add_argument("--resume-from", default=None, metavar="CHECKPOINT",
                    help="Resume from this explicit Trainer checkpoint path")
-    return p.parse_args()
+    p.add_argument("--no-resume", action="store_true",
+                   help="Start training from step 0 even if checkpoints exist. "
+                        "Existing checkpoints are left untouched on disk.")
+    args = p.parse_args()
+    if args.no_resume and (args.resume or args.resume_from):
+        p.error("--no-resume cannot be combined with --resume/--resume-from.")
+    return args
 
 
 def _apply_debug(cfg) -> None:
@@ -491,17 +664,39 @@ def main() -> None:
     )
     set_seeds(int(cfg.get("seed", 42)))
 
+    status = training_status(exp_dir, cfg, _PROJECT_ROOT, resume_root)
+    status.check_compatible(resume=bool(args.resume or args.resume_from))
+    status.write(
+        STATUS_RUNNING,
+        experiment_id=str(cfg.get("experiment_id", "")),
+        resumed=resumed,
+        resume_checkpoint=str(resume_checkpoint) if resume_checkpoint else None,
+        initial_global_step=initial_global_step,
+        save_strategy=str(cfg.training.sft.get("save_strategy", "steps")),
+        save_steps=int(cfg.training.sft.get("save_steps", 50)),
+    )
+
     trainer_cls = TRAINERS.get(str(cfg.training.type))
     trainer = trainer_cls(cfg)
-    if resume_checkpoint:
-        trainer.train(
-            train_dataset,
-            eval_dataset,
-            str(adapter_dir),
-            resume_from_checkpoint=str(resume_checkpoint),
+    try:
+        if resume_checkpoint:
+            trainer.train(
+                train_dataset,
+                eval_dataset,
+                str(adapter_dir),
+                resume_from_checkpoint=str(resume_checkpoint),
+            )
+        else:
+            trainer.train(train_dataset, eval_dataset, str(adapter_dir))
+    except KeyboardInterrupt:
+        _report_interrupted_training(status, resume_root, args, "interrupted")
+        raise
+    except BaseException as exc:
+        oom = _is_cuda_oom(exc)
+        _report_interrupted_training(
+            status, resume_root, args, "cuda_out_of_memory" if oom else "failed", exc
         )
-    else:
-        trainer.train(train_dataset, eval_dataset, str(adapter_dir))
+        raise
     final_global_step = int(getattr(trainer, "final_global_step", 0) or 0)
     update_resume_manifest(
         exp_dir,
@@ -510,6 +705,12 @@ def main() -> None:
         initial_global_step=initial_global_step,
         final_global_step=final_global_step,
         resume_timestamp=resume_timestamp,
+    )
+    status.write(
+        STATUS_COMPLETED,
+        finished_utc=_utc_now(),
+        final_global_step=final_global_step,
+        adapter_dir=str(adapter_dir),
     )
 
     print("\n" + "=" * 60)

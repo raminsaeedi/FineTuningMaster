@@ -27,6 +27,7 @@ from src.core.registry import TRAINERS
 from src.data_pipeline.formatter import split_training_text
 from src.training.stability import AbortOnNonFiniteCallback, TrainerCallbackCompat
 from src.utils.config_hash import hash_config
+from src.utils.checkpoints import mark_checkpoint_complete
 from src.utils.gpu_precision import (
     align_trainable_parameters,
     assert_fp16_amp_safe,
@@ -364,7 +365,6 @@ class QLoRASFTTrainer(BaseTrainer):
                 return control
 
             def on_save(self, args, state, control, **kwargs):
-                del args, state
                 model = kwargs.get("model")
                 if model is None:
                     model = owner.model
@@ -372,6 +372,15 @@ class QLoRASFTTrainer(BaseTrainer):
                     model,
                     trainable_only=True,
                     context="Training checkpoint",
+                )
+                # Runs after Trainer has finished writing the checkpoint
+                # directory. Publishing the marker is the last step and is
+                # itself atomic, so a checkpoint interrupted at any earlier
+                # point never becomes markable — and a run that crashes between
+                # two checkpoints still finds the previous complete one.
+                mark_checkpoint_complete(
+                    Path(args.output_dir) / f"checkpoint-{int(state.global_step)}",
+                    global_step=int(state.global_step),
                 )
                 return control
 

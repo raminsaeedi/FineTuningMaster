@@ -48,11 +48,22 @@ def _cfg(tmp_path: Path, **overrides):
 
 
 def _checkpoint(path: Path, step: int, metadata: dict | None = None) -> Path:
+    """Write a complete, resumable checkpoint.
+
+    Resuming needs optimizer, scheduler and RNG state next to the weights, not
+    only ``trainer_state.json``: without them the schedule and the data order
+    restart, which is a different trajectory rather than a resumption. The
+    fixture therefore mirrors what the Trainer actually writes.
+    """
     path.mkdir(parents=True, exist_ok=True)
     (path / "trainer_state.json").write_text(
         json.dumps({"global_step": step}), encoding="utf-8"
     )
+    (path / "adapter_model.safetensors").write_bytes(b"weights")
+    (path / "adapter_config.json").write_text("{}", encoding="utf-8")
     (path / "optimizer.pt").write_bytes(b"state")
+    (path / "scheduler.pt").write_bytes(b"state")
+    (path / "rng_state.pth").write_bytes(b"state")
     if metadata is not None:
         (path.parent / "resume_metadata.json").write_text(
             json.dumps(metadata), encoding="utf-8"

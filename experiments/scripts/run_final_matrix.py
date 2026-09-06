@@ -281,11 +281,22 @@ def experiment_cmd(experiment: str, seed: int, overrides: list[str]) -> list[str
             f"seed={seed}", *overrides]
 
 
-def _profile_cmd(script_name: str, experiment: str, overrides: list[str], *, resume: bool = False) -> list[str]:
+def _profile_cmd(
+    script_name: str,
+    experiment: str,
+    overrides: list[str],
+    *,
+    resume: bool = False,
+    no_resume: bool = False,
+) -> list[str]:
     script = str(_PROJECT_ROOT / "experiments" / "scripts" / script_name)
     cmd = [sys.executable, script, "--experiment", experiment]
     if resume:
         cmd.append("--resume")
+    # Only emitted when the caller explicitly asked for a fresh stage, so the
+    # default command line is byte-identical to what it was before.
+    if no_resume:
+        cmd.append("--no-resume")
     cmd.extend(["--override", *overrides])
     return cmd
 
@@ -308,6 +319,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--with-dependencies", action="store_true",
                    help="Train method C automatically when method D needs it")
     p.add_argument("--resume", action="store_true", help="Resume compatible interrupted training")
+    p.add_argument(
+        "--no-resume", action="store_true",
+        help="Start every selected stage fresh: no checkpoint is resumed and cached "
+             "predictions are set aside under _stale_cache/ instead of being reused. "
+             "Nothing is deleted.",
+    )
     # Legacy spellings retained for the old matrix file and handbook.
     p.add_argument("--only", nargs="+", default=None, metavar="KEY")
     p.add_argument("--output-root", default=None)
@@ -779,7 +796,7 @@ def main(argv: list[str] | None = None) -> None:
             )
 
             if c_needed:
-                if c_ready and not args.force:
+                if c_ready and not args.force and not args.no_resume:
                     print(f"[SKIP] C adapter already compatible: {c_adapter}")
                     summary.append({"model": model, "method": "C", "seed": seed, "stage": "train", "status": "skipped"})
                 elif args.skip_training:
@@ -795,7 +812,7 @@ def main(argv: list[str] | None = None) -> None:
                         print("[RESUME] incompatible old checkpoint found; starting a fresh compatible C run")
                     cmd = _profile_cmd(
                         "train.py", METHODS["C"]["experiment"], train_overrides,
-                        resume=resume_checkpoint,
+                        resume=resume_checkpoint, no_resume=args.no_resume,
                     )
                     if args.dry_run:
                         print("[DRY-RUN] " + " ".join(cmd[1:]))
@@ -872,7 +889,7 @@ def main(argv: list[str] | None = None) -> None:
                     profile=args.profile,
                     dataset=dataset,
                     cache_identity_hash=expected_cache_identity_hash,
-                ) and not args.force:
+                ) and not args.force and not args.no_resume:
                     print(f"[SKIP] {method} already complete: {stage_dir}")
                     summary.append({"model": model, "method": method, "seed": seed, "stage": "run", "status": "skipped"})
                     continue
@@ -880,7 +897,10 @@ def main(argv: list[str] | None = None) -> None:
                     _quarantine_stale_cache(
                         stage_dir, expected_cache_identity_hash, expected_config_hash
                     )
-                cmd = _profile_cmd("run_experiment.py", METHODS[method]["experiment"], overrides)
+                cmd = _profile_cmd(
+                    "run_experiment.py", METHODS[method]["experiment"], overrides,
+                    no_resume=args.no_resume,
+                )
                 if args.dry_run:
                     print("[DRY-RUN] " + " ".join(cmd[1:]))
                     summary.append({"model": model, "method": method, "seed": seed, "stage": "run", "status": "dry-run"})

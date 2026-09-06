@@ -36,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run an experiment end-to-end (infer + eval)")
     p.add_argument("--experiment", required=True)
     p.add_argument("--override", nargs="*", default=[], metavar="KEY=VALUE")
+    p.add_argument(
+        "--no-resume", action="store_true",
+        help="Ignore cached predictions and start this stage fresh. Existing "
+             "files are preserved under _stale_cache/, never deleted.",
+    )
     return p.parse_args()
 
 
@@ -47,7 +52,7 @@ def main() -> None:
                   log_file=str(exp_dir / "logs" / "run.log"))
     write_run_metadata(exp_dir, cfg)
 
-    runner = ExperimentRunner(cfg, _PROJECT_ROOT)
+    runner = ExperimentRunner(cfg, _PROJECT_ROOT, resume=not args.no_resume)
     try:
         payload = runner.run()
     except Exception:

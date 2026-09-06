@@ -21,8 +21,10 @@ from src.evaluation.metrics.robustness import compute_robustness
 from src.evaluation.reporting import write_per_run_reports
 from src.inference.postprocess import reparse
 from src.inference.runner import InferenceRunner
+from src.inference.status import InferenceStatusRecorder, inference_identity
 from src.utils.artifacts import cache_identity, experiment_dir
 from src.utils.io import read_jsonl, write_json
+from src.utils.resume import quarantine_files, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +56,15 @@ def _resolve(path_str: str, project_root: Path) -> Path:
 
 
 class ExperimentRunner:
-    def __init__(self, cfg: Any, project_root: Path) -> None:
+    def __init__(self, cfg: Any, project_root: Path, resume: bool = True) -> None:
         self.cfg = cfg
         self.project_root = project_root
         self.exp_dir = experiment_dir(cfg, project_root)
         self.data_cfg = cfg.get("data", {})
+        # ``resume=True`` is the historical behaviour: cached predictions are
+        # reused. ``resume=False`` (``--no-resume``) sets them aside first, so a
+        # fresh run is genuinely fresh without any file being deleted.
+        self.resume = bool(resume)
 
     # ------------------------------------------------------------------
     def _load_test_items(self):
@@ -76,12 +82,40 @@ class ExperimentRunner:
         return method_cls(self.cfg)
 
     # ------------------------------------------------------------------
+    def _start_fresh(self) -> list[Path]:
+        """Move a previous attempt's inference artifacts aside for ``--no-resume``.
+
+        Nothing is deleted: the files land under ``_stale_cache/fresh_<utc>/``
+        so a run that turns out to have been fine is still recoverable by hand.
+        """
+        candidates = sorted(self.exp_dir.glob("predictions*.jsonl"))
+        candidates += sorted(self.exp_dir.glob("errors*.jsonl"))
+        status_path = self.exp_dir / "inference_status.json"
+        if status_path.exists():
+            candidates.append(status_path)
+        if not candidates:
+            return []
+        target = self.exp_dir / "_stale_cache" / f"fresh_{utc_now().replace(':', '')}"
+        moved = quarantine_files(candidates, target)
+        if moved:
+            logger.info("--no-resume: preserved %d previous file(s) under %s", len(moved), target)
+            print(f"[FRESH RUN] preserved {len(moved)} previous file(s) under {target}")
+        return moved
+
     def run_inference(self) -> None:
         items = self._load_test_items()
         briefs = [it.brief for it in items]
 
         method = self._make_method()
         identity = cache_identity(self.cfg)
+        if not self.resume:
+            self._start_fresh()
+        recorder = InferenceStatusRecorder(
+            self.exp_dir,
+            inference_identity(self.cfg, self.project_root, identity),
+            resume=self.resume,
+            experiment_id=str(self.cfg.get("experiment_id", "")),
+        )
         jobs = [(briefs, self.exp_dir / "predictions.jsonl", "original")]
 
         # Optional perturbation variants — only if their files exist.
@@ -99,11 +133,21 @@ class ExperimentRunner:
         # Original and robustness variants use identical model/retriever setup.
         # Keep generation order and cache semantics, but avoid loading the same
         # base model and adapter up to three times in one experiment.
-        InferenceRunner(
-            method,
-            self.exp_dir / "predictions.jsonl",
-            cache_identity=identity,
-        ).run_many(jobs)
+        recorder.start()
+        try:
+            InferenceRunner(
+                method,
+                self.exp_dir / "predictions.jsonl",
+                cache_identity=identity,
+                recorder=recorder,
+            ).run_many(jobs)
+        except KeyboardInterrupt:
+            recorder.interrupt()
+            raise
+        except BaseException as exc:
+            recorder.fail(exc)
+            raise
+        recorder.finish()
 
     # ------------------------------------------------------------------
     def _load_predictions(self, name: str) -> Optional[List[GenerationResult]]:
