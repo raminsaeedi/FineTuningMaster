@@ -31,6 +31,9 @@ _ADAPTER_WEIGHT_FILES = ("adapter_model.safetensors", "adapter_model.bin")
 
 TRAINING_METADATA_FILENAME = "training_metadata.json"
 
+_MODEL_CONFIG_HASH_PROBLEM = "model configuration hash mismatch between adapter and run"
+_TRAINING_CONFIG_HASH_PROBLEM = "training configuration hash mismatch between adapter and run"
+
 
 class AdapterError(RuntimeError):
     """Raised when an adapter is missing, unusable, or incompatible."""
@@ -224,7 +227,7 @@ def check_adapter_compatibility(metadata: Mapping[str, Any], cfg: Any) -> list[s
     if actual_model_config_hash and expected_model_config is not None:
         expected_model_config_hash = hash_config(expected_model_config)
         if str(actual_model_config_hash) != str(expected_model_config_hash):
-            problems.append("model configuration hash mismatch between adapter and run")
+            problems.append(_MODEL_CONFIG_HASH_PROBLEM)
 
     expected_seed = _get(cfg, "seed")
     actual_seed = metadata.get("seed")
@@ -255,7 +258,7 @@ def check_adapter_compatibility(metadata: Mapping[str, Any], cfg: Any) -> list[s
     if actual_training_hash and expected_training is not None:
         expected_training_hash = hash_config(expected_training)
         if str(actual_training_hash) != str(expected_training_hash):
-            problems.append("training configuration hash mismatch between adapter and run")
+            problems.append(_TRAINING_CONFIG_HASH_PROBLEM)
 
     return problems
 
@@ -298,18 +301,50 @@ def validate_adapter(adapter_dir: Path, cfg: Any, *, strict: bool = True) -> dic
     waived_problems: list[str] = []
 
     # Explicit adapter reuse may intentionally cross training-runtime config
-    # revisions. Only that provenance hash can be waived; model identity and
-    # configuration, seed, and dataset remain strict.
-    training_hash_problem = (
-        "training configuration hash mismatch between adapter and run"
-    )
+    # revisions. Model identity, revision, seed and dataset always remain strict.
     explicit_adapter = _nested_get(cfg, "method.adapter_path")
     allow_training_mismatch = bool(
         _nested_get(cfg, "method.allow_training_config_mismatch", False)
     )
-    if explicit_adapter and allow_training_mismatch and training_hash_problem in problems:
-        waived_problems.append(training_hash_problem)
-        problems = [problem for problem in problems if problem != training_hash_problem]
+    if (
+        explicit_adapter
+        and allow_training_mismatch
+        and _TRAINING_CONFIG_HASH_PROBLEM in problems
+    ):
+        waived_problems.append(_TRAINING_CONFIG_HASH_PROBLEM)
+        problems = [problem for problem in problems if problem != _TRAINING_CONFIG_HASH_PROBLEM]
+
+    # A LoRA adapter does not encode a context-window size. Reusing one at a
+    # *larger* inference context is an explicit, recorded inference protocol
+    # when the exact base model/revision, seed and frozen dataset already passed
+    # the strict checks above. Keep this deliberately opt-in: a model-config
+    # hash can otherwise hide a material model change. The recorded training
+    # context must be present and the new context must be strictly larger, so
+    # this cannot waive arbitrary changes.
+    allow_context_mismatch = bool(
+        _nested_get(cfg, "method.allow_inference_context_length_mismatch", False)
+    )
+    trained_context = metadata.get("max_seq_length")
+    requested_context = _nested_get(cfg, "model.max_seq_length")
+    try:
+        trained_context_int = int(trained_context)
+        requested_context_int = int(requested_context)
+    except (TypeError, ValueError):
+        trained_context_int = 0
+        requested_context_int = 0
+    if (
+        explicit_adapter
+        and allow_context_mismatch
+        and _MODEL_CONFIG_HASH_PROBLEM in problems
+        and trained_context_int > 0
+        and requested_context_int > trained_context_int
+    ):
+        waived_problems.append(
+            f"{_MODEL_CONFIG_HASH_PROBLEM} "
+            f"(explicit inference context override: "
+            f"{trained_context_int} to {requested_context_int})"
+        )
+        problems = [problem for problem in problems if problem != _MODEL_CONFIG_HASH_PROBLEM]
 
     if problems and strict:
         bullets = "\n".join(f"  - {p}" for p in problems)

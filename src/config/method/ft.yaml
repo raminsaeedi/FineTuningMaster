@@ -11,6 +11,10 @@ adapter_path: null
 adapter_source_experiment: null
 adapter_source_method_key: null
 allow_training_config_mismatch: false
+# Explicit inference-only opt-in. It permits a saved adapter to use a larger
+# context window than it saw during training, while model identity/revision,
+# seed and dataset checks stay strict. Default remains false.
+allow_inference_context_length_mismatch: false
 inference:
   load_in_4bit: true
   bnb_4bit_quant_type: nf4

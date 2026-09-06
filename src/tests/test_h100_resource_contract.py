@@ -27,6 +27,7 @@ def test_h100_launcher_supports_method_and_robustness_selection():
     assert "FTM_ROBUSTNESS" in launcher
     assert "--no-paraphrased" in launcher
     assert "--no-missing-info" in launcher
+    assert "FTM_AUTO_RESUME_ATTEMPTS" in launcher
 
 
 def test_c_and_d_use_4bit_inference_without_changing_model_profile():
@@ -61,5 +62,7 @@ def test_h100_inference_mode_requires_adapter_and_skips_training():
     assert "adapter_config.json" in launcher
     assert "adapter_model.safetensors" in launcher
     assert '--input-model-weights "${ADAPTER_DIR}"' in launcher
-    assert '"model.max_seq_length=1024"' in launcher
+    assert '"model.max_seq_length=${INFERENCE_MAX_SEQ_LENGTH}"' in launcher
+    assert '"method.generate.max_new_tokens=${INFERENCE_MAX_NEW_TOKENS}"' in launcher
     assert '"method.allow_training_config_mismatch=true"' in launcher
+    assert '"method.allow_inference_context_length_mismatch=true"' in launcher

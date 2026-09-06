@@ -19,6 +19,7 @@ from src.utils.adapter import (
     resolve_adapter_path,
     validate_adapter,
 )
+from src.utils.config_hash import hash_config
 
 BASE_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
 
@@ -290,6 +291,75 @@ def test_training_hash_waiver_never_waives_seed_mismatch(tmp_path):
     )
 
     with pytest.raises(AdapterError, match="seed mismatch"):
+        validate_adapter(adapter, cfg)
+
+
+def test_explicit_adapter_can_waive_larger_inference_context_only(tmp_path):
+    trained_model = {
+        "hf_id": BASE_MODEL,
+        "name": "qwen2_5_0_5b",
+        "key": "qwen2_5_0_5b",
+        "revision": "pinned-revision",
+        "max_seq_length": 1024,
+    }
+    inference_model = {**trained_model, "max_seq_length": 4096}
+    cfg = _cfg(
+        tmp_path,
+        model=inference_model,
+        method={
+            "adapter_path": str(tmp_path / "adapter"),
+            "allow_inference_context_length_mismatch": True,
+        },
+    )
+    adapter = _make_adapter(
+        tmp_path / "adapter",
+        metadata={
+            "base_model": BASE_MODEL,
+            "model_key": "qwen2_5_0_5b",
+            "model_revision": "pinned-revision",
+            "model_config_hash": hash_config(trained_model),
+            "max_seq_length": 1024,
+            "seed": 42,
+            "dataset_version": "dashboard_v3",
+        },
+    )
+
+    report = validate_adapter(adapter, cfg)
+
+    assert report["problems"] == []
+    assert report["waived_problems"] == [
+        "model configuration hash mismatch between adapter and run "
+        "(explicit inference context override: 1024 to 4096)"
+    ]
+
+
+def test_context_waiver_rejects_smaller_requested_context(tmp_path):
+    trained_model = {
+        "hf_id": BASE_MODEL,
+        "name": "qwen2_5_0_5b",
+        "key": "qwen2_5_0_5b",
+        "max_seq_length": 1024,
+    }
+    cfg = _cfg(
+        tmp_path,
+        model={**trained_model, "max_seq_length": 512},
+        method={
+            "adapter_path": str(tmp_path / "adapter"),
+            "allow_inference_context_length_mismatch": True,
+        },
+    )
+    adapter = _make_adapter(
+        tmp_path / "adapter",
+        metadata={
+            "base_model": BASE_MODEL,
+            "model_config_hash": hash_config(trained_model),
+            "max_seq_length": 1024,
+            "seed": 42,
+            "dataset_version": "dashboard_v3",
+        },
+    )
+
+    with pytest.raises(AdapterError, match="model configuration hash mismatch"):
         validate_adapter(adapter, cfg)
 
 

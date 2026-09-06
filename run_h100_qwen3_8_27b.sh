@@ -17,6 +17,12 @@ Run --full only after the pilot prints PASS_H100_QWEN3_8_27B_PILOT.
 Optional environment variables:
   FTM_METHODS="D B"     Run selected methods; default: "C D A B".
   FTM_ROBUSTNESS=0      Run original test split only; default: 1.
+  FTM_INFERENCE_MAX_SEQ_LENGTH=4096
+                         Context length for --inference; default: 4096.
+  FTM_INFERENCE_MAX_NEW_TOKENS=1024
+                         Output cap for --inference; default: 1024.
+  FTM_AUTO_RESUME_ATTEMPTS=3
+                         Retry same crash-safe command up to N times; default: 1.
 USAGE
 }
 
@@ -78,6 +84,27 @@ case "${ROBUSTNESS}" in
   0|1) ;;
   *) echo "ERROR: FTM_ROBUSTNESS must be 0 or 1." >&2; exit 2 ;;
 esac
+AUTO_RESUME_ATTEMPTS="${FTM_AUTO_RESUME_ATTEMPTS:-1}"
+[[ "${AUTO_RESUME_ATTEMPTS}" =~ ^[1-9][0-9]*$ ]] || {
+  echo "ERROR: FTM_AUTO_RESUME_ATTEMPTS must be a positive integer." >&2
+  exit 2
+}
+if [[ "${INFERENCE_ONLY}" == 1 ]]; then
+  INFERENCE_MAX_SEQ_LENGTH="${FTM_INFERENCE_MAX_SEQ_LENGTH:-4096}"
+  INFERENCE_MAX_NEW_TOKENS="${FTM_INFERENCE_MAX_NEW_TOKENS:-1024}"
+  [[ "${INFERENCE_MAX_SEQ_LENGTH}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: FTM_INFERENCE_MAX_SEQ_LENGTH must be a positive integer." >&2
+    exit 2
+  }
+  [[ "${INFERENCE_MAX_NEW_TOKENS}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: FTM_INFERENCE_MAX_NEW_TOKENS must be a positive integer." >&2
+    exit 2
+  }
+  (( INFERENCE_MAX_NEW_TOKENS < INFERENCE_MAX_SEQ_LENGTH )) || {
+    echo "ERROR: FTM_INFERENCE_MAX_NEW_TOKENS must be smaller than FTM_INFERENCE_MAX_SEQ_LENGTH." >&2
+    exit 2
+  }
+fi
 STORAGE_ROOT="${FTM_H100_STORAGE:-${HOME}/Sep_work/Ramin/ftm_qwen3_8_27b}"
 WORK_ROOT="${STORAGE_ROOT}/${RUN_KIND}"
 export HF_HOME="${STORAGE_ROOT}/huggingface"
@@ -119,6 +146,9 @@ echo "seed: ${SEED}"
 echo "methods: ${METHODS[*]}"
 echo "robustness variants: ${ROBUSTNESS}"
 echo "inference only: ${INFERENCE_ONLY}"
+if [[ "${INFERENCE_ONLY}" == 1 ]]; then
+  echo "inference context/output: ${INFERENCE_MAX_SEQ_LENGTH} / ${INFERENCE_MAX_NEW_TOKENS}"
+fi
 echo "storage: ${STORAGE_ROOT}"
 echo "log: ${LOG_FILE}"
 git rev-parse --short HEAD
@@ -189,15 +219,34 @@ if [[ "${INFERENCE_ONLY}" == 1 ]]; then
   command+=(
     --mode inference
     --input-model-weights "${ADAPTER_DIR}"
-    --override "model.max_seq_length=1024"
+    --override "model.max_seq_length=${INFERENCE_MAX_SEQ_LENGTH}"
+    --override "method.generate.max_new_tokens=${INFERENCE_MAX_NEW_TOKENS}"
     --override "method.allow_training_config_mismatch=true"
+    --override "method.allow_inference_context_length_mismatch=true"
   )
 fi
 if [[ "${ROBUSTNESS}" == 0 ]]; then
   command+=(--no-paraphrased --no-missing-info)
 fi
 
-"${command[@]}"
+run_status=1
+for ((attempt=1; attempt<=AUTO_RESUME_ATTEMPTS; attempt++)); do
+  echo "=== RUN ATTEMPT ${attempt}/${AUTO_RESUME_ATTEMPTS} ==="
+  if "${command[@]}"; then
+    run_status=0
+    break
+  else
+    run_status=$?
+  fi
+  if (( attempt < AUTO_RESUME_ATTEMPTS )); then
+    echo "[RESUME] attempt ${attempt} failed; completed work is preserved. Retrying in 60 seconds."
+    sleep 60
+  fi
+done
+if (( run_status != 0 )); then
+  echo "ERROR: run failed after ${AUTO_RESUME_ATTEMPTS} attempt(s). Re-run same command with --resume."
+  exit "${run_status}"
+fi
 
 if [[ "${RUN_KIND}" == pilot ]]; then
   echo "PASS_H100_QWEN3_8_27B_PILOT"
