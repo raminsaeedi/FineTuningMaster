@@ -303,7 +303,7 @@ The main challenge is distinguishing retrieval availability from retrieval usefu
 
 Method C is registered as ft and implemented by FineTunedMethod. It trains a parameter-efficient LoRA adapter over the configured causal language model and then uses the base model plus that adapter during inference. The current final matrix maps it to E03.
 
-The implementation is a supervised fine-tuning pipeline with 4-bit base-model loading and LoRA updates. The methodological rationale is consistent with the repository references hu2021lora for low-rank adaptation and dettmers2023qlora for quantized low-rank fine-tuning. The repository does not claim that its particular hyperparameters are optimal; they are the current reproducible configuration.
+The implementation is a supervised fine-tuning pipeline with 4-bit base-model loading and LoRA updates. The methodological rationale is consistent with the repository references hu2022lora for low-rank adaptation and dettmers2023qlora for quantized low-rank fine-tuning. The repository does not claim that its particular hyperparameters are optimal; they are the current reproducible configuration.
 
 ### 5.6.2 Training data and partition policy
 
@@ -580,7 +580,7 @@ The hashes artifact also records the current schema, manifest, dataset card, and
 
 The dataset provenance document cites nvBench v1 and records the archive hash but does not pin an upstream Git commit. The repository therefore has a local archive identifier rather than a source-commit identifier. data/raw_external/nvbench2 exists as a separate pending source and is not the current authoritative training source.
 
-The provenance discussion is compatible with repository bibliography keys luo2021nvbench and luo2025nvbench2. The latter describes a source that is present as a pending alternative, not the current training dataset.
+The provenance discussion is compatible with repository bibliography keys luo2021nvbenchdataset and luo2025nvbench2. The latter describes a source that is present as a pending alternative, not the current training dataset.
 
 ### 5.9.4 Model and adapter identity
 

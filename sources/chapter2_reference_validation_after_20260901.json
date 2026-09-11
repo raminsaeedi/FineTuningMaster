@@ -1,0 +1,326 @@
+{
+  "filepath": "docs/thesis/references.bib",
+  "total_entries": 71,
+  "valid_entries": 71,
+  "errors": [],
+  "warnings": [
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry wongsuphasawat2017voyager2: Missing recommended field \"pages\"",
+      "entry": "wongsuphasawat2017voyager2"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry hu2022lora: Missing recommended field \"pages\"",
+      "entry": "hu2022lora"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry StructuredInference2024: Missing recommended field \"volume\"",
+      "entry": "StructuredInference2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry StructuredInference2024: Missing recommended field \"pages\"",
+      "entry": "StructuredInference2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry StructuredInference2024: Missing recommended field \"doi\"",
+      "entry": "StructuredInference2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry AdversarialStructured2020: Missing recommended field \"pages\"",
+      "entry": "AdversarialStructured2020"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry Pauk2026: Missing recommended field \"volume\"",
+      "entry": "Pauk2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry Pauk2026: Missing recommended field \"pages\"",
+      "entry": "Pauk2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry Pauk2026: Missing recommended field \"doi\"",
+      "entry": "Pauk2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry FedRAG2026: Missing recommended field \"volume\"",
+      "entry": "FedRAG2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry FedRAG2026: Missing recommended field \"pages\"",
+      "entry": "FedRAG2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry FedRAG2026: Missing recommended field \"doi\"",
+      "entry": "FedRAG2026"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry ControlTokenDPR2024: Missing recommended field \"volume\"",
+      "entry": "ControlTokenDPR2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry ControlTokenDPR2024: Missing recommended field \"pages\"",
+      "entry": "ControlTokenDPR2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry ControlTokenDPR2024: Missing recommended field \"doi\"",
+      "entry": "ControlTokenDPR2024"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry SMELLM2025: Missing recommended field \"volume\"",
+      "entry": "SMELLM2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry SMELLM2025: Missing recommended field \"pages\"",
+      "entry": "SMELLM2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry SMELLM2025: Missing recommended field \"doi\"",
+      "entry": "SMELLM2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry FinLoRA2025: Missing recommended field \"volume\"",
+      "entry": "FinLoRA2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry FinLoRA2025: Missing recommended field \"pages\"",
+      "entry": "FinLoRA2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry FinLoRA2025: Missing recommended field \"doi\"",
+      "entry": "FinLoRA2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry GreenCodeSummarization2025: Missing recommended field \"volume\"",
+      "entry": "GreenCodeSummarization2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry GreenCodeSummarization2025: Missing recommended field \"pages\"",
+      "entry": "GreenCodeSummarization2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry GreenCodeSummarization2025: Missing recommended field \"doi\"",
+      "entry": "GreenCodeSummarization2025"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry VizQLoRA2023: Missing recommended field \"volume\"",
+      "entry": "VizQLoRA2023"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry VizQLoRA2023: Missing recommended field \"pages\"",
+      "entry": "VizQLoRA2023"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry VizQLoRA2023: Missing recommended field \"doi\"",
+      "entry": "VizQLoRA2023"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry Lee2025FinetuneRAG: Missing recommended field \"volume\"",
+      "entry": "Lee2025FinetuneRAG"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry Lee2025FinetuneRAG: Missing recommended field \"pages\"",
+      "entry": "Lee2025FinetuneRAG"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry Lee2025FinetuneRAG: Missing recommended field \"doi\"",
+      "entry": "Lee2025FinetuneRAG"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry Zhou2025Seeds: Missing recommended field \"volume\"",
+      "entry": "Zhou2025Seeds"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry Zhou2025Seeds: Missing recommended field \"pages\"",
+      "entry": "Zhou2025Seeds"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry Zhou2025Seeds: Missing recommended field \"doi\"",
+      "entry": "Zhou2025Seeds"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo2: Missing recommended field \"volume\"",
+      "entry": "AllenAI_OLMo2"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo2: Missing recommended field \"pages\"",
+      "entry": "AllenAI_OLMo2"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo2: Missing recommended field \"doi\"",
+      "entry": "AllenAI_OLMo2"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo: Missing recommended field \"volume\"",
+      "entry": "AllenAI_OLMo"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo: Missing recommended field \"pages\"",
+      "entry": "AllenAI_OLMo"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry AllenAI_OLMo: Missing recommended field \"doi\"",
+      "entry": "AllenAI_OLMo"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "volume",
+      "severity": "medium",
+      "message": "Entry An2024Qwen2.5: Missing recommended field \"volume\"",
+      "entry": "An2024Qwen2.5"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry An2024Qwen2.5: Missing recommended field \"pages\"",
+      "entry": "An2024Qwen2.5"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "doi",
+      "severity": "medium",
+      "message": "Entry An2024Qwen2.5: Missing recommended field \"doi\"",
+      "entry": "An2024Qwen2.5"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry wei2022flan: Missing recommended field \"pages\"",
+      "entry": "wei2022flan"
+    },
+    {
+      "type": "missing_recommended_field",
+      "field": "pages",
+      "severity": "medium",
+      "message": "Entry zhang2023adalora: Missing recommended field \"pages\"",
+      "entry": "zhang2023adalora"
+    }
+  ],
+  "duplicates": [],
+  "venue_standard_checked": null,
+  "min_count_checked": null,
+  "manuscript_results": {
+    "checked": false,
+    "manuscript_filepath": null,
+    "cited_keys": [],
+    "missing_keys": [],
+    "unused_keys": []
+  }
+}

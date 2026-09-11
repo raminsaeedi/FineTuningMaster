@@ -63,10 +63,21 @@ outputs/
 models/
 !src/models/
 
-# Final/smoke experiment artifacts are generated locally and sent via the
-# professor package; configurations, scripts, and reports remain trackable.
+# Raw run artifacts (predictions, adapters, checkpoints) are large and stay out
+# of Git; configurations, scripts, and reports remain trackable.
 experiments/outputs/
-experiments/results/
+# Everything under experiments/results/ is ignored by default. Directories are
+# re-included first so Git can descend into them, and the consolidated result
+# tables, figures and statistics under experiments/results/final/ are then
+# re-included explicitly: the thesis chapters cite those files as evidence and
+# they are only a few MB in total.
+experiments/results/**
+!experiments/results/**/
+!experiments/results/final/**
+# The hand-off packages are zipped duplicates of the tables above; keep them out.
+experiments/results/packages/**
+# Large local result archives that are not part of the repository.
+experiments/*.zip
 # Generated SLURM job scripts, task lists and job logs.
 experiments/slurm/jobs/
 slurm-*.out

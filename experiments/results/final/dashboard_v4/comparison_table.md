@@ -1,0 +1,36 @@
+# Per-run comparison table
+
+| experiment_id | method | model | seed | n | json_parse% | schema_valid% | complete | top1% | n_fail | top3_ok | top3% | top3_support | n_3rec | n_alt | macro_f1 | latency_ms | para_stab% | para_acc% | clarify% |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dashboard_v4_olmo2_1_49b_A_seed_42 | prompt_only | allenai/OLMo-2-0425-1B-Instruct | 42 | 274 | 30.29 | 0 | 0.248 | 4.01 | 262 | False | NA | 0.018 | 5 | 8 | 0.188 | 10141.1 | 1.82 | 6.57 | 3.28 |
+| dashboard_v4_olmo2_1_49b_A_seed_43 | prompt_only | /lustre/mahdamld/ramin/ftm_runtime/hf-cache/models--allenai--OLMo-2-0425-1B-Instruct/snapshots/48d788eca847d4d7548f375ad03d3c9312f6139e | 43 | 274 | 32.85 | 0 | 0.265 | 6.93 | 255 | False | NA | 0.04 | 11 | 14 | 0.079 | 4890.6 | 2.19 | 4.38 | 2.92 |
+| dashboard_v4_olmo2_1_49b_A_seed_44 | prompt_only | /lustre/mahdamld/ramin/ftm_runtime/hf-cache/models--allenai--OLMo-2-0425-1B-Instruct/snapshots/48d788eca847d4d7548f375ad03d3c9312f6139e | 44 | 274 | 32.12 | 0 | 0.257 | 5.11 | 258 | False | NA | 0.04 | 11 | 14 | 0.018 | 4823.5 | 2.92 | 6.2 | 2.55 |
+| dashboard_v4_olmo2_1_49b_B_seed_42 | rag | allenai/OLMo-2-0425-1B-Instruct | 42 | 274 | 46.35 | 0 | 0.368 | 21.53 | 201 | False | NA | 0.168 | 46 | 68 | 0.101 | 9952.8 | 9.12 | 22.99 | 1.82 |
+| dashboard_v4_olmo2_1_49b_B_seed_43 | rag | allenai/OLMo-2-0425-1B-Instruct | 43 | 274 | 49.64 | 0 | 0.391 | 24.09 | 191 | False | NA | 0.146 | 40 | 66 | 0.238 | 9961.1 | 10.95 | 25.55 | 1.46 |
+| dashboard_v4_olmo2_1_49b_B_seed_44 | rag | allenai/OLMo-2-0425-1B-Instruct | 44 | 274 | 47.08 | 0 | 0.381 | 23.36 | 199 | False | NA | 0.135 | 37 | 61 | 0.176 | 9938.4 | 9.49 | 23.36 | 1.09 |
+| dashboard_v4_olmo2_1_49b_C_seed_42 | ft | allenai/OLMo-2-0425-1B-Instruct | 42 | 274 | 2.92 | 0 | 0.029 | 2.55 | 266 | False | NA | 0 | 0 | 0 | 0.018 | 13598 | 2.55 | 2.55 | 0 |
+| dashboard_v4_olmo2_1_49b_C_seed_43 | ft | allenai/OLMo-2-0425-1B-Instruct | 43 | 274 | 2.92 | 0 | 0.029 | 2.92 | 266 | False | NA | 0 | 0 | 0 | 0.02 | 11876.6 | 2.92 | 3.28 | 0 |
+| dashboard_v4_olmo2_1_49b_C_seed_44 | ft | allenai/OLMo-2-0425-1B-Instruct | 44 | 274 | 2.92 | 0 | 0.029 | 2.92 | 266 | False | NA | 0 | 0 | 0 | 0.02 | 11898.4 | 2.92 | 3.28 | 0 |
+| dashboard_v4_olmo2_1_49b_D_seed_42 | ft_rag | allenai/OLMo-2-0425-1B-Instruct | 42 | 274 | 1.09 | 0 | 0.011 | 0.73 | 271 | False | NA | 0 | 0 | 0 | 0.011 | 13838 | 1.09 | 1.46 | 0 |
+| dashboard_v4_olmo2_1_49b_D_seed_43 | ft_rag | allenai/OLMo-2-0425-1B-Instruct | 43 | 274 | 2.55 | 0 | 0.025 | 2.19 | 267 | False | NA | 0 | 0 | 0 | 0.017 | 12013.7 | 2.19 | 2.19 | 0 |
+| dashboard_v4_olmo2_1_49b_D_seed_44 | ft_rag | allenai/OLMo-2-0425-1B-Instruct | 44 | 274 | 3.28 | 0 | 0.033 | 2.92 | 265 | False | NA | 0 | 0 | 0 | 0.027 | 13389.9 | 2.55 | 2.19 | 0 |
+| dashboard_v4_qwen3_1_7b_A_seed_42 | prompt_only | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 42 | 274 | 99.64 | 0.36 | 0.996 | 0.36 | 273 | False | NA | 0.004 | 1 | 1 | 0.111 | 7076.5 | 0 | 0.36 | 3.65 |
+| dashboard_v4_qwen3_1_7b_A_seed_43 | prompt_only | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 43 | 274 | 100 | 0 | 1 | 0 | 274 | False | NA | 0 | 0 | 0 | 0 | 7074.5 | 0 | 0.36 | 2.92 |
+| dashboard_v4_qwen3_1_7b_A_seed_44 | prompt_only | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 44 | 274 | 100 | 0.36 | 1 | 0.36 | 273 | False | NA | 0.004 | 1 | 1 | 0.018 | 7064.4 | 0.36 | 0.73 | 2.92 |
+| dashboard_v4_qwen3_1_7b_B_seed_42 | rag | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 42 | 274 | 100 | 1.09 | 1 | 1.09 | 271 | False | NA | 0.011 | 3 | 3 | 0.022 | 6596.6 | 1.09 | 1.09 | 0 |
+| dashboard_v4_qwen3_1_7b_B_seed_43 | rag | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 43 | 274 | 99.64 | 1.46 | 0.996 | 1.09 | 270 | False | NA | 0.015 | 4 | 4 | 0.113 | 6669.5 | 0.36 | 0.73 | 0.73 |
+| dashboard_v4_qwen3_1_7b_B_seed_44 | rag | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 44 | 274 | 100 | 1.09 | 1 | 1.09 | 271 | False | NA | 0.011 | 3 | 3 | 0.022 | 6627.1 | 1.09 | 1.46 | 0.36 |
+| dashboard_v4_qwen3_1_7b_C_seed_42 | ft | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 42 | 274 | 97.45 | 1.46 | 0.975 | 1.46 | 270 | False | NA | 0 | 0 | 0 | 0.064 | 9376.3 | 1.46 | 3.65 | 0 |
+| dashboard_v4_qwen3_1_7b_C_seed_43 | ft | Qwen/Qwen3-1.7B | 43 | 274 | 83.94 | 0 | 0.839 | 80.66 | 45 | False | NA | 0 | 0 | 0 | 0.391 | 38749 | 81.39 | 81.75 | 0 |
+| dashboard_v4_qwen3_1_7b_C_seed_44 | ft | Qwen/Qwen3-1.7B | 44 | 274 | 87.96 | 0 | 0.88 | 85.4 | 33 | False | NA | 0 | 0 | 0 | 0.627 | 39036.4 | 86.86 | 84.31 | 0 |
+| dashboard_v4_qwen3_1_7b_D_seed_42 | ft_rag | /lustre/mahdamld/ramin/ftm_runtime/models/Qwen3-1.7B | 42 | 274 | 95.99 | 0 | 0.958 | 0 | 274 | False | NA | 0 | 0 | 0 | 0 | 9654 | 0 | 0.36 | 0 |
+| dashboard_v4_qwen3_1_7b_D_seed_43 | ft_rag | Qwen/Qwen3-1.7B | 43 | 274 | 98.54 | 0 | 0.985 | 89.42 | 4 | False | NA | 0 | 0 | 0 | 0.613 | 59140.8 | 97.45 | 89.78 | 0 |
+| dashboard_v4_qwen3_1_7b_D_seed_44 | ft_rag | Qwen/Qwen3-1.7B | 44 | 274 | 100 | 0 | 1 | 89.05 | 0 | False | NA | 0 | 0 | 0 | 0.531 | 57193.6 | 98.54 | 87.59 | 0 |
+| dashboard_v4_qwen3_8_27b_A_seed_42 | prompt_only | Qwen/Qwen3.8-27B | 42 | 274 | 100 | 46.72 | 1 | 92.34 | 0 | False | NA | 0.004 | 1 | 266 | 0.445 | 30935.8 | 98.54 | 91.24 | 1.09 |
+| dashboard_v4_qwen3_8_27b_B_seed_42 | rag | Qwen/Qwen3.8-27B | 42 | 274 | 100 | 84.67 | 0.999 | 83.58 | 0 | False | NA | 0.004 | 1 | 267 | 0.43 | 29406.8 | 96.72 | 83.94 | 1.09 |
+| dashboard_v4_qwen3_8_27b_C_seed_42 | ft | Qwen/Qwen3.8-27B | 42 | 274 | 100 | 0 | 1 | 96.72 | 0 | False | NA | 0 | 0 | 0 | 0.762 | 76232.6 | 100 | 96.72 | 0 |
+| dashboard_v4_qwen3_8_27b_D_seed_42 | ft_rag | Qwen/Qwen3.8-27B | 42 | 274 | 100 | 0 | 1 | 97.45 | 0 | False | NA | 0 | 0 | 0 | 0.789 | 81338.8 | 100 | 97.45 | 0 |
+| dashboard_v4_qwen3_8b_A_seed_42 | prompt_only | Qwen/Qwen3-8B | 42 | 274 | 100 | 0 | 1 | 91.61 | 0 | True | 97.45 | 0.949 | 260 | 274 | 0.558 | 32963.8 | 100 | 91.61 | 0.73 |
+| dashboard_v4_qwen3_8b_B_seed_42 | rag | Qwen/Qwen3-8B | 42 | 274 | 100 | 0 | 1 | 82.12 | 0 | True | 98.91 | 0.967 | 265 | 274 | 0.462 | 34382.6 | 100 | 82.12 | 0.36 |
+| dashboard_v4_qwen3_8b_C_seed_42 | ft | Qwen/Qwen3-8B | 42 | 274 | 86.13 | 0 | 0.861 | 83.94 | 38 | False | NA | 0 | 0 | 0 | 0.53 | 22464 | 83.58 | 83.94 | 0 |
+| dashboard_v4_qwen3_8b_D_seed_42 | ft_rag | Qwen/Qwen3-8B | 42 | 274 | 74.09 | 0 | 0.741 | 58.39 | 72 | False | NA | 0 | 0 | 0 | 0.31 | 23054.5 | 69.34 | 58.39 | 0 |

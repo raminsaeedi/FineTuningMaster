@@ -1,0 +1,217 @@
+# Descriptive aggregation by model and method
+
+Seeds are repeated runs of the same 274 held-out items, not extra items.
+`sd` is the sample standard deviation across the seeds actually present and
+is left empty for single-seed conditions. `seed comparability` reports whether
+the seeds of one condition were produced by one recorded code state.
+
+| model | method | metric | n_seeds | seeds | per-seed values | mean | sd | seed comparability |
+| --- | --- | --- | ---: | --- | --- | ---: | ---: | --- |
+| olmo2_1_49b | A | json_parse_rate | 3 | 42,43,44 | 30.29,32.85,32.12 | 31.7533 | 1.3188 | unknown_code_state |
+| olmo2_1_49b | A | strict_schema_validity_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| olmo2_1_49b | A | encoding_object_rate | 3 | 42,43,44 | 12.04,NA,NA | 12.04 |  | unknown_code_state |
+| olmo2_1_49b | A | completeness_score | 3 | 42,43,44 | 0.2482,0.2646,0.2573 | 0.2567 | 0.0082 | unknown_code_state |
+| olmo2_1_49b | A | top_1_accuracy | 3 | 42,43,44 | 4.01,6.93,5.11 | 5.35 | 1.4747 | unknown_code_state |
+| olmo2_1_49b | A | macro_f1 | 3 | 42,43,44 | 0.188,0.0791,0.0179 | 0.095 | 0.0862 | unknown_code_state |
+| olmo2_1_49b | A | exact_task_classification | 3 | 42,43,44 | 1.09,4.38,4.01 | 3.16 | 1.8022 | unknown_code_state |
+| olmo2_1_49b | A | exact_encoding | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| olmo2_1_49b | A | exact_encoding_strict | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| olmo2_1_49b | A | paraphrase_consistency | 3 | 42,43,44 | 1.82,2.19,2.92 | 2.31 | 0.5597 | unknown_code_state |
+| olmo2_1_49b | A | paraphrase_accuracy | 3 | 42,43,44 | 6.57,4.38,6.2 | 5.7167 | 1.1723 | unknown_code_state |
+| olmo2_1_49b | A | missing_info_clarification_rate | 3 | 42,43,44 | 3.28,2.92,2.55 | 2.9167 | 0.365 | unknown_code_state |
+| olmo2_1_49b | A | avg_latency_ms | 3 | 42,43,44 | 10141.1,4890.6,4823.5 | 6618.4 | 3050.9322 | unknown_code_state |
+| olmo2_1_49b | B | json_parse_rate | 3 | 42,43,44 | 46.35,49.64,47.08 | 47.69 | 1.7277 | homogeneous |
+| olmo2_1_49b | B | strict_schema_validity_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | homogeneous |
+| olmo2_1_49b | B | encoding_object_rate | 3 | 42,43,44 | 9.85,9.85,9.12 | 9.6067 | 0.4215 | homogeneous |
+| olmo2_1_49b | B | completeness_score | 3 | 42,43,44 | 0.368,0.3911,0.3808 | 0.38 | 0.0116 | homogeneous |
+| olmo2_1_49b | B | top_1_accuracy | 3 | 42,43,44 | 21.53,24.09,23.36 | 22.9933 | 1.3188 | homogeneous |
+| olmo2_1_49b | B | macro_f1 | 3 | 42,43,44 | 0.1005,0.2382,0.1758 | 0.1715 | 0.069 | homogeneous |
+| olmo2_1_49b | B | exact_task_classification | 3 | 42,43,44 | 13.5,14.23,14.6 | 14.11 | 0.5597 | homogeneous |
+| olmo2_1_49b | B | exact_encoding | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | homogeneous |
+| olmo2_1_49b | B | exact_encoding_strict | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | homogeneous |
+| olmo2_1_49b | B | paraphrase_consistency | 3 | 42,43,44 | 9.12,10.95,9.49 | 9.8533 | 0.9676 | homogeneous |
+| olmo2_1_49b | B | paraphrase_accuracy | 3 | 42,43,44 | 22.99,25.55,23.36 | 23.9667 | 1.3836 | homogeneous |
+| olmo2_1_49b | B | missing_info_clarification_rate | 3 | 42,43,44 | 1.82,1.46,1.09 | 1.4567 | 0.365 | homogeneous |
+| olmo2_1_49b | B | avg_latency_ms | 3 | 42,43,44 | 9952.8,9961.1,9938.4 | 9950.7667 | 11.4858 | homogeneous |
+| olmo2_1_49b | C | json_parse_rate | 3 | 42,43,44 | 2.92,2.92,2.92 | 2.92 | 0.0 | homogeneous |
+| olmo2_1_49b | C | strict_schema_validity_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | homogeneous |
+| olmo2_1_49b | C | encoding_object_rate | 3 | 42,43,44 | 2.92,2.92,2.92 | 2.92 | 0.0 | homogeneous |
+| olmo2_1_49b | C | completeness_score | 3 | 42,43,44 | 0.0292,0.0292,0.0292 | 0.0292 | 0.0 | homogeneous |
+| olmo2_1_49b | C | top_1_accuracy | 3 | 42,43,44 | 2.55,2.92,2.92 | 2.7967 | 0.2136 | homogeneous |
+| olmo2_1_49b | C | macro_f1 | 3 | 42,43,44 | 0.0181,0.0199,0.0199 | 0.0193 | 0.001 | homogeneous |
+| olmo2_1_49b | C | exact_task_classification | 3 | 42,43,44 | 2.55,2.92,2.55 | 2.6733 | 0.2136 | homogeneous |
+| olmo2_1_49b | C | exact_encoding | 3 | 42,43,44 | 2.92,2.92,2.92 | 2.92 | 0.0 | homogeneous |
+| olmo2_1_49b | C | exact_encoding_strict | 3 | 42,43,44 | 2.55,2.19,1.82 | 2.1867 | 0.365 | homogeneous |
+| olmo2_1_49b | C | paraphrase_consistency | 3 | 42,43,44 | 2.55,2.92,2.92 | 2.7967 | 0.2136 | homogeneous |
+| olmo2_1_49b | C | paraphrase_accuracy | 3 | 42,43,44 | 2.55,3.28,3.28 | 3.0367 | 0.4215 | homogeneous |
+| olmo2_1_49b | C | missing_info_clarification_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | homogeneous |
+| olmo2_1_49b | C | avg_latency_ms | 3 | 42,43,44 | 13598,11876.6,11898.4 | 12457.6667 | 987.6178 | homogeneous |
+| olmo2_1_49b | D | json_parse_rate | 3 | 42,43,44 | 1.09,2.55,3.28 | 2.3067 | 1.1151 | mixed_code_state |
+| olmo2_1_49b | D | strict_schema_validity_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | mixed_code_state |
+| olmo2_1_49b | D | encoding_object_rate | 3 | 42,43,44 | 1.09,2.55,3.28 | 2.3067 | 1.1151 | mixed_code_state |
+| olmo2_1_49b | D | completeness_score | 3 | 42,43,44 | 0.0109,0.0255,0.0328 | 0.0231 | 0.0112 | mixed_code_state |
+| olmo2_1_49b | D | top_1_accuracy | 3 | 42,43,44 | 0.73,2.19,2.92 | 1.9467 | 1.1151 | mixed_code_state |
+| olmo2_1_49b | D | macro_f1 | 3 | 42,43,44 | 0.0106,0.0168,0.0269 | 0.0181 | 0.0082 | mixed_code_state |
+| olmo2_1_49b | D | exact_task_classification | 3 | 42,43,44 | 1.09,2.19,2.55 | 1.9433 | 0.7606 | mixed_code_state |
+| olmo2_1_49b | D | exact_encoding | 3 | 42,43,44 | 1.09,2.55,3.28 | 2.3067 | 1.1151 | mixed_code_state |
+| olmo2_1_49b | D | exact_encoding_strict | 3 | 42,43,44 | 1.09,1.46,2.19 | 1.58 | 0.5597 | mixed_code_state |
+| olmo2_1_49b | D | paraphrase_consistency | 3 | 42,43,44 | 1.09,2.19,2.55 | 1.9433 | 0.7606 | mixed_code_state |
+| olmo2_1_49b | D | paraphrase_accuracy | 3 | 42,43,44 | 1.46,2.19,2.19 | 1.9467 | 0.4215 | mixed_code_state |
+| olmo2_1_49b | D | missing_info_clarification_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | mixed_code_state |
+| olmo2_1_49b | D | avg_latency_ms | 3 | 42,43,44 | 13838,12013.7,13389.9 | 13080.5333 | 950.6831 | mixed_code_state |
+| qwen3_1_7b | A | json_parse_rate | 3 | 42,43,44 | 99.64,100,100 | 99.88 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | A | strict_schema_validity_rate | 3 | 42,43,44 | 0.36,0,0.36 | 0.24 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | A | encoding_object_rate | 3 | 42,43,44 | NA,NA,NA |  |  | unknown_code_state |
+| qwen3_1_7b | A | completeness_score | 3 | 42,43,44 | 0.9964,1,1 | 0.9988 | 0.0021 | unknown_code_state |
+| qwen3_1_7b | A | top_1_accuracy | 3 | 42,43,44 | 0.36,0,0.36 | 0.24 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | A | macro_f1 | 3 | 42,43,44 | 0.1111,0,0.0185 | 0.0432 | 0.0595 | unknown_code_state |
+| qwen3_1_7b | A | exact_task_classification | 3 | 42,43,44 | 0,0,0.36 | 0.12 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | A | exact_encoding | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | A | exact_encoding_strict | 3 | 42,43,44 | NA,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | A | paraphrase_consistency | 3 | 42,43,44 | 0,0,0.36 | 0.12 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | A | paraphrase_accuracy | 3 | 42,43,44 | 0.36,0.36,0.73 | 0.4833 | 0.2136 | unknown_code_state |
+| qwen3_1_7b | A | missing_info_clarification_rate | 3 | 42,43,44 | 3.65,2.92,2.92 | 3.1633 | 0.4215 | unknown_code_state |
+| qwen3_1_7b | A | avg_latency_ms | 3 | 42,43,44 | 7076.5,7074.5,7064.4 | 7071.8 | 6.4861 | unknown_code_state |
+| qwen3_1_7b | B | json_parse_rate | 3 | 42,43,44 | 100,99.64,100 | 99.88 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | B | strict_schema_validity_rate | 3 | 42,43,44 | 1.09,1.46,1.09 | 1.2133 | 0.2136 | unknown_code_state |
+| qwen3_1_7b | B | encoding_object_rate | 3 | 42,43,44 | NA,NA,NA |  |  | unknown_code_state |
+| qwen3_1_7b | B | completeness_score | 3 | 42,43,44 | 1,0.9964,1 | 0.9988 | 0.0021 | unknown_code_state |
+| qwen3_1_7b | B | top_1_accuracy | 3 | 42,43,44 | 1.09,1.09,1.09 | 1.09 | 0.0 | unknown_code_state |
+| qwen3_1_7b | B | macro_f1 | 3 | 42,43,44 | 0.0217,0.1125,0.0217 | 0.052 | 0.0524 | unknown_code_state |
+| qwen3_1_7b | B | exact_task_classification | 3 | 42,43,44 | 0.36,0.36,0.36 | 0.36 | 0.0 | unknown_code_state |
+| qwen3_1_7b | B | exact_encoding | 3 | 42,43,44 | 0,0.36,0.36 | 0.24 | 0.2078 | unknown_code_state |
+| qwen3_1_7b | B | exact_encoding_strict | 3 | 42,43,44 | NA,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | B | paraphrase_consistency | 3 | 42,43,44 | 1.09,0.36,1.09 | 0.8467 | 0.4215 | unknown_code_state |
+| qwen3_1_7b | B | paraphrase_accuracy | 3 | 42,43,44 | 1.09,0.73,1.46 | 1.0933 | 0.365 | unknown_code_state |
+| qwen3_1_7b | B | missing_info_clarification_rate | 3 | 42,43,44 | 0,0.73,0.36 | 0.3633 | 0.365 | unknown_code_state |
+| qwen3_1_7b | B | avg_latency_ms | 3 | 42,43,44 | 6596.6,6669.5,6627.1 | 6631.0667 | 36.6115 | unknown_code_state |
+| qwen3_1_7b | C | json_parse_rate | 3 | 42,43,44 | 97.45,83.94,87.96 | 89.7833 | 6.9371 | unknown_code_state |
+| qwen3_1_7b | C | strict_schema_validity_rate | 3 | 42,43,44 | 1.46,0,0 | 0.4867 | 0.8429 | unknown_code_state |
+| qwen3_1_7b | C | encoding_object_rate | 3 | 42,43,44 | NA,83.94,87.96 | 85.95 | 2.8426 | unknown_code_state |
+| qwen3_1_7b | C | completeness_score | 3 | 42,43,44 | 0.9745,0.8394,0.8796 | 0.8978 | 0.0694 | unknown_code_state |
+| qwen3_1_7b | C | top_1_accuracy | 3 | 42,43,44 | 1.46,80.66,85.4 | 55.84 | 47.1541 | unknown_code_state |
+| qwen3_1_7b | C | macro_f1 | 3 | 42,43,44 | 0.0635,0.3905,0.6272 | 0.3604 | 0.2831 | unknown_code_state |
+| qwen3_1_7b | C | exact_task_classification | 3 | 42,43,44 | 0.73,80.66,85.4 | 55.5967 | 47.575 | unknown_code_state |
+| qwen3_1_7b | C | exact_encoding | 3 | 42,43,44 | 1.46,82.85,86.5 | 56.9367 | 48.0789 | unknown_code_state |
+| qwen3_1_7b | C | exact_encoding_strict | 3 | 42,43,44 | 0.36,48.18,54.74 | 34.4267 | 29.6844 | unknown_code_state |
+| qwen3_1_7b | C | paraphrase_consistency | 3 | 42,43,44 | 1.46,81.39,86.86 | 56.57 | 47.805 | unknown_code_state |
+| qwen3_1_7b | C | paraphrase_accuracy | 3 | 42,43,44 | 3.65,81.75,84.31 | 56.57 | 45.8479 | unknown_code_state |
+| qwen3_1_7b | C | missing_info_clarification_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | C | avg_latency_ms | 3 | 42,43,44 | 9376.3,38749,39036.4 | 29053.9 | 17041.9073 | unknown_code_state |
+| qwen3_1_7b | D | json_parse_rate | 3 | 42,43,44 | 95.99,98.54,100 | 98.1767 | 2.0295 | unknown_code_state |
+| qwen3_1_7b | D | strict_schema_validity_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | D | encoding_object_rate | 3 | 42,43,44 | NA,98.54,100 | 99.27 | 1.0324 | unknown_code_state |
+| qwen3_1_7b | D | completeness_score | 3 | 42,43,44 | 0.958,0.9854,1 | 0.9811 | 0.0213 | unknown_code_state |
+| qwen3_1_7b | D | top_1_accuracy | 3 | 42,43,44 | 0,89.42,89.05 | 59.49 | 51.5202 | unknown_code_state |
+| qwen3_1_7b | D | macro_f1 | 3 | 42,43,44 | 0,0.6126,0.5306 | 0.3811 | 0.3326 | unknown_code_state |
+| qwen3_1_7b | D | exact_task_classification | 3 | 42,43,44 | 0,89.42,88.69 | 59.37 | 51.4172 | unknown_code_state |
+| qwen3_1_7b | D | exact_encoding | 3 | 42,43,44 | 0,96.35,97.81 | 64.72 | 56.0539 | unknown_code_state |
+| qwen3_1_7b | D | exact_encoding_strict | 3 | 42,43,44 | 0,51.09,52.19 | 34.4267 | 29.8194 | unknown_code_state |
+| qwen3_1_7b | D | paraphrase_consistency | 3 | 42,43,44 | 0,97.45,98.54 | 65.33 | 56.5801 | unknown_code_state |
+| qwen3_1_7b | D | paraphrase_accuracy | 3 | 42,43,44 | 0.36,89.78,87.59 | 59.2433 | 51.0062 | unknown_code_state |
+| qwen3_1_7b | D | missing_info_clarification_rate | 3 | 42,43,44 | 0,0,0 | 0.0 | 0.0 | unknown_code_state |
+| qwen3_1_7b | D | avg_latency_ms | 3 | 42,43,44 | 9654,59140.8,57193.6 | 41996.1333 | 28026.0252 | unknown_code_state |
+| qwen3_8_27b | A | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | A | strict_schema_validity_rate | 1 | 42 | 46.72 | 46.72 |  | homogeneous |
+| qwen3_8_27b | A | encoding_object_rate | 1 | 42 | NA |  |  | homogeneous |
+| qwen3_8_27b | A | completeness_score | 1 | 42 | 1 | 1.0 |  | homogeneous |
+| qwen3_8_27b | A | top_1_accuracy | 1 | 42 | 92.34 | 92.34 |  | homogeneous |
+| qwen3_8_27b | A | macro_f1 | 1 | 42 | 0.4453 | 0.4453 |  | homogeneous |
+| qwen3_8_27b | A | exact_task_classification | 1 | 42 | 28.47 | 28.47 |  | homogeneous |
+| qwen3_8_27b | A | exact_encoding | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | A | exact_encoding_strict | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | A | paraphrase_consistency | 1 | 42 | 98.54 | 98.54 |  | homogeneous |
+| qwen3_8_27b | A | paraphrase_accuracy | 1 | 42 | 91.24 | 91.24 |  | homogeneous |
+| qwen3_8_27b | A | missing_info_clarification_rate | 1 | 42 | 1.09 | 1.09 |  | homogeneous |
+| qwen3_8_27b | A | avg_latency_ms | 1 | 42 | 30935.8 | 30935.8 |  | homogeneous |
+| qwen3_8_27b | B | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | B | strict_schema_validity_rate | 1 | 42 | 84.67 | 84.67 |  | homogeneous |
+| qwen3_8_27b | B | encoding_object_rate | 1 | 42 | NA |  |  | homogeneous |
+| qwen3_8_27b | B | completeness_score | 1 | 42 | 0.9994 | 0.9994 |  | homogeneous |
+| qwen3_8_27b | B | top_1_accuracy | 1 | 42 | 83.58 | 83.58 |  | homogeneous |
+| qwen3_8_27b | B | macro_f1 | 1 | 42 | 0.4302 | 0.4302 |  | homogeneous |
+| qwen3_8_27b | B | exact_task_classification | 1 | 42 | 39.42 | 39.42 |  | homogeneous |
+| qwen3_8_27b | B | exact_encoding | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | B | exact_encoding_strict | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | B | paraphrase_consistency | 1 | 42 | 96.72 | 96.72 |  | homogeneous |
+| qwen3_8_27b | B | paraphrase_accuracy | 1 | 42 | 83.94 | 83.94 |  | homogeneous |
+| qwen3_8_27b | B | missing_info_clarification_rate | 1 | 42 | 1.09 | 1.09 |  | homogeneous |
+| qwen3_8_27b | B | avg_latency_ms | 1 | 42 | 29406.8 | 29406.8 |  | homogeneous |
+| qwen3_8_27b | C | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | C | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | C | encoding_object_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | C | completeness_score | 1 | 42 | 1 | 1.0 |  | homogeneous |
+| qwen3_8_27b | C | top_1_accuracy | 1 | 42 | 96.72 | 96.72 |  | homogeneous |
+| qwen3_8_27b | C | macro_f1 | 1 | 42 | 0.7625 | 0.7625 |  | homogeneous |
+| qwen3_8_27b | C | exact_task_classification | 1 | 42 | 96.35 | 96.35 |  | homogeneous |
+| qwen3_8_27b | C | exact_encoding | 1 | 42 | 98.18 | 98.18 |  | homogeneous |
+| qwen3_8_27b | C | exact_encoding_strict | 1 | 42 | 52.92 | 52.92 |  | homogeneous |
+| qwen3_8_27b | C | paraphrase_consistency | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | C | paraphrase_accuracy | 1 | 42 | 96.72 | 96.72 |  | homogeneous |
+| qwen3_8_27b | C | missing_info_clarification_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | C | avg_latency_ms | 1 | 42 | 76232.6 | 76232.6 |  | homogeneous |
+| qwen3_8_27b | D | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | D | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | D | encoding_object_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | D | completeness_score | 1 | 42 | 1 | 1.0 |  | homogeneous |
+| qwen3_8_27b | D | top_1_accuracy | 1 | 42 | 97.45 | 97.45 |  | homogeneous |
+| qwen3_8_27b | D | macro_f1 | 1 | 42 | 0.7888 | 0.7888 |  | homogeneous |
+| qwen3_8_27b | D | exact_task_classification | 1 | 42 | 97.45 | 97.45 |  | homogeneous |
+| qwen3_8_27b | D | exact_encoding | 1 | 42 | 97.81 | 97.81 |  | homogeneous |
+| qwen3_8_27b | D | exact_encoding_strict | 1 | 42 | 50 | 50.0 |  | homogeneous |
+| qwen3_8_27b | D | paraphrase_consistency | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8_27b | D | paraphrase_accuracy | 1 | 42 | 97.45 | 97.45 |  | homogeneous |
+| qwen3_8_27b | D | missing_info_clarification_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8_27b | D | avg_latency_ms | 1 | 42 | 81338.8 | 81338.8 |  | homogeneous |
+| qwen3_8b | A | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | A | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | A | encoding_object_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | A | completeness_score | 1 | 42 | 1 | 1.0 |  | homogeneous |
+| qwen3_8b | A | top_1_accuracy | 1 | 42 | 91.61 | 91.61 |  | homogeneous |
+| qwen3_8b | A | macro_f1 | 1 | 42 | 0.5578 | 0.5578 |  | homogeneous |
+| qwen3_8b | A | exact_task_classification | 1 | 42 | 17.88 | 17.88 |  | homogeneous |
+| qwen3_8b | A | exact_encoding | 1 | 42 | 10.95 | 10.95 |  | homogeneous |
+| qwen3_8b | A | exact_encoding_strict | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | A | paraphrase_consistency | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | A | paraphrase_accuracy | 1 | 42 | 91.61 | 91.61 |  | homogeneous |
+| qwen3_8b | A | missing_info_clarification_rate | 1 | 42 | 0.73 | 0.73 |  | homogeneous |
+| qwen3_8b | A | avg_latency_ms | 1 | 42 | 32963.8 | 32963.8 |  | homogeneous |
+| qwen3_8b | B | json_parse_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | B | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | B | encoding_object_rate | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | B | completeness_score | 1 | 42 | 1 | 1.0 |  | homogeneous |
+| qwen3_8b | B | top_1_accuracy | 1 | 42 | 82.12 | 82.12 |  | homogeneous |
+| qwen3_8b | B | macro_f1 | 1 | 42 | 0.4618 | 0.4618 |  | homogeneous |
+| qwen3_8b | B | exact_task_classification | 1 | 42 | 45.99 | 45.99 |  | homogeneous |
+| qwen3_8b | B | exact_encoding | 1 | 42 | 10.58 | 10.58 |  | homogeneous |
+| qwen3_8b | B | exact_encoding_strict | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | B | paraphrase_consistency | 1 | 42 | 100 | 100.0 |  | homogeneous |
+| qwen3_8b | B | paraphrase_accuracy | 1 | 42 | 82.12 | 82.12 |  | homogeneous |
+| qwen3_8b | B | missing_info_clarification_rate | 1 | 42 | 0.36 | 0.36 |  | homogeneous |
+| qwen3_8b | B | avg_latency_ms | 1 | 42 | 34382.6 | 34382.6 |  | homogeneous |
+| qwen3_8b | C | json_parse_rate | 1 | 42 | 86.13 | 86.13 |  | homogeneous |
+| qwen3_8b | C | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | C | encoding_object_rate | 1 | 42 | 86.13 | 86.13 |  | homogeneous |
+| qwen3_8b | C | completeness_score | 1 | 42 | 0.8613 | 0.8613 |  | homogeneous |
+| qwen3_8b | C | top_1_accuracy | 1 | 42 | 83.94 | 83.94 |  | homogeneous |
+| qwen3_8b | C | macro_f1 | 1 | 42 | 0.5302 | 0.5302 |  | homogeneous |
+| qwen3_8b | C | exact_task_classification | 1 | 42 | 83.21 | 83.21 |  | homogeneous |
+| qwen3_8b | C | exact_encoding | 1 | 42 | 83.94 | 83.94 |  | homogeneous |
+| qwen3_8b | C | exact_encoding_strict | 1 | 42 | 55.84 | 55.84 |  | homogeneous |
+| qwen3_8b | C | paraphrase_consistency | 1 | 42 | 83.58 | 83.58 |  | homogeneous |
+| qwen3_8b | C | paraphrase_accuracy | 1 | 42 | 83.94 | 83.94 |  | homogeneous |
+| qwen3_8b | C | missing_info_clarification_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | C | avg_latency_ms | 1 | 42 | 22464 | 22464.0 |  | homogeneous |
+| qwen3_8b | D | json_parse_rate | 1 | 42 | 74.09 | 74.09 |  | homogeneous |
+| qwen3_8b | D | strict_schema_validity_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | D | encoding_object_rate | 1 | 42 | 74.09 | 74.09 |  | homogeneous |
+| qwen3_8b | D | completeness_score | 1 | 42 | 0.7409 | 0.7409 |  | homogeneous |
+| qwen3_8b | D | top_1_accuracy | 1 | 42 | 58.39 | 58.39 |  | homogeneous |
+| qwen3_8b | D | macro_f1 | 1 | 42 | 0.3105 | 0.3105 |  | homogeneous |
+| qwen3_8b | D | exact_task_classification | 1 | 42 | 68.98 | 68.98 |  | homogeneous |
+| qwen3_8b | D | exact_encoding | 1 | 42 | 71.17 | 71.17 |  | homogeneous |
+| qwen3_8b | D | exact_encoding_strict | 1 | 42 | 38.32 | 38.32 |  | homogeneous |
+| qwen3_8b | D | paraphrase_consistency | 1 | 42 | 69.34 | 69.34 |  | homogeneous |
+| qwen3_8b | D | paraphrase_accuracy | 1 | 42 | 58.39 | 58.39 |  | homogeneous |
+| qwen3_8b | D | missing_info_clarification_rate | 1 | 42 | 0 | 0.0 |  | homogeneous |
+| qwen3_8b | D | avg_latency_ms | 1 | 42 | 23054.5 | 23054.5 |  | homogeneous |

@@ -1,0 +1,145 @@
+model_key,method_key,mean,std,count,figure,metric
+olmo2_1_49b,A,5.3500000000000005,1.474720312466062,3,F1_accuracy_by_method,Top-1 accuracy
+olmo2_1_49b,B,22.993333333333336,1.3187999595591926,3,F1_accuracy_by_method,Top-1 accuracy
+olmo2_1_49b,C,2.796666666666667,0.21361959960016164,3,F1_accuracy_by_method,Top-1 accuracy
+olmo2_1_49b,D,1.9466666666666665,1.1150934191059212,3,F1_accuracy_by_method,Top-1 accuracy
+qwen3_1_7b,A,0.24,0.20784609690826528,3,F1_accuracy_by_method,Top-1 accuracy
+qwen3_1_7b,B,1.09,0.0,3,F1_accuracy_by_method,Top-1 accuracy
+qwen3_1_7b,C,55.839999999999996,47.15405814985599,3,F1_accuracy_by_method,Top-1 accuracy
+qwen3_1_7b,D,59.49,51.52018342358652,3,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8_27b,A,92.34,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8_27b,B,83.58,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8_27b,C,96.72,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8_27b,D,97.45,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8b,A,91.61,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8b,B,82.12,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8b,C,83.94,,1,F1_accuracy_by_method,Top-1 accuracy
+qwen3_8b,D,58.39,,1,F1_accuracy_by_method,Top-1 accuracy
+olmo2_1_49b,A,0.09500000000000001,0.08615747210776324,3,F1_accuracy_by_method,Macro F1
+olmo2_1_49b,B,0.17149999999999999,0.06895063451484693,3,F1_accuracy_by_method,Macro F1
+olmo2_1_49b,C,0.0193,0.0010392304845413252,3,F1_accuracy_by_method,Macro F1
+olmo2_1_49b,D,0.0181,0.008227393268830655,3,F1_accuracy_by_method,Macro F1
+qwen3_1_7b,A,0.043199999999999995,0.05952621271339208,3,F1_accuracy_by_method,Macro F1
+qwen3_1_7b,B,0.05196666666666667,0.05242340444241802,3,F1_accuracy_by_method,Macro F1
+qwen3_1_7b,C,0.3604,0.2830528749191571,3,F1_accuracy_by_method,Macro F1
+qwen3_1_7b,D,0.38106666666666666,0.33255052748918223,3,F1_accuracy_by_method,Macro F1
+qwen3_8_27b,A,0.4453,,1,F1_accuracy_by_method,Macro F1
+qwen3_8_27b,B,0.4302,,1,F1_accuracy_by_method,Macro F1
+qwen3_8_27b,C,0.7625,,1,F1_accuracy_by_method,Macro F1
+qwen3_8_27b,D,0.7888,,1,F1_accuracy_by_method,Macro F1
+qwen3_8b,A,0.5578,,1,F1_accuracy_by_method,Macro F1
+qwen3_8b,B,0.4618,,1,F1_accuracy_by_method,Macro F1
+qwen3_8b,C,0.5302,,1,F1_accuracy_by_method,Macro F1
+qwen3_8b,D,0.3105,,1,F1_accuracy_by_method,Macro F1
+olmo2_1_49b,A,0.0,0.0,3,F2_schema_quality,Schema validity
+olmo2_1_49b,B,0.0,0.0,3,F2_schema_quality,Schema validity
+olmo2_1_49b,C,0.0,0.0,3,F2_schema_quality,Schema validity
+olmo2_1_49b,D,0.0,0.0,3,F2_schema_quality,Schema validity
+qwen3_1_7b,A,0.24,0.20784609690826528,3,F2_schema_quality,Schema validity
+qwen3_1_7b,B,1.2133333333333334,0.2136195996001615,3,F2_schema_quality,Schema validity
+qwen3_1_7b,C,0.48666666666666664,0.8429313930168536,3,F2_schema_quality,Schema validity
+qwen3_1_7b,D,0.0,0.0,3,F2_schema_quality,Schema validity
+qwen3_8_27b,A,46.72,,1,F2_schema_quality,Schema validity
+qwen3_8_27b,B,84.67,,1,F2_schema_quality,Schema validity
+qwen3_8_27b,C,0.0,,1,F2_schema_quality,Schema validity
+qwen3_8_27b,D,0.0,,1,F2_schema_quality,Schema validity
+qwen3_8b,A,0.0,,1,F2_schema_quality,Schema validity
+qwen3_8b,B,0.0,,1,F2_schema_quality,Schema validity
+qwen3_8b,C,0.0,,1,F2_schema_quality,Schema validity
+qwen3_8b,D,0.0,,1,F2_schema_quality,Schema validity
+olmo2_1_49b,A,0.2567,0.00821644692065858,3,F2_schema_quality,Completeness
+olmo2_1_49b,B,0.3799666666666666,0.011572524933364086,3,F2_schema_quality,Completeness
+olmo2_1_49b,C,0.0292,0.0,3,F2_schema_quality,Completeness
+olmo2_1_49b,D,0.023066666666666666,0.011150934191059211,3,F2_schema_quality,Completeness
+qwen3_1_7b,A,0.9988,0.002078460969082672,3,F2_schema_quality,Completeness
+qwen3_1_7b,B,0.9988,0.002078460969082672,3,F2_schema_quality,Completeness
+qwen3_1_7b,C,0.8978333333333334,0.06937105544341482,3,F2_schema_quality,Completeness
+qwen3_1_7b,D,0.9811333333333333,0.021322601467300722,3,F2_schema_quality,Completeness
+qwen3_8_27b,A,1.0,,1,F2_schema_quality,Completeness
+qwen3_8_27b,B,0.9994,,1,F2_schema_quality,Completeness
+qwen3_8_27b,C,1.0,,1,F2_schema_quality,Completeness
+qwen3_8_27b,D,1.0,,1,F2_schema_quality,Completeness
+qwen3_8b,A,1.0,,1,F2_schema_quality,Completeness
+qwen3_8b,B,1.0,,1,F2_schema_quality,Completeness
+qwen3_8b,C,0.8613,,1,F2_schema_quality,Completeness
+qwen3_8b,D,0.7409,,1,F2_schema_quality,Completeness
+olmo2_1_49b,A,31.75333333333333,1.3187999595591953,3,F2_schema_quality,JSON parse rate
+olmo2_1_49b,B,47.69,1.7277441940287335,3,F2_schema_quality,JSON parse rate
+olmo2_1_49b,C,2.92,0.0,3,F2_schema_quality,JSON parse rate
+olmo2_1_49b,D,2.3066666666666666,1.115093419105921,3,F2_schema_quality,JSON parse rate
+qwen3_1_7b,A,99.88,0.20784609690827008,3,F2_schema_quality,JSON parse rate
+qwen3_1_7b,B,99.88,0.20784609690826392,3,F2_schema_quality,JSON parse rate
+qwen3_1_7b,C,89.78333333333335,6.937105544341482,3,F2_schema_quality,JSON parse rate
+qwen3_1_7b,D,98.17666666666666,2.0295401778071196,3,F2_schema_quality,JSON parse rate
+qwen3_8_27b,A,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8_27b,B,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8_27b,C,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8_27b,D,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8b,A,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8b,B,100.0,,1,F2_schema_quality,JSON parse rate
+qwen3_8b,C,86.13,,1,F2_schema_quality,JSON parse rate
+qwen3_8b,D,74.09,,1,F2_schema_quality,JSON parse rate
+olmo2_1_49b,A,2.31,0.5597320787662612,3,F4_robustness,Paraphrase consistency
+olmo2_1_49b,B,9.853333333333333,0.9675915116066969,3,F4_robustness,Paraphrase consistency
+olmo2_1_49b,C,2.796666666666667,0.21361959960016164,3,F4_robustness,Paraphrase consistency
+olmo2_1_49b,D,1.9433333333333334,0.7606137872358961,3,F4_robustness,Paraphrase consistency
+qwen3_1_7b,A,0.12,0.20784609690826528,3,F4_robustness,Paraphrase consistency
+qwen3_1_7b,B,0.8466666666666667,0.42146569650842686,3,F4_robustness,Paraphrase consistency
+qwen3_1_7b,C,56.56999999999999,47.80496103962433,3,F4_robustness,Paraphrase consistency
+qwen3_1_7b,D,65.33,56.58006451039094,3,F4_robustness,Paraphrase consistency
+qwen3_8_27b,A,98.54,,1,F4_robustness,Paraphrase consistency
+qwen3_8_27b,B,96.72,,1,F4_robustness,Paraphrase consistency
+qwen3_8_27b,C,100.0,,1,F4_robustness,Paraphrase consistency
+qwen3_8_27b,D,100.0,,1,F4_robustness,Paraphrase consistency
+qwen3_8b,A,100.0,,1,F4_robustness,Paraphrase consistency
+qwen3_8b,B,100.0,,1,F4_robustness,Paraphrase consistency
+qwen3_8b,C,83.58,,1,F4_robustness,Paraphrase consistency
+qwen3_8b,D,69.34,,1,F4_robustness,Paraphrase consistency
+olmo2_1_49b,A,5.716666666666666,1.1722769866091092,3,F4_robustness,Paraphrase accuracy
+olmo2_1_49b,B,23.96666666666667,1.3836304901719012,3,F4_robustness,Paraphrase accuracy
+olmo2_1_49b,C,3.0366666666666666,0.42146569650842663,3,F4_robustness,Paraphrase accuracy
+olmo2_1_49b,D,1.9466666666666665,0.4214656965084268,3,F4_robustness,Paraphrase accuracy
+qwen3_1_7b,A,0.48333333333333334,0.21361959960016152,3,F4_robustness,Paraphrase accuracy
+qwen3_1_7b,B,1.0933333333333335,0.36501141534660714,3,F4_robustness,Paraphrase accuracy
+qwen3_1_7b,C,56.57,45.8479356132858,3,F4_robustness,Paraphrase accuracy
+qwen3_1_7b,D,59.24333333333334,51.00621759485145,3,F4_robustness,Paraphrase accuracy
+qwen3_8_27b,A,91.24,,1,F4_robustness,Paraphrase accuracy
+qwen3_8_27b,B,83.94,,1,F4_robustness,Paraphrase accuracy
+qwen3_8_27b,C,96.72,,1,F4_robustness,Paraphrase accuracy
+qwen3_8_27b,D,97.45,,1,F4_robustness,Paraphrase accuracy
+qwen3_8b,A,91.61,,1,F4_robustness,Paraphrase accuracy
+qwen3_8b,B,82.12,,1,F4_robustness,Paraphrase accuracy
+qwen3_8b,C,83.94,,1,F4_robustness,Paraphrase accuracy
+qwen3_8b,D,58.39,,1,F4_robustness,Paraphrase accuracy
+olmo2_1_49b,A,2.9166666666666665,0.36501141534660697,3,F4_robustness,Missing-info clarification
+olmo2_1_49b,B,1.4566666666666668,0.3650114153466072,3,F4_robustness,Missing-info clarification
+olmo2_1_49b,C,0.0,0.0,3,F4_robustness,Missing-info clarification
+olmo2_1_49b,D,0.0,0.0,3,F4_robustness,Missing-info clarification
+qwen3_1_7b,A,3.1633333333333336,0.42146569650842697,3,F4_robustness,Missing-info clarification
+qwen3_1_7b,B,0.3633333333333333,0.3650114153466071,3,F4_robustness,Missing-info clarification
+qwen3_1_7b,C,0.0,0.0,3,F4_robustness,Missing-info clarification
+qwen3_1_7b,D,0.0,0.0,3,F4_robustness,Missing-info clarification
+qwen3_8_27b,A,1.09,,1,F4_robustness,Missing-info clarification
+qwen3_8_27b,B,1.09,,1,F4_robustness,Missing-info clarification
+qwen3_8_27b,C,0.0,,1,F4_robustness,Missing-info clarification
+qwen3_8_27b,D,0.0,,1,F4_robustness,Missing-info clarification
+qwen3_8b,A,0.73,,1,F4_robustness,Missing-info clarification
+qwen3_8b,B,0.36,,1,F4_robustness,Missing-info clarification
+qwen3_8b,C,0.0,,1,F4_robustness,Missing-info clarification
+qwen3_8b,D,0.0,,1,F4_robustness,Missing-info clarification
+olmo2_1_49b,A,6618.400000000001,3050.932164109848,3,F5_latency,Latency
+olmo2_1_49b,B,9950.766666666666,11.485788320065017,3,F5_latency,Latency
+olmo2_1_49b,C,12457.666666666666,987.6177870681208,3,F5_latency,Latency
+olmo2_1_49b,D,13080.533333333333,950.6831350840997,3,F5_latency,Latency
+qwen3_1_7b,A,7071.8,6.486139067272947,3,F5_latency,Latency
+qwen3_1_7b,B,6631.066666666667,36.6115191344653,3,F5_latency,Latency
+qwen3_1_7b,C,29053.900000000005,17041.907346597094,3,F5_latency,Latency
+qwen3_1_7b,D,41996.13333333333,28026.025197543324,3,F5_latency,Latency
+qwen3_8_27b,A,30935.8,,1,F5_latency,Latency
+qwen3_8_27b,B,29406.8,,1,F5_latency,Latency
+qwen3_8_27b,C,76232.6,,1,F5_latency,Latency
+qwen3_8_27b,D,81338.8,,1,F5_latency,Latency
+qwen3_8b,A,32963.8,,1,F5_latency,Latency
+qwen3_8b,B,34382.6,,1,F5_latency,Latency
+qwen3_8b,C,22464.0,,1,F5_latency,Latency
+qwen3_8b,D,23054.5,,1,F5_latency,Latency

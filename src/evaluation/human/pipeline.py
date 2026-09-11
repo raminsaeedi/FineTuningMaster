@@ -404,8 +404,19 @@ def validate_run_compatibility(
             observed_test_files[method] = test_file
             resolved_test = _resolve(project_root, str(test_file))
             expected_test_hash = expected_dataset_hashes(project_root, dataset).get("test")
+            recorded_test_hash = hashes.get("test")
             if not resolved_test.exists():
-                errors.append(f"{method}: configured test file does not exist: {test_file}")
+                # Runs executed on a cluster record that machine's absolute test
+                # path.  The path is unreachable here, but the recorded digest
+                # still proves which split the run consumed, so fall back to it
+                # instead of refusing to build a study from a remote run.
+                if expected_test_hash and recorded_test_hash == expected_test_hash:
+                    warnings.append(
+                        f"{method}: configured test file {test_file} is not reachable from this machine; "
+                        "split identity confirmed by the recorded test digest instead."
+                    )
+                else:
+                    errors.append(f"{method}: configured test file does not exist: {test_file}")
             elif expected_test_hash and sha256_file(resolved_test) != expected_test_hash:
                 errors.append(
                     f"{method}: configured test file {test_file!r} is not the frozen {dataset} test set."
@@ -431,7 +442,19 @@ def validate_run_compatibility(
     # agree, while null KB metadata on A/C is expected.
     rag_hashes = [observed_kb_hashes[m] for m in ("B", "D") if m in observed_kb_hashes]
     if len(rag_hashes) == 2 and rag_hashes[0] != rag_hashes[1]:
-        errors.append(f"KB hash mismatch between B and D: {rag_hashes[0]} != {rag_hashes[1]}.")
+        left, right = rag_hashes
+        chunks = left.get("chunks_sha256")
+        if chunks and chunks == right.get("chunks_sha256"):
+            # The chunk file is the retrieval corpus; the manifest additionally
+            # records build host, timestamp and source paths, so two builds of
+            # the same corpus on different machines differ there and only there.
+            differing = sorted(key for key in set(left) | set(right) if left.get(key) != right.get(key))
+            warnings.append(
+                f"B and D retrieved from identical knowledge-base chunks ({chunks}); "
+                f"build-metadata fields differ across execution hosts: {differing}."
+            )
+        else:
+            errors.append(f"KB hash mismatch between B and D: {left} != {right}.")
 
     if errors:
         detail = "\n".join(f"- {error}" for error in errors)

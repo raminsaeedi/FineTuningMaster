@@ -28,13 +28,28 @@ These requirements also explain why the dataset is not described simply as a col
 
 ### 4.2.1 Why nvBench was selected
 
-The primary source was the original nvBench corpus. nvBench was introduced as a cross-domain natural-language-to-visualization (NL2VIS) benchmark containing 25,750 published natural-language/visualization pairs from 750 tables and 105 domains (Luo, Tang, & Li, 2021). Its construction connects natural-language visualization requests with natural-language-to-SQL resources, including Spider, so that a record can retain both linguistic intent and relational query evidence (Luo et al., 2021; Yu et al., 2018). This relationship was a close fit for the present dataset because the project needed more than a chart name. It needed a source query, fields, aggregation intent, grouping or filtering information, and a visualization encoding that could be inspected after transformation.
+The primary source was the original nvBench corpus. nvBench was introduced as a cross-domain natural-language-to-visualization (NL2VIS) benchmark containing 25,750 published natural-language/visualization pairs from 750 tables and 105 domains \cite{luo2021nvbenchdataset}. Its construction connects natural-language visualization requests with natural-language-to-SQL resources, including Spider, so that a record can retain both linguistic intent and relational query evidence \cite{luo2021nvbenchsigmod,yu2018spider}. This relationship was a close fit for the present dataset because the project needed more than a chart name. It needed a source query, fields, aggregation intent, grouping or filtering information, and a visualization encoding that could be inspected after transformation.
 
 The original nvBench records provide several useful evidence layers. A natural-language query describes the analytical request. The associated database identifier links the record to a relational schema. SQL and VQL express the data operation and the intended visual form. The visualization object provides fields such as the chart label, x- and y-axis information, classification or series information, and a short description. Together, these elements make it possible to preserve the relation between an analytical goal, a data field, an aggregation, and a chart. The source also represents operations such as grouping, ordering, filtering, and temporal binning in a form that can be parsed or checked against the database.
 
 nvBench was not used as complete dashboard gold. It is an NL2VIS benchmark, not an expert-curated corpus of multi-view dashboards. It does not provide authoritative personas for the intended users, complete dashboard layouts, styling decisions, interaction designs, or full design rationales for the target schema. These missing fields were not filled by pretending that they were present in the source. Instead, the project preserves the source-backed analytical content and adds the six presentation fields later under explicit LLM-generated lineage. This decision keeps the source contribution useful without overstating what nvBench can support.
 
-Other resources were inspected during source selection, as discussed in Chapter 3. They cover related tasks such as analytic-task recognition, chart generation, or chart understanding, but they do not provide the same combination of natural-language intent, relational schema, SQL/VQL, and visualization evidence for the transformation used here. nvBench 2.0 was also inspected because it addresses ambiguity and multiple valid visualizations (Luo et al., 2025). It is relevant to future extensions, but it was not used in the final `dashboard_v3` or `dashboard_v4` lineage. Inspecting a dataset during source selection does not make it a training source.
+Other resources were inspected during source selection, as discussed in Chapter 3. Table 4.1 records the candidates and the explicit criterion on which each was accepted or rejected. The decisive criteria were the modality of the primary task, the presence of a natural-language statement of intent, the presence of structured visualization information that survives transformation, the availability of the underlying data fields and analytical operations, and whether the source can be scaled and split without leakage.
+
+Table 4.1. Candidate source corpora and the criterion that decided their use in this project.
+
+| Candidate | Primary task | Natural-language intent | Structured visualization spec | Data fields and operations | Decision and reason |
+| --- | --- | --- | --- | --- | --- |
+| nvBench \cite{luo2021nvbenchdataset,luo2021nvbenchsigmod} | Natural language to visualization | Yes | Yes (VQL, chart, axes, classification) | Yes (SQL over a known relational schema) | **Selected** as the primary source: the only inspected corpus that supplies intent, a structured specification, and the underlying query together |
+| nvBench 2.0 \cite{luo2025nvbench2} | Natural language to visualization under ambiguity | Yes | Yes | Yes | Inspected and not used in the final lineage; its ambiguity annotations are relevant to future work but were not needed for the transformation used here |
+| Quda \cite{fu2020quda} | Analytic-task recognition from free-form queries | Yes | No chart specification | No relational schema | Rejected as a primary source: it labels the analytical task but does not carry the encoding or the data operation the target schema requires |
+| ChartGPT \cite{tian2025chartgpt} | Chart generation from abstract utterances | Yes | Yes | Partly | Related system rather than a reusable corpus for this transformation |
+| FigureQA \cite{kahou2018figureqa} | Question answering over synthetic figure images | Question, not design intent | No | No | Rejected on modality: the primary artifact is a rendered image, which does not expose the query, aggregation, field roles or constraint scope |
+| DVQA \cite{kafle2018dvqa} | Question answering over bar-chart images | Question, not design intent | No | No | Rejected on modality, as above |
+| PlotQA \cite{methani2020plotqa} | Question answering over scientific plots | Question, not design intent | No | Partly (underlying tables) | Rejected on modality and on task alignment: the target is answering about a given chart, not choosing one |
+| ChartQA \cite{masry2022chartqa} | Question answering over real-world charts | Question, not design intent | No | Partly | Rejected on modality and on task alignment, as above |
+
+The four chart question-answering corpora were excluded for the same structural reason rather than for a judgement about their quality. Their supervision maps *from* an existing chart to an answer, while this project needs supervision that maps *to* a chart specification from a description of the data and the goal. A rendered image does not expose the source query, the aggregation, the role of each field, or the scope of a constraint, so a record built from it cannot be validated against the operations that the target schema encodes. Inspecting a dataset during source selection does not make it a training source, and none of the rejected corpora contributed any record to `dashboard_v3` or `dashboard_v4`.
 
 The selection was therefore task-specific rather than a general claim that nvBench is the best visualization dataset. Its value for this thesis is that it provides a traceable analytical starting point. The dataset can be transformed conservatively while keeping the original query and visualization evidence available for validation. This property was more important for the present research question than the availability of rendered images or a large set of human ratings for a different task.
 
@@ -42,7 +57,7 @@ The selection was therefore task-specific rather than a general claim that nvBen
 
 The source was registered before the transformation stage in `data/raw_external/nvbench/source_manifest.json`. The manifest records the repository URL as `https://github.com/TsinghuaDatabaseGroup/nvBench`, the downloaded reference as `main`, and the local archive as `nvBench-main.zip`. No upstream commit was pinned. The exact local archive is identified by the SHA-256 digest `2c95244aca93aaca689fc954f8ae228c6c17fd47c81e1d7b265c4191cb012e4c`. The extracted README contains the MIT license statement, and the source manifest records the local license status as confirmed on that basis. The license record documents the evidence found in the project; it is not a substitute for checking the conditions of reuse when the data is redistributed.
 
-The source manifest records 7,247 top-level visualization objects and 25,762 natural-language query records. These values must be distinguished from the 25,750 published natural-language/visualization pairs reported in the nvBench paper (Luo, Tang, & Li, 2021). The difference does not by itself indicate a failed download. A top-level visualization object can contain more than one natural-language query, while the published paper reports the benchmark pair count. The local query count is the count used by the extraction process, whereas the published pair count describes the benchmark as presented in the scholarly source. The chapter therefore reports both counts with their units instead of silently normalizing them.
+The source manifest records 7,247 top-level visualization objects and 25,762 natural-language query records. These values must be distinguished from the 25,750 published natural-language/visualization pairs reported in the nvBench paper \cite{luo2021nvbenchdataset}. The difference does not by itself indicate a failed download. A top-level visualization object can contain more than one natural-language query, while the published paper reports the benchmark pair count. The local query count is the count used by the extraction process, whereas the published pair count describes the benchmark as presented in the scholarly source. The chapter therefore reports both counts with their units instead of silently normalizing them.
 
 The local archive also records the number of files and total bytes in the source manifest. These values identify the downloaded package, but the archive digest is the more useful integrity identifier for the transformation because it binds the local source to a specific byte sequence. The use of the `main` branch remains a reproducibility limitation: a future download of the branch may contain different bytes even though the repository URL is unchanged. The archive hash makes the bytes used in this project identifiable, but it does not replace a pinned upstream commit.
 
@@ -66,9 +81,9 @@ The dataset uses three evidence classes. Source-grounded fields are values that 
 
 This classification is field-level rather than record-level. A single record may combine several classes. In the source-grounded v3 train and validation records, for example, the goals, KPIs, columns, constraints, provenance, and original chart/encoding evidence remain source-backed, while the task type and KPI selection are derived and the six presentation fields are LLM-generated. The v3 test retains source-grounded analytical lineage but was not sent through the enrichment workflow; its presentation fields remain the values stored in the held-out artifact. The v4 augmentation is different: its brief and analytical specification were generated by the project’s controlled generator, and its presentation fields were later repaired by an LLM. These generated records are not new nvBench observations.
 
-The main field-level distinction is summarized in Table 4.1. The table describes provenance, not quality. A generated field can pass all repository checks and still not be human gold. Similarly, a source-backed field can preserve the original query while remaining subject to the limitations or ambiguity of the upstream corpus.
+The main field-level distinction is summarized in Table 4.2. The table describes provenance, not quality. A generated field can pass all repository checks and still not be human gold. Similarly, a source-backed field can preserve the original query while remaining subject to the limitations or ambiguity of the upstream corpus.
 
-Table 4.1. Field-level provenance across the preserved v3 and generated v4/v4.1 record families.
+Table 4.2. Field-level provenance across the preserved v3 and generated v4/v4.1 record families.
 
 | Field or field group | Preserved v3 train/validation | Preserved v3 test | Added v4/v4.1 records | Evidence interpretation |
 | --- | --- | --- | --- | --- |
@@ -78,7 +93,7 @@ Table 4.1. Field-level provenance across the preserved v3 and generated v4/v4.1 
 | `users`, `context_summary`, `layout`, `styling`, `interactions`, and `rationales` | LLM-generated enrichment | Held-out artifact values; not enriched in this workflow | LLM-generated and repaired in v4.1 | Generated annotations, not expert gold |
 | Item identifiers, split, and lineage metadata | Deterministically assigned or recorded | Deterministically assigned or recorded | Deterministically assigned or recorded | Release and audit metadata |
 
-This separation follows the general principle that dataset documentation should describe origin, transformation, intended use, and limitations rather than presenting all fields as if they had the same status (Gebru et al., 2021; Pushkarna, Zaldivar, & Kjartansson, 2022). It is also necessary for interpreting later model results. A high score on a generated training target cannot be read as performance against an independent expert reference, and a source-grounded test result cannot be generalized automatically to task families introduced only through the v4 generator.
+This separation follows the general principle that dataset documentation should describe origin, transformation, intended use, and limitations rather than presenting all fields as if they had the same status \cite{gebru2021datasheets,pushkarna2022datacards}. It is also necessary for interpreting later model results. A high score on a generated training target cannot be read as performance against an independent expert reference, and a source-grounded test result cannot be generalized automatically to task families introduced only through the v4 generator.
 
 ## 4.4 Source-Faithful Transformation of nvBench
 
@@ -116,9 +131,9 @@ Natural-language text is used for narrow consistency checks rather than as autho
 
 Source chart labels are normalized through the versioned mapping in `src/config/data/nvbench_mapping.yaml`. The mapping converts Bar, Pie, Line, Scatter, Stacked Bar, Grouping Line, and Grouping Scatter into the project vocabulary. Grouping variants retain the base chart type and preserve the series or classification information in the encoding and provenance. Unsupported labels are rejected rather than silently converted to a plausible chart.
 
-The analytical task type is derived separately from the chart and query evidence. The rule configuration maps bars primarily to comparison, pies to part-to-whole, lines to trend, scatter plots to correlation, and stacked bars to composition. Grouped variants retain the grouping evidence and may support comparison across series. Each inferred task is recorded as rule-derived with a rule version, confidence, and short evidence statement. It is not presented as an original nvBench annotation. This distinction follows visualization task taxonomies that separate the purpose of an analysis from the means used to perform it (Brehmer & Munzner, 2013).
+The analytical task type is derived separately from the chart and query evidence. The rule configuration maps bars primarily to comparison, pies to part-to-whole, lines to trend, scatter plots to correlation, and stacked bars to composition. Grouped variants retain the grouping evidence and may support comparison across series. Each inferred task is recorded as rule-derived with a rule version, confidence, and short evidence statement. It is not presented as an original nvBench annotation. This distinction follows visualization task taxonomies that separate the purpose of an analysis from the means used to perform it \cite{brehmer2013typology}.
 
-The source chart and encoding are therefore not treated as sufficient proof that the record is a good dashboard-design positive. Source fidelity asks whether the transformed record still represents the source query. Chart suitability asks a separate question: whether the source-supported fields and result shape satisfy the project’s criteria for a usable dashboard-design example. This separation is consistent with work showing that graphical effectiveness depends on both the analytical task and the data distribution (Saket, Endert, & Demiralp, 2019; Kim & Heer, 2018). Constraint-based visualization systems such as Draco provide a related methodological example by representing design knowledge as explicit constraints rather than relying on an unexplained chart label (Moritz et al., 2019).
+The source chart and encoding are therefore not treated as sufficient proof that the record is a good dashboard-design positive. Source fidelity asks whether the transformed record still represents the source query. Chart suitability asks a separate question: whether the source-supported fields and result shape satisfy the project’s criteria for a usable dashboard-design example. This separation is consistent with work showing that graphical effectiveness depends on both the analytical task and the data distribution \cite{saket2019taskbased,kim2018taskdata}. Constraint-based visualization systems such as Draco provide a related methodological example by representing design knowledge as explicit constraints rather than relying on an unexplained chart label \cite{moritz2019draco}.
 
 ## 4.5 Iterative Validation and Quality Filtering
 
@@ -132,7 +147,7 @@ Pilot v3 introduced a stricter source-preservation representation. It accepted 2
 
 The v2-to-v3 comparison shows why the additional validation was necessary. Aggregate expressions in the physical-column list fell from 86 to zero, valid stacked-bar group fields increased from zero to 20, and categorical-scatter warnings fell from eight to zero in the compared pilot records. Accepted filters increased from zero to 15, accepted sorts from zero to 43, accepted time grains from zero to 18, and grouped records from nine to 33. These changes indicate that the transformation began preserving source semantics that the first representation had either omitted or represented ambiguously. A valid JSON object was therefore treated as a necessary condition, not as the final quality criterion.
 
-The pilots were methodological development stages rather than model experiments. Their counts describe source extraction and selection behaviour. They do not measure the performance of prompt-only generation, RAG, QLoRA, or the combined method. Keeping these roles separate avoids using construction diagnostics as if they were downstream experimental results. The failure-mode approach also follows the reasoning behind behavioural testing, where systematic checks are used to reveal errors that aggregate success rates can hide (Ribeiro et al., 2020).
+The pilots were methodological development stages rather than model experiments. Their counts describe source extraction and selection behaviour. They do not measure the performance of prompt-only generation, RAG, QLoRA, or the combined method. Keeping these roles separate avoids using construction diagnostics as if they were downstream experimental results. The failure-mode approach also follows the reasoning behind behavioural testing, where systematic checks are used to reveal errors that aggregate success rates can hide \cite{ribeiro2020checklist}.
 
 ### 4.5.2 Source fidelity versus dashboard suitability
 
@@ -150,7 +165,7 @@ KPI checks use the identifier result together with the query aggregation and nat
 
 Chart suitability is checked with chart-specific conditions. Bar charts require meaningful measure evidence and are blocked when the principal measure is a strong identifier. Line charts require a meaningful measure and an ordered x-axis, supported by temporal information or another source-backed ordering. Pie charts are limited to at most eight categories, disallow negative values and identifier-like categories, and use additive COUNT or SUM aggregation for Tier A. AVG, MIN, and MAX are retained as source evidence when present but are demoted under the `pie_non_additive_kpi` policy. Stacked bars require a bounded and unambiguous grouping field.
 
-Scatter checks use the result profile in addition to base-table metadata. The configured minimum is ten distinct values for relevant axes, and the profile is capped at 1,000 rows. Identifier axes are rejected, and the two axes must provide independently numeric observations with sufficient variation. A large underlying table is not enough if the executed query produces only a few paired observations or collapses the variation through aggregation. These rules reflect the general need to consider task, data semantics, and encoding together (Cleveland & McGill, 1984; Mackinlay, 1986; Brehmer & Munzner, 2013), while the exact thresholds remain project-specific engineering decisions.
+Scatter checks use the result profile in addition to base-table metadata. The configured minimum is ten distinct values for relevant axes, and the profile is capped at 1,000 rows. Identifier axes are rejected, and the two axes must provide independently numeric observations with sufficient variation. A large underlying table is not enough if the executed query produces only a few paired observations or collapses the variation through aggregation. These rules reflect the general need to consider task, data semantics, and encoding together \cite{cleveland1984graphical,mackinlay1986apt,brehmer2013typology}, while the exact thresholds remain project-specific engineering decisions.
 
 ### 4.5.4 Tier A/B/C policy and pilots v4–v6
 
@@ -178,7 +193,7 @@ The distribution has methodological consequences. Later model evaluation should 
 
 Deduplication operates at several levels. Exact item identifiers and source-record identifiers are checked first. The selector then compares source groups, normalized goals, brief fingerprints, exact record content, and near-duplicate similarity. A source group can contribute at most two selected records, and a second record is retained only when its wording is sufficiently different and its analytical semantic signature differs in fields such as KPI, aggregation, axis, grouping, filter, sorting, or time grain. This preserves limited within-source variation while reducing the risk that one source family dominates the corpus.
 
-The near-duplicate gate uses character 3-gram Jaccard similarity with a threshold of 0.8. Candidate text at or above this threshold is rejected as a near duplicate under the project policy. The threshold is not presented as a universal definition of duplication. It is a reproducible operational criterion selected for this corpus. Its use is supported by the broader concern that duplicate training data can increase memorization and that overlap between training and evaluation material can lead to overly optimistic estimates (Lee et al., 2022).
+The near-duplicate gate uses character 3-gram Jaccard similarity with a threshold of 0.8. Candidate text at or above this threshold is rejected as a near duplicate under the project policy. The threshold is not presented as a universal definition of duplication. It is a reproducible operational criterion selected for this corpus. Its use is supported by the broader concern that duplicate training data can increase memorization and that overlap between training and evaluation material can lead to overly optimistic estimates \cite{lee2022dedup}.
 
 Exact row comparison alone would not be enough. Two records can have different identifiers and different serialized JSON while expressing nearly the same goal and constraint structure. Conversely, two records from the same source group can be distinct in wording but share enough analytical structure to create leakage if group membership is ignored. Combining exact checks, semantic signatures, source groups, and near-duplicate similarity makes the boundary more conservative while keeping the individual checks interpretable.
 
@@ -196,7 +211,7 @@ A separate file contains 40 human-evaluation items selected from the held-out te
 
 The source-faithful transformation provides the analytical content required to connect a natural-language query with fields, aggregations, constraints, and a chart. It does not provide all of the presentation fields required by the thesis output contract. In particular, original nvBench does not authoritatively specify the intended user role, a structured context summary, a dashboard layout, styling and accessibility choices, interactions, or a full rationale for the design. Leaving these fields absent would prevent the record from matching the common recommendation interface. Filling them with generic templates and calling them source values would be worse because it would misrepresent the evidence.
 
-The project therefore introduced a constrained LLM-enrichment stage for the source-grounded training and validation records. This stage is methodologically related to filtered model-generated instruction data, where a model proposes content and a separate process filters invalid or overly similar examples (Wang et al., 2023). The project applies a stricter boundary than unconstrained instruction generation: the source-backed analytical projection is immutable, and the model may write only six presentation-oriented fields. These fields are marked `llm_generated` and `not_gold=true` in the resulting lineage metadata.
+The project therefore introduced a constrained LLM-enrichment stage for the source-grounded training and validation records. This stage is methodologically related to filtered model-generated instruction data, where a model proposes content and a separate process filters invalid or overly similar examples \cite{wang2023selfinstruct}. The project applies a stricter boundary than unconstrained instruction generation: the source-backed analytical projection is immutable, and the model may write only six presentation-oriented fields. These fields are marked `llm_generated` and `not_gold=true` in the resulting lineage metadata.
 
 ### 4.7.2 Writable and immutable fields
 
@@ -216,7 +231,7 @@ A ten-record technical sample passed with 10/10 accepted outputs. A 30-record hu
 
 The targeted retry and offline revalidation stage resolved ten of the eleven first-pass rejections without recalling accepted records. One remaining case required a targeted retry. The final result reconciled to all 1,545 expected train and validation records, with zero permanent rejections and zero recorded immutable-field violations. The pre-freeze audit also normalized fingerprint metadata for records where the metadata was absent; this was metadata normalization and did not change the source-backed or enriched values.
 
-The 29/30 human result is a limited quality gate for the enrichment procedure. It exceeds the configured minimum of 27 accepted records, but it does not establish that the six fields are correct for every record or that they are expert gold. Human-evaluation guidance stresses the need to report the scope and limitations of human judgments separately from automatic checks (van der Lee et al., 2019). The dataset therefore keeps the R1 result as evidence about a small pilot and retains the `llm_generated` and `not_gold` labels for the full enriched corpus.
+The 29/30 human result is a limited quality gate for the enrichment procedure. It exceeds the configured minimum of 27 accepted records, but it does not establish that the six fields are correct for every record or that they are expert gold. Human-evaluation guidance stresses the need to report the scope and limitations of human judgments separately from automatic checks \cite{vanderlee2019human}. The dataset therefore keeps the R1 result as evidence about a small pilot and retains the `llm_generated` and `not_gold` labels for the full enriched corpus.
 
 ### 4.7.4 Frozen v3 composition
 
@@ -248,9 +263,9 @@ The run attempted 2,915 candidates and accepted exactly 2,000. The remaining 915
 
 The 2,000 accepted records were assigned 1,651 to train and 349 to validation. No generated record was assigned to test. The generated records were compared against the preserved v3 train and validation material and against previously accepted generated records using identifiers, normalized goals, brief fingerprints, exact record hashes, scenario signatures, and near-duplicate similarity. This prevents the augmentation from simply repeating a source brief under a new identifier. The generator also applies a batch safety limit so that a target cannot be reached through uncontrolled rejection behaviour.
 
-The accepted records broadened the structural coverage. The generation report records 1,215 records with explicit filters, 1,373 with grouping, 1,229 with temporal information, and 842 with multiple KPI mappings. At the record level, the generated task distribution is shown in Table 4.2. Each record is counted once using its primary mapping, so the counts sum to 2,000.
+The accepted records broadened the structural coverage. The generation report records 1,215 records with explicit filters, 1,373 with grouping, 1,229 with temporal information, and 842 with multiple KPI mappings. At the record level, the generated task distribution is shown in Table 4.3. Each record is counted once using its primary mapping, so the counts sum to 2,000.
 
-Table 4.2. Record-level distribution of primary task types in the 2,000 accepted generated records.
+Table 4.3. Record-level distribution of primary task types in the 2,000 accepted generated records.
 
 | Primary task type | Generated records |
 | --- | ---: |
@@ -265,9 +280,9 @@ Table 4.2. Record-level distribution of primary task types in the 2,000 accepted
 | `deviation` | 150 |
 | **Total** | **2,000** |
 
-The generated primary chart distribution is shown in Table 4.3. It contains 14 chart types and also sums to 2,000 records. These counts are record-level primary chart counts, not mapping-level counts.
+The generated primary chart distribution is shown in Table 4.4. It contains 14 chart types and also sums to 2,000 records. These counts are record-level primary chart counts, not mapping-level counts.
 
-Table 4.3. Record-level distribution of primary chart types in the 2,000 accepted generated records.
+Table 4.4. Record-level distribution of primary chart types in the 2,000 accepted generated records.
 
 | Primary chart type | Generated records |
 | --- | ---: |
@@ -313,9 +328,9 @@ The frozen validation report records zero schema-invalid and zero semantic-inval
 
 ### 4.10.1 Final split table
 
-The operational package is named `dashboard_v4`, while the exact frozen manifest revision stored inside that package is `dashboard_v4_1`. The final modeling composition is shown in Table 4.4. The preserved v3 columns represent the source-grounded predecessor records, and the v4/v4.1 columns represent the added AI-generated train and validation records.
+The operational package is named `dashboard_v4`, while the exact frozen manifest revision stored inside that package is `dashboard_v4_1`. The final modeling composition is shown in Table 4.5. The preserved v3 columns represent the source-grounded predecessor records, and the v4/v4.1 columns represent the added AI-generated train and validation records.
 
-Table 4.4. Final split composition and lineage of the frozen modeling package.
+Table 4.5. Final split composition and lineage of the frozen modeling package.
 
 | Partition or artifact | Preserved nvBench-derived v3 | AI-generated v4/v4.1 | Total | Role |
 | --- | ---: | ---: | ---: | --- |
@@ -359,9 +374,9 @@ The unpinned upstream `main` reference remains the main limitation of source rep
 
 ### 4.12.1 Construct validity
 
-The source-backed part of the dataset is derived from nvBench, which was designed for NL2VIS rather than full multi-view dashboard design (Luo, Tang, & Li, 2021; Luo et al., 2021). It provides useful evidence about natural-language analytical goals, relational data, aggregations, and chart specifications, but it does not provide authoritative personas, complete dashboard layouts, styling, interaction design, or full rationales. The six presentation fields in the v3 train and validation records are therefore LLM-generated annotations. They are not source gold or expert gold. The 2,000 v4 records are generated supervision at both the analytical and presentation levels, followed by a model-assisted repair of the six presentation fields.
+The source-backed part of the dataset is derived from nvBench, which was designed for NL2VIS rather than full multi-view dashboard design \cite{luo2021nvbenchdataset,luo2021nvbenchsigmod}. It provides useful evidence about natural-language analytical goals, relational data, aggregations, and chart specifications, but it does not provide authoritative personas, complete dashboard layouts, styling, interaction design, or full rationales. The six presentation fields in the v3 train and validation records are therefore LLM-generated annotations. They are not source gold or expert gold. The 2,000 v4 records are generated supervision at both the analytical and presentation levels, followed by a model-assisted repair of the six presentation fields.
 
-The task and chart rules are also project-specific abstractions. The distinction between task and encoding is supported by visualization research, but the exact quality weights, Tier-A threshold, pie cardinality limit, scatter variation requirements, near-duplicate threshold, and related policies are operational decisions for this project (Cleveland & McGill, 1984; Mackinlay, 1986; Brehmer & Munzner, 2013). Passing the rules means that a record satisfies the adopted construction protocol. It does not prove that the record expresses the only valid design or that the selected chart is optimal for every audience.
+The task and chart rules are also project-specific abstractions. The distinction between task and encoding is supported by visualization research, but the exact quality weights, Tier-A threshold, pie cardinality limit, scatter variation requirements, near-duplicate threshold, and related policies are operational decisions for this project \cite{cleveland1984graphical,mackinlay1986apt,brehmer2013typology}. Passing the rules means that a record satisfies the adopted construction protocol. It does not prove that the record expresses the only valid design or that the selected chart is optimal for every audience.
 
 Source metadata and heuristic fallbacks can misclassify semantic field roles. A field name may look like an identifier without being one, while a domain-specific identifier may not follow the configured patterns. Database profiles improve the evidence but cannot resolve every domain interpretation. The quality tiers should therefore be read as bounded operational confidence rather than as a universal semantic truth.
 
@@ -391,34 +406,48 @@ Finally, the human-evaluation item file is an input list rather than a completed
 
 ## References Used in Chapter 4
 
-Brehmer, M., & Munzner, T. (2013). A multi-level typology of abstract visualization tasks. _IEEE Transactions on Visualization and Computer Graphics, 19_(12), 2376–2385. https://doi.org/10.1109/TVCG.2013.124
+Generated from `docs/thesis/references.bib` by `experiments/scripts/build_chapter_reference_lists.py`. The BibTeX key of each entry is given in brackets.
 
-Cleveland, W. S., & McGill, R. (1984). Graphical perception: Theory, experimentation, and application to the development of graphical methods. _Journal of the American Statistical Association, 79_(387), 531–554. https://doi.org/10.1080/01621459.1984.10478080
+Brehmer, M., & Munzner, T. (2013). *A Multi-Level Typology of Abstract Visualization Tasks*. IEEE Transactions on Visualization and Computer Graphics, 19(12), 2376–2385. https://doi.org/10.1109/TVCG.2013.124 [`brehmer2013typology`]
 
-Gebru, T., Morgenstern, J., Vecchione, B., Vaughan, J. W., Wallach, H., Daumé III, H., & Crawford, K. (2021). Datasheets for datasets. _Communications of the ACM, 64_(12), 86–92. https://doi.org/10.1145/3458723
+Cleveland, W. S., & McGill, R. (1984). *Graphical Perception: Theory, Experimentation, and Application to the Development of Graphical Methods*. Journal of the American Statistical Association, 79(387), 531–554. https://doi.org/10.1080/01621459.1984.10478080 [`cleveland1984graphical`]
 
-Kim, Y., & Heer, J. (2018). Assessing effects of task and data distribution on the effectiveness of visual encodings. _Computer Graphics Forum, 37_(3), 157–167. https://doi.org/10.1111/cgf.13409
+Fu, S., Xiong, K., Ge, X., Tang, S., Chen, W., & Wu, Y. (2020). *Quda: Natural Language Queries for Visual Data Analytics*. arXiv:2005.03257. https://arxiv.org/abs/2005.03257 [`fu2020quda`]
 
-Lee, K., Ippolito, D., Nystrom, A., Zhang, C., Eck, D., Callison-Burch, C., & Carlini, N. (2022). Deduplicating training data makes language models better. In _Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)_, 8424–8445. https://aclanthology.org/2022.acl-long.577/
+Gebru, T., Morgenstern, J., Vecchione, B., Vaughan, J. W., Wallach, H., Daume III, H., et al. (2021). *Datasheets for Datasets*. Communications of the ACM, 64(12), 86–92. https://doi.org/10.1145/3458723 [`gebru2021datasheets`]
 
-Luo, Y., Tang, J., & Li, G. (2021). nvBench: A large-scale synthesized dataset for cross-domain natural language to visualization task. _arXiv_. https://arxiv.org/abs/2112.12926
+Kafle, K., Price, B., Cohen, S., & Kanan, C. (2018). *DVQA: Understanding Data Visualizations via Question Answering*. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 5648–5656. https://openaccess.thecvf.com/content_cvpr_2018/html/Kafle_DVQA_Understanding_Data_CVPR_2018_paper.html [`kafle2018dvqa`]
 
-Luo, Y., Tang, N., Li, G., Chai, C., Li, W., & Qin, X. (2021). Synthesizing natural language to visualization (NL2VIS) benchmarks from NL2SQL benchmarks. In _Proceedings of the 2021 International Conference on Management of Data_, 1235–1247. https://doi.org/10.1145/3448016.3457261
+Kahou, S. E., Michalski, V., Atkinson, A., Kadar, A., Trischler, A., & Bengio, Y. (2018). *FigureQA: An Annotated Figure Dataset for Visual Reasoning*. arXiv:1710.07300. https://arxiv.org/abs/1710.07300 [`kahou2018figureqa`]
 
-Luo, T., Huang, C., Shen, L., Li, B., Shen, S., Zeng, W., Tang, N., & Luo, Y. (2025). nvBench 2.0: Resolving ambiguity in text-to-visualization through stepwise reasoning. In _Advances in Neural Information Processing Systems, 38_, 138749–138786. https://doi.org/10.52202/085713-4172
+Kim, Y., & Heer, J. (2018). *Assessing Effects of Task and Data Distribution on the Effectiveness of Visual Encodings*. Computer Graphics Forum, 37(3), 157–167. https://doi.org/10.1111/cgf.13409 [`kim2018taskdata`]
 
-Mackinlay, J. (1986). Automating the design of graphical presentations of relational information. _ACM Transactions on Graphics, 5_(2), 110–141. https://doi.org/10.1145/22949.22950
+Lee, K., Ippolito, D., Nystrom, A., Zhang, C., Eck, D., Callison-Burch, C., et al. (2022). *Deduplicating Training Data Makes Language Models Better*. Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), 8424–8445. https://doi.org/10.18653/v1/2022.acl-long.577 [`lee2022dedup`]
 
-Moritz, D., Wang, C., Nelson, G. L., Lin, H., Smith, A. M., Howe, B., & Heer, J. (2019). Formalizing visualization design knowledge as constraints: Actionable and extensible models in Draco. _IEEE Transactions on Visualization and Computer Graphics, 25_(1), 438–448. https://doi.org/10.1109/TVCG.2018.2865240
+Luo, T., Huang, C., Shen, L., Li, B., Shen, S., Zeng, W., et al. (2025). *nvBench 2.0: Resolving Ambiguity in Text-to-Visualization through Stepwise Reasoning*. Advances in Neural Information Processing Systems, 38, 138749–138786. https://doi.org/10.52202/085713-4172 [`luo2025nvbench2`]
 
-Pushkarna, M., Zaldivar, A., & Kjartansson, O. (2022). Data cards: Purposeful and transparent dataset documentation for responsible AI. In _Proceedings of the 2022 ACM Conference on Fairness, Accountability, and Transparency_, 1776–1826. https://doi.org/10.1145/3531146.3533231
+Luo, Y., Tang, J., & Li, G. (2021). *nvBench: A Large-Scale Synthesized Dataset for Cross-Domain Natural Language to Visualization Task*. arXiv:2112.12926. https://arxiv.org/abs/2112.12926 [`luo2021nvbenchdataset`]
 
-Ribeiro, M. T., Wu, T., Guestrin, C., & Singh, S. (2020). Beyond accuracy: Behavioral testing of NLP models with CheckList. In _Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics_, 4902–4912. https://aclanthology.org/2020.acl-main.442/
+Luo, Y., Tang, N., Li, G., Chai, C., Li, W., & Qin, X. (2021). *Synthesizing Natural Language to Visualization (NL2VIS) Benchmarks from NL2SQL Benchmarks*. Proceedings of the 2021 International Conference on Management of Data, 1235–1247. https://doi.org/10.1145/3448016.3457261 [`luo2021nvbenchsigmod`]
 
-Saket, B., Endert, A., & Demiralp, C. (2019). Task-based effectiveness of basic visualizations. _IEEE Transactions on Visualization and Computer Graphics, 25_(7), 2505–2512. https://doi.org/10.1109/TVCG.2018.2829750
+Mackinlay, J. (1986). *Automating the Design of Graphical Presentations of Relational Information*. ACM Transactions on Graphics, 5(2), 110–141. https://doi.org/10.1145/22949.22950 [`mackinlay1986apt`]
 
-van der Lee, C., Gatt, A., van Miltenburg, E., Wubben, S., & Krahmer, E. (2019). Best practices for the human evaluation of automatically generated text. In _Proceedings of the 12th International Conference on Natural Language Generation_, 355–368. https://doi.org/10.18653/v1/W19-8643
+Masry, A., Long, D. X., Tan, J. Q., Joty, S., & Hoque, E. (2022). *ChartQA: A Benchmark for Question Answering about Charts with Visual and Logical Reasoning*. Findings of the Association for Computational Linguistics: ACL 2022, 2263–2279. https://doi.org/10.18653/v1/2022.findings-acl.177 [`masry2022chartqa`]
 
-Wang, Y., Kordi, Y., Mishra, S., Liu, A., Smith, N. A., Khashabi, D., & Hajishirzi, H. (2023). Self-Instruct: Aligning language models with self-generated instructions. In _Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)_, 13484–13508. https://aclanthology.org/2023.acl-long.754/
+Methani, N., Ganguly, P., Khapra, M. M., & Kumar, P. (2020). *PlotQA: Reasoning over Scientific Plots*. Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision, 1527–1536. https://openaccess.thecvf.com/content_WACV_2020/html/Methani_PlotQA_Reasoning_over_Scientific_Plots_WACV_2020_paper.html [`methani2020plotqa`]
 
-Yu, T., Zhang, R., Yang, K., Yasunaga, M., Wang, D., Li, Z., Ma, J., Li, I., Yao, Q., Roman, S., Zhang, Z., & Radev, D. (2018). Spider: A large-scale human-labeled dataset for complex and cross-domain semantic parsing and text-to-SQL task. In _Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing_, 3911–3921. https://aclanthology.org/D18-1425/
+Moritz, D., Wang, C., Nelson, G. L., Lin, H., Smith, A. M., Howe, B., et al. (2019). *Formalizing Visualization Design Knowledge as Constraints: Actionable and Extensible Models in Draco*. IEEE Transactions on Visualization and Computer Graphics, 25(1), 438–448. https://doi.org/10.1109/TVCG.2018.2865240 [`moritz2019draco`]
+
+Pushkarna, M., Zaldivar, A., & Kjartansson, O. (2022). *Data Cards: Purposeful and Transparent Dataset Documentation for Responsible AI*. Proceedings of the 2022 ACM Conference on Fairness, Accountability, and Transparency, 1776–1826. https://doi.org/10.1145/3531146.3533231 [`pushkarna2022datacards`]
+
+Ribeiro, M. T., Wu, T., Guestrin, C., & Singh, S. (2020). *Beyond Accuracy: Behavioral Testing of NLP Models with CheckList*. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics, 4902–4912. https://doi.org/10.18653/v1/2020.acl-main.442 [`ribeiro2020checklist`]
+
+Saket, B., Endert, A., & Demiralp, C. (2019). *Task-Based Effectiveness of Basic Visualizations*. IEEE Transactions on Visualization and Computer Graphics, 25(7), 2505–2512. https://doi.org/10.1109/TVCG.2018.2829750 [`saket2019taskbased`]
+
+Tian, Y., Cui, W., Deng, D., Yi, X., Yang, Y., Zhang, H., et al. (2025). *ChartGPT: Leveraging LLMs to Generate Charts From Abstract Natural Language*. IEEE Transactions on Visualization and Computer Graphics, 31(3), 1731–1745. https://doi.org/10.1109/TVCG.2024.3368621 [`tian2025chartgpt`]
+
+van der Lee, C., Gatt, A., van Miltenburg, E., Wubben, S., & Krahmer, E. (2019). *Best Practices for the Human Evaluation of Automatically Generated Text*. Proceedings of the 12th International Conference on Natural Language Generation, 355–368. https://doi.org/10.18653/v1/W19-8643 [`vanderlee2019human`]
+
+Wang, Y., Kordi, Y., Mishra, S., Liu, A., Smith, N. A., Khashabi, D., et al. (2023). *Self-Instruct: Aligning Language Models with Self-Generated Instructions*. Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), 13484–13508. https://doi.org/10.18653/v1/2023.acl-long.754 [`wang2023selfinstruct`]
+
+Yu, T., Zhang, R., Yang, K., Yasunaga, M., Wang, D., Li, Z., et al. (2018). *Spider: A Large-Scale Human-Labeled Dataset for Complex and Cross-Domain Semantic Parsing and Text-to-SQL Task*. Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing, 3911–3921. https://doi.org/10.18653/v1/D18-1425 [`yu2018spider`]

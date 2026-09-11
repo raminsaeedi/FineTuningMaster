@@ -1,8 +1,47 @@
-\documentclass{report}
+% Minimal LaTeX skeleton for the thesis.
+%
+% The chapter text currently lives as Markdown under chapters/. Convert one
+% chapter at a time and place the result next to this file, for example:
+%
+%   pandoc chapters/Chapter_7_Results.md --from gfm --to latex \
+%          --output tex/chapter7.tex
+%
+% Then drop the generated "References Used in Chapter X" section from each
+% converted file: LaTeX builds one bibliography at the end from references.bib.
+%
+% Replace this skeleton with the university template when it is available; only
+% the \include lines and the bibliography commands need to be carried over.
+
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Fine-Tuning Large Language Models for Structured Dashboard Design
+       Recommendations Based on User Goals and Data Context}
+\author{}
+\date{}
 
 \begin{document}
 
-% Add chapter files with \include{chapters/<name>}.
+\maketitle
+\tableofcontents
+
+% \include{tex/chapter1}   % Introduction
+% \include{tex/chapter2}   % Background and Foundations
+% \include{tex/chapter3}   % Related Work
+% \include{tex/chapter4}   % Dataset Construction and Provenance
+% \include{tex/chapter5}   % System Design and Methods
+% \include{tex/chapter6}   % Experimental Setup and Evaluation Protocol
+% \include{tex/chapter7}   % Results
+% \include{tex/chapter8}   % Discussion, Error Analysis and Threats to Validity
+% \include{tex/chapter9}   % Conclusion and Future Work
 
 \bibliographystyle{plain}
 \bibliography{references}

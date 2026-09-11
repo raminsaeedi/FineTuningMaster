@@ -1,0 +1,23 @@
+{
+  "available": true,
+  "test_file": "C:/Projects/MasterArbeit/master-thesis-finetuning/data/frozen/dashboard_v4/test.jsonl",
+  "n_reference_records": 274,
+  "n_passing_strict_schema": 0,
+  "pass_rate_percent": 0.0,
+  "top_violations": {
+    "extra_forbidden:kpi_chart_mapping.0.encoding.x_aggregate": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.y_aggregate": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.grouped": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.classify": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.group_field": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.filters": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.sort": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.limit": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.having": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.time_grain": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.visual_grouping": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.source_x": 274,
+    "extra_forbidden:kpi_chart_mapping.0.encoding.source_y": 274
+  },
+  "interpretation": "The strict response schema forbids extra keys. The frozen reference encoding objects carry additional source-grounded keys, so the reference itself does not satisfy the strict contract. Strict schema validity is therefore a diagnostic of output shape relative to that narrow contract, not a measure of agreement with the reference."
+}
