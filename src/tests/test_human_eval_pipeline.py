@@ -299,3 +299,91 @@ def test_cli_end_to_end_with_professor_layout_mock_predictions(tmp_path):
     analyzed = subprocess.run(analysis_cmd, cwd=repository, capture_output=True, text=True)
     assert analyzed.returncode == 0, analyzed.stderr + analyzed.stdout
     assert (study_dir / "analysis" / "human_stats.json").exists()
+
+
+def _rewrite_config_test_path(run_dir: Path, test_path: str) -> None:
+    config = run_dir / "config_snapshot.yaml"
+    lines = []
+    for line in config.read_text(encoding="utf-8").splitlines():
+        if line.strip().startswith("test_file:"):
+            indent = line[: len(line) - len(line.lstrip())]
+            lines.append(f"{indent}test_file: {test_path}")
+        else:
+            lines.append(line)
+    config.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_test_file_from_another_host_is_accepted_when_the_digest_matches(tmp_path):
+    project_root, outputs_root, item_list, dataset, model, seed, _ = _make_fixture(tmp_path)
+    for method in METHODS:
+        _rewrite_config_test_path(
+            outputs_root / dataset / model / method / f"seed_{seed}",
+            "/cluster/home/someone/project/data/frozen/dashboard_v4/test.jsonl",
+        )
+    result = build_study(
+        project_root=project_root,
+        dataset=dataset,
+        model=model,
+        seed=seed,
+        outputs_root=outputs_root,
+        item_list=item_list,
+    )
+    warnings = result["manifest"]["compatibility_warnings"]
+    assert any("not reachable from this machine" in warning for warning in warnings)
+
+
+def test_unreachable_test_file_without_digest_evidence_is_rejected(tmp_path):
+    project_root, outputs_root, item_list, dataset, model, seed, _ = _make_fixture(tmp_path)
+    for method in METHODS:
+        run_dir = outputs_root / dataset / model / method / f"seed_{seed}"
+        _rewrite_config_test_path(run_dir, "/cluster/home/someone/test.jsonl")
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        manifest.pop("dataset_hashes")
+        (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (run_dir / "dataset_hashes.json").unlink()
+    with pytest.raises(HumanEvaluationError, match="configured test file does not exist"):
+        build_study(
+            project_root=project_root,
+            dataset=dataset,
+            model=model,
+            seed=seed,
+            outputs_root=outputs_root,
+            item_list=item_list,
+        )
+
+
+def test_kb_manifest_differences_warn_while_chunk_differences_fail(tmp_path):
+    project_root, outputs_root, item_list, dataset, model, seed, _ = _make_fixture(tmp_path)
+    for method, manifest_hash in (("B", "manifest-host-1"), ("D", "manifest-host-2")):
+        run_dir = outputs_root / dataset / model / method / f"seed_{seed}"
+        (run_dir / "kb_hashes.json").write_text(
+            json.dumps({"chunks_sha256": "kb-1", "manifest_sha256": manifest_hash}), encoding="utf-8"
+        )
+    result = build_study(
+        project_root=project_root,
+        dataset=dataset,
+        model=model,
+        seed=seed,
+        outputs_root=outputs_root,
+        item_list=item_list,
+    )
+    assert any(
+        "identical knowledge-base chunks" in warning
+        for warning in result["manifest"]["compatibility_warnings"]
+    )
+
+    other_root = tmp_path / "second"
+    other_root.mkdir()
+    project_root2, outputs_root2, item_list2, dataset2, model2, seed2, _ = _make_fixture(other_root)
+    (outputs_root2 / dataset2 / model2 / "D" / f"seed_{seed2}" / "kb_hashes.json").write_text(
+        json.dumps({"chunks_sha256": "kb-2"}), encoding="utf-8"
+    )
+    with pytest.raises(HumanEvaluationError, match="KB hash mismatch"):
+        build_study(
+            project_root=project_root2,
+            dataset=dataset2,
+            model=model2,
+            seed=seed2,
+            outputs_root=outputs_root2,
+            item_list=item_list2,
+        )
