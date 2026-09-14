@@ -74,6 +74,9 @@ experiments/outputs/
 experiments/results/**
 !experiments/results/**/
 !experiments/results/final/**
+# Human-evaluation studies contain private rater links and unblinding keys.
+# Keep the complete study tree local and out of the thesis repository.
+experiments/results/human_eval/
 # The hand-off packages are zipped duplicates of the tables above; keep them out.
 experiments/results/packages/**
 # Large local result archives that are not part of the repository.

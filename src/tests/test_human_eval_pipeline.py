@@ -147,6 +147,49 @@ def test_professor_layout_builds_fixed_v4_study_and_balanced_assignment(tmp_path
     assert "recommendation" not in first
 
 
+def test_explicit_short_final_design_respects_30_minute_budget(tmp_path):
+    project_root, outputs_root, item_list, dataset, model, seed, _ = _make_fixture(tmp_path)
+    result = build_study(
+        project_root=project_root,
+        dataset=dataset,
+        model=model,
+        seed=seed,
+        outputs_root=outputs_root,
+        n_items=8,
+        n_raters=6,
+        ratings_per_output=3,
+        item_list=item_list,
+        study_type="final",
+        planned_max_minutes=30,
+        estimated_minutes_per_rating=1.5,
+        fixed_instruction_minutes=5,
+    )
+    assert result["manifest"]["study_type"] == "final"
+    assert result["manifest"]["total_expected_ratings"] == 96
+    assert set(result["assignment"]["load"].values()) == {16}
+    assert result["manifest"]["time_budget"]["estimated_max_rater_minutes"] == 29.0
+
+
+def test_time_budget_rejects_an_overloaded_design(tmp_path):
+    project_root, outputs_root, item_list, dataset, model, seed, _ = _make_fixture(tmp_path)
+    with pytest.raises(HumanEvaluationError, match="exceeds planned limit"):
+        build_study(
+            project_root=project_root,
+            dataset=dataset,
+            model=model,
+            seed=seed,
+            outputs_root=outputs_root,
+            n_items=9,
+            n_raters=6,
+            ratings_per_output=3,
+            item_list=item_list,
+            study_type="final",
+            planned_max_minutes=30,
+            estimated_minutes_per_rating=1.5,
+            fixed_instruction_minutes=5,
+        )
+
+
 @pytest.mark.parametrize("wrong", [
     {"B": ("model", "qwen3_14b")},
     {"B": ("seed", 43)},

@@ -39,22 +39,21 @@ list of items and the rater assignment, but the `ratings/` folder is empty.
 our reference answer X % of the time". It cannot say "the recommendation was
 useful". Chapter 6, Section 6.8 explains this and Chapter 9 repeats it.
 
-**What you need.** 40 items × 4 methods × 3 ratings = 480 ratings, from 6
-people, 80 ratings each. Six questions per output, each scored 1 to 5: chart
+**What you need.** 8 stratified items × 4 methods × 3 ratings = 96 ratings,
+from 6 people, 16 ratings each. Six questions per output, each scored 1 to 5: chart
 appropriateness, layout, styling/accessibility, interactions, rationale quality,
 overall usefulness. Raters must not see which method produced the output.
 
 **How to run it.** Everything is already programmed:
 
 ```bash
-python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8_27b --seed 42 --n-items 40 --n-raters 6 --ratings-per-output 3
-python experiments/scripts/run_human_eval.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42
-python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42
+python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8_27b --seed 42 --n-items 8 --n-raters 6 --ratings-per-output 3 --item-list experiments/configs/human_eval_dashboard_v4_30min_items.csv --study-type final --planned-max-minutes 30 --out-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
+python experiments/scripts/run_human_eval.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
+python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
-**If you cannot find 6 raters**, run a smaller pilot. The script marks it
-automatically as `study_type: pilot`. A pilot is still much better than nothing,
-but you must call it a pilot in the text, not a full study.
+This is the final burden-limited protocol. Do not pool it with older `seed_42`
+or `seed_42_final` assignments. Report the eight-item sample and low power.
 
 **Three questions the human evaluation would answer immediately:**
 

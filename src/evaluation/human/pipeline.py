@@ -653,6 +653,10 @@ def build_study(
     out_dir: str | Path | None = None,
     item_list: str | Path | None = None,
     test_file: str | Path | None = None,
+    study_type: str | None = None,
+    planned_max_minutes: float | None = None,
+    estimated_minutes_per_rating: float = 1.5,
+    fixed_instruction_minutes: float = 5.0,
 ) -> dict[str, Any]:
     if n_items <= 0 or n_raters <= 0 or ratings_per_output <= 0:
         raise HumanEvaluationError("n-items, n-raters and ratings-per-output must be positive.")
@@ -665,6 +669,14 @@ def build_study(
         raise HumanEvaluationError(
             f"ratings-per-output ({ratings_per_output}) cannot exceed number of raters ({len(raters)})."
         )
+    if study_type not in (None, "pilot", "final"):
+        raise HumanEvaluationError("study-type must be 'pilot' or 'final'.")
+    if estimated_minutes_per_rating <= 0 or fixed_instruction_minutes < 0:
+        raise HumanEvaluationError(
+            "estimated-minutes-per-rating must be positive and fixed-instruction-minutes cannot be negative."
+        )
+    if planned_max_minutes is not None and planned_max_minutes <= 0:
+        raise HumanEvaluationError("planned-max-minutes must be positive.")
 
     outputs_root_path = _resolve(project_root, outputs_root)
     prediction_paths = professor_prediction_paths(outputs_root_path, dataset, model, seed)
@@ -735,8 +747,20 @@ def build_study(
     )
     _validate_assignment(assignment, item_ids, ratings_per_output)
 
-    final_design = n_items == 40 and len(raters) == 6 and ratings_per_output == 3
-    study_type = "final" if final_design else "pilot"
+    legacy_final_design = n_items == 40 and len(raters) == 6 and ratings_per_output == 3
+    resolved_study_type = study_type or ("final" if legacy_final_design else "pilot")
+    maximum_rater_load = max(assignment["load"].values(), default=0)
+    estimated_max_rater_minutes = (
+        maximum_rater_load * estimated_minutes_per_rating + fixed_instruction_minutes
+    )
+    if (
+        planned_max_minutes is not None
+        and estimated_max_rater_minutes > planned_max_minutes + 1e-9
+    ):
+        raise HumanEvaluationError(
+            "Estimated maximum rater time exceeds planned limit: "
+            f"{estimated_max_rater_minutes:.1f} > {planned_max_minutes:.1f} minutes."
+        )
     default_out = project_root / DEFAULT_RESULTS_ROOT / dataset / model / f"seed_{seed}"
     study_dir = _resolve(project_root, out_dir) if out_dir else default_out
     _ensure_new_study_dir(study_dir)
@@ -783,7 +807,7 @@ def build_study(
 
     manifest = {
         "schema_version": STUDY_SCHEMA_VERSION,
-        "study_type": study_type,
+        "study_type": resolved_study_type,
         "dataset": dataset,
         "dataset_version": dataset,
         "dataset_hashes": compatibility["expected_dataset_hashes"],
@@ -815,6 +839,14 @@ def build_study(
         "creation_timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "total_expected_outputs": len(item_ids) * len(METHODS),
         "total_expected_ratings": len(item_ids) * len(METHODS) * ratings_per_output,
+        "time_budget": {
+            "planned_max_minutes": planned_max_minutes,
+            "estimated_minutes_per_rating": estimated_minutes_per_rating,
+            "fixed_instruction_minutes": fixed_instruction_minutes,
+            "maximum_rater_load": maximum_rater_load,
+            "estimated_max_rater_minutes": round(estimated_max_rater_minutes, 1),
+            "basis": "Planning estimate; actual completion time varies by participant.",
+        },
         "compatibility_warnings": compatibility["warnings"],
         "status": "built",
     }

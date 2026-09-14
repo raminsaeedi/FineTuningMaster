@@ -32,6 +32,8 @@ var HEADER = [
   "scores_json",
   "client_timestamp",
   "duration_ms",
+  "consent_at",
+  "client_sent_at",
   "app_version"
 ]);
 
@@ -67,6 +69,8 @@ function rowFor_(payload, rating, receivedAt) {
   row.push(JSON.stringify(scores));
   row.push(rating.client_timestamp || "");
   row.push(rating.duration_ms === undefined ? "" : rating.duration_ms);
+  row.push(payload.consent_at || "");
+  row.push(payload.client_sent_at || "");
   row.push(payload.app_version || "");
   return row;
 }

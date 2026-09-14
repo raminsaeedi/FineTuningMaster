@@ -4,7 +4,8 @@ Primary Professor layout::
 
     python experiments/scripts/build_human_eval.py \
         --dataset dashboard_v4 --model qwen3_8b --seed 42 \
-        --n-items 40 --n-raters 6 --ratings-per-output 3
+        --n-items 8 --n-raters 6 --ratings-per-output 3 \
+        --study-type final --planned-max-minutes 30
 
 The four prediction files are resolved automatically from
 ``experiments/outputs/final/<dataset>/<model>/<A-D>/seed_<seed>``.
@@ -38,6 +39,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rater-ids", nargs="+", default=None)
     parser.add_argument("--ratings-per-output", type=int, default=3)
     parser.add_argument("--assignment-seed", type=int, default=42)
+    parser.add_argument("--study-type", choices=("pilot", "final"), default=None)
+    parser.add_argument("--planned-max-minutes", type=float, default=None)
+    parser.add_argument("--estimated-minutes-per-rating", type=float, default=1.5)
+    parser.add_argument("--fixed-instruction-minutes", type=float, default=5.0)
     parser.add_argument("--item-list", default=None, help="Optional CSV/JSONL item-ID list")
     parser.add_argument("--test-file", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--out-dir", default=None)
@@ -71,6 +76,10 @@ def main(argv: list[str] | None = None) -> None:
             item_list=args.item_list,
             test_file=args.test_file,
             out_dir=args.out_dir,
+            study_type=args.study_type,
+            planned_max_minutes=args.planned_max_minutes,
+            estimated_minutes_per_rating=args.estimated_minutes_per_rating,
+            fixed_instruction_minutes=args.fixed_instruction_minutes,
         )
     except HumanEvaluationError as exc:
         raise SystemExit(str(exc)) from exc
@@ -87,6 +96,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  ratings/output    : {manifest['ratings_per_output']}")
     print(f"  expected ratings  : {manifest['total_expected_ratings']}")
     print(f"  rater load        : {assignment['load']}")
+    print(f"  planned duration  : {manifest['time_budget']['estimated_max_rater_minutes']} minutes")
     print(f"  study directory   : {result['study_dir']}")
     print("  rating files      : ratings/")
     print("  analysis files    : analysis/")

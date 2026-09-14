@@ -1,5 +1,8 @@
 # Human Evaluation Plan
 
+> **Current deployment:** [open-link protocol](human_eval_open_protocol.md), variable
+> participant count, eight pages per person. The fixed-rater plan below is historical.
+
 Human evaluation is the validity anchor for RQ2. It compares exactly four
 methods from one fixed dataset, model and seed:
 
@@ -27,10 +30,17 @@ only from `data/frozen/dashboard_v4/test.jsonl`; Train and Validation are not
 used. The builder verifies all 40 IDs in the test file and in A/B/C/D
 predictions before writing a study.
 
-The recommended final design is 40 items × 4 methods × 3 independent ratings
-per output = 160 rating units and 480 ratings. Six raters receive a balanced
-80 ratings each. Smaller or otherwise different designs are marked
-`study_type: pilot` and are not automatically pooled with a final study.
+The final collection uses a pre-specified, task-stratified subset of eight IDs
+from this 40-item pool. It covers comparison (3), trend (2), part-to-whole (1),
+composition (1), and correlation (1). The selection and order are frozen in
+`experiments/configs/human_eval_dashboard_v4_30min_items.csv`.
+
+Final design: 8 items × 4 methods × 3 independent ratings per output = 32
+rating units and 96 ratings. Six raters receive 16 ratings each. The planning
+model allows 5 minutes for instructions and 1.5 minutes per rating, or 29
+minutes per rater. Actual time can vary. The reduced item sample limits power
+and generalisability; inferential results are exploratory and must include
+effect estimates, uncertainty, and this limitation.
 
 Each study is isolated at:
 
@@ -102,32 +112,36 @@ Build:
 ```bash
 python experiments/scripts/build_human_eval.py \
   --dataset dashboard_v4 \
-  --model qwen3_8b \
+  --model qwen3_8_27b \
   --seed 42 \
-  --n-items 40 \
+  --n-items 8 \
   --n-raters 6 \
-  --ratings-per-output 3
+  --ratings-per-output 3 \
+  --item-list experiments/configs/human_eval_dashboard_v4_30min_items.csv \
+  --study-type final \
+  --planned-max-minutes 30 \
+  --out-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
 Launch rating UI:
 
 ```bash
 python experiments/scripts/run_human_eval.py \
-  --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
+  --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
 Compute statistics after all ratings:
 
 ```bash
 python experiments/scripts/compute_irr.py \
-  --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
+  --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
 Final files are under:
 
 ```text
-experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42/analysis/
+experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/analysis/
 ```
 
-For a pilot, change `--n-items`, `--n-raters` or `--ratings-per-output`; the
-result is explicitly marked `study_type: pilot`.
+Use `--study-type pilot` for calibration data. Never pool pilot or superseded
+protocol ratings with the final 30-minute study.

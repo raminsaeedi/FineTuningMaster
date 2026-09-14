@@ -269,11 +269,11 @@ Die normale `metrics.json`-Datei des Tiny-Runs enthält die Statusfelder, aber n
 
 Die Human Evaluation ist eine getrennte, blinde Studie. Für das finale Dashboard-v4-Design sind vorgesehen:
 
-- 40 feste Testitems aus `data/frozen/dashboard_v4/human_eval_test_items_40.csv`,
+- 8 task-stratifizierte Testitems aus dem festen 40-Item-Pool,
 - vier Methoden A–D auf demselben Modell, Dataset und Seed,
 - drei unabhängige Ratings pro Output,
 - sechs Rater,
-- insgesamt 480 Rating-Einheiten,
+- insgesamt 96 Ratings und 16 Ratings pro Person,
 - sechs Likert-Dimensionen von 1 bis 5: Chart-Eignung, Layout, Styling/Accessibility, Interaktionen, Rationale und allgemeine Nützlichkeit.
 
 Die Studie wird nach erfolgreichem Format-Gate erstellt:
@@ -283,9 +283,12 @@ python experiments/scripts/build_human_eval.py `
   --dataset dashboard_v4 `
   --model <model_key> `
   --seed 42 `
-  --n-items 40 `
+  --n-items 8 `
   --n-raters 6 `
-  --ratings-per-output 3
+  --ratings-per-output 3 `
+  --item-list experiments/configs/human_eval_dashboard_v4_30min_items.csv `
+  --study-type final `
+  --planned-max-minutes 30
 ```
 
 Die blinde Streamlit-App wird mit folgendem Befehl gestartet:

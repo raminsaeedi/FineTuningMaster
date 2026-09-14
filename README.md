@@ -235,17 +235,19 @@ poetry install --extras human
 # 1. Build one final study for one fixed dataset, model and seed:
 python experiments/scripts/build_human_eval.py \
     --dataset dashboard_v4 \
-    --model qwen3_8b \
+    --model qwen3_8_27b \
     --seed 42 \
-    --n-items 40 --n-raters 6 --ratings-per-output 3
+    --n-items 8 --n-raters 6 --ratings-per-output 3 \
+    --item-list experiments/configs/human_eval_dashboard_v4_30min_items.csv \
+    --study-type final --planned-max-minutes 30
 
 # 2. Each rater opens the app, picks their ID, and rates (auto-saves + resumes):
 python experiments/scripts/run_human_eval.py \
-    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
+    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 
 # 3. Aggregate inter-rater reliability + per-system scores + statistics:
 python experiments/scripts/compute_irr.py \
-    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8b/seed_42
+    --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
 The builder reads the canonical `predictions.jsonl` from methods A/B/C/D and
@@ -255,7 +257,8 @@ argument belongs to the legacy E01-E04 layout and is not supported by the
 current builder.
 
 - Rating is **blind**: raters never see which method produced an output.
-- Each (item, method) output is rated by ≥3 distinct raters; per-rater load is balanced.
+- Each (item, method) output is rated by 3 distinct raters; per-rater load is balanced.
+- Final 30-minute protocol uses 8 stratified items and 16 recommendations per rater.
 - Rubric: 6 Likert dimensions (`src/evaluation/human/rubric.py`).
 - `compute_irr.py` writes Krippendorff's α per dimension, per-system means, and a
   Friedman + Wilcoxon+Holm (with Cliff's δ and bootstrap CI) comparison of the

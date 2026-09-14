@@ -1,5 +1,10 @@
 # Human Evaluation — Scientific Protocol
 
+> **Historical fixed-rater protocol.** Current version:
+> [human_eval_open_protocol.md](human_eval_open_protocol.md).
+> Rubric, allocation, missing-data rules and analysis differ. Do not merge protocols
+> or infer that a reliability threshold alone validates usefulness claims.
+
 Defensible protocol for the human evaluation that is the **validity anchor** for claims
 about usefulness, actionability, and perceived dashboard-design quality. Consolidates
 `human_eval_plan.md` and the implemented infrastructure in `src/evaluation/human/*`.
@@ -17,9 +22,9 @@ about usefulness, actionability, and perceived dashboard-design quality. Consoli
   (`assignment.py`, BIBD-style).
 - **Replication.** Target **≥ 3 ratings per output**. Minimum fallback 2/output only if
   rater supply is constrained (report which was used).
-- **Items.** Draw from the independent `benchmark_v1` (and, if needed, a stratified
-  synthetic sample), so quality is judged on realistic, non-circular briefs. Record which
-  items are `real_public` vs `realistic_manual` (evidence strength).
+- **Items.** Use the fixed task-stratified eight-item subset of the independent
+  40-item `dashboard_v4` human-evaluation pool. The subset is frozen in
+  `experiments/configs/human_eval_dashboard_v4_30min_items.csv`.
 
 ## Rubric (1–5 Likert, anchored)
 Six dimensions (`src/evaluation/human/rubric.py`): `chart_appropriateness`,
@@ -49,7 +54,7 @@ pilot ratings are excluded from the final analysis.
   diagnostics or independent-L1 numbers.
 
 ## Current status
-Infrastructure implemented (rubric, blind assignment, Streamlit app, storage, Krippendorff
-α); assignment built for 50 items; **0 ratings collected**. Next step is a pilot, then the
-full/recommended collection (e.g. 40 items × 4 methods × 3 raters), before any usefulness
-claim is written.
+Infrastructure implemented (rubric, blind assignment, browser app, storage, Krippendorff
+α). Final burden-limited protocol: 8 items, 4 methods, 3 ratings per output,
+6 raters, 16 ratings per rater, planned 29 minutes. **0 ratings collected.**
+Small item count and non-expert convenience sample require exploratory claims only.

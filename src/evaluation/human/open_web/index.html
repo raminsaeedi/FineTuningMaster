@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><base target="_top">
+<title>Dashboard study | Dashboard-Studie</title><style>/*STYLE*/</style></head>
+<body>
+<header><span class="brand" aria-label="Dashboard study">RW<span> / </span>Dashboard study</span>
+<div class="languages" aria-label="Language / Sprache"><button id="de" type="button">Deutsch</button><button id="en" type="button">English</button></div></header>
+<main>
+<p id="test-banner" class="notice hidden">DEMO / TEST — Keine Forschungsdaten / Not research data</p>
+<div id="error" class="error hidden" role="alert"></div>
+<div id="notice" class="notice hidden" role="status"></div>
+<section id="intro">
+  <p class="eyebrow" data-t="institution">Ruhrwest University · Masterarbeit</p>
+  <h1 data-t="title">Wie hilfreich ist dieser Dashboard-Vorschlag?</h1>
+  <p class="lead" data-t="lead">Hilf uns, KI-Vorschläge für Diagramme zu bewerten. Deine persönliche Einschätzung zählt.</p>
+  <div class="chips"><span data-t="workload">8 kurze Aufgaben</span><span data-t="time">ca. 15–25 Minuten</span><span data-t="install">Ohne Installation</span></div>
+  <div class="card introduction">
+    <h2 data-t="how">So funktioniert es</h2>
+    <ol><li data-t="step1">Lies die Aufgabe und den Vorschlag.</li><li data-t="step2">Beantworte sechs kurze Fragen mit 1 bis 5.</li><li data-t="step3">Speichern. Weiter. Fertig.</li></ol>
+    <p data-t="contentLanguage">Aufgaben und KI-Texte bleiben auf Englisch. Du solltest einfache englische Texte verstehen.</p>
+    <p data-t="ratingRule">Bewerte nur, was dort steht. Fehlende Angaben dürfen eine niedrige Note bekommen. Wenn du etwas nicht beurteilen kannst, wähle „Kann ich nicht beurteilen“.</p>
+    <div class="scale-guide" id="scale-guide"></div>
+    <details><summary data-t="exampleTitle">Ein Beispiel und kurze Begriffshilfe</summary>
+      <p data-t="example">Die Aufgabe verlangt einen Vergleich zwischen Städten. Ein klar erklärtes Balkendiagramm kann gut passen. Ein Vorschlag für eine andere Frage passt schlechter. Bewerte die übrigen Fragen getrennt.</p>
+      <p data-t="glossary">KPI = Kennzahl. Layout = Anordnung. Styling = Farben und Lesbarkeit. Interaction = zum Beispiel Filter oder Informationen beim Darüberfahren.</p>
+    </details>
+  </div>
+  <div class="card">
+    <h2 data-t="privacyTitle">Freiwillig und vertraulich</h2>
+    <p data-t="privacy">Wir speichern Wunschname, zufällige ID, Antworten, Sprache und Zeiten für bis zu 12 Monate. Namen bleiben in einer separaten, privaten Tabelle. Die Masterarbeit verwendet zusammengefasste Ergebnisse. Bitte keine echten Namen oder Kontaktdaten in Kommentare schreiben.</p>
+    <p data-t="hosting">Google verarbeitet technische Verbindungsdaten nach seiner Datenschutzerklärung. Du kannst jederzeit aufhören. Nach 30 aktiven Minuten endet die Sitzung automatisch; vorhandene Antworten bleiben gespeichert.</p>
+    <p><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy / Datenschutz</a></p>
+    <p><span data-t="withdraw">Fragen oder Rückzug vor der endgültigen Auswertung: Sende deine ID an</span> <a href="mailto:ramin.saeedivalashani@stud.hs-ruhrwest.de">ramin.saeedivalashani@stud.hs-ruhrwest.de</a>.</p>
+    <form id="join-form">
+      <label for="nickname" data-t="name">Dein Wunschname</label>
+      <input id="nickname" maxlength="40" autocomplete="off" required placeholder="z. B. BlueFox">
+      <small data-t="nicknameHelp">Ein erfundener Name reicht. Gleiche Namen bekommen verschiedene IDs.</small>
+      <label for="experience" data-t="experience">Erfahrung mit Diagrammen (freiwillig)</label>
+      <select id="experience"><option value="unspecified" data-t="unspecified">Keine Angabe</option><option value="none" data-t="none">Kaum Erfahrung</option><option value="some" data-t="some">Etwas Erfahrung</option><option value="experienced" data-t="experienced">Viel Erfahrung</option></select>
+      <label class="consent"><input id="consent" type="checkbox" required><span data-t="consent">Ich habe die Hinweise gelesen und nehme freiwillig teil. Ich verstehe die englischen Aufgaben und nehme nur einmal teil.</span></label>
+      <button id="start" class="primary" data-t="start">Teilnehmen</button>
+    </form>
+  </div>
+  <details class="recovery"><summary data-t="resumeTitle">Schon angefangen? Mit meinem Code fortsetzen</summary>
+    <label for="recovery-code" data-t="codeLabel">Dein persönlicher Fortsetzungscode</label><input id="recovery-code" autocomplete="off" spellcheck="false">
+    <button id="recover" type="button" data-t="recover">Fortsetzen</button>
+  </details>
+</section>
+<section id="rating" class="hidden">
+  <div class="progress-info"><strong id="progress-text"></strong><span id="saved" role="status"></span></div>
+  <progress id="progress" value="0" max="8"></progress>
+  <details class="identity"><summary id="identity-label"></summary><p data-t="codeHelp">Notiere diesen Code. Damit kannst du später fortsetzen. Teile ihn nicht mit anderen.</p><code id="identity-code"></code><button id="copy-code" type="button" data-t="copy">Code kopieren</button></details>
+  <div class="reading-grid">
+    <article class="card brief"><p class="eyebrow" data-t="stepBrief">1 · Die Aufgabe</p><div id="brief"></div></article>
+    <article class="card output"><p class="eyebrow" data-t="stepOutput">2 · Der KI-Vorschlag</p><div id="output"></div></article>
+  </div>
+  <form id="rating-form" class="card">
+    <h2 data-t="yourRating">3 · Deine Einschätzung</h2><p class="muted" data-t="independent">Jede Frage einzeln bewerten. Keine Antwort ist vorausgewählt.</p>
+    <div id="questions"></div>
+    <details><summary data-t="commentLabel">Kommentar (freiwillig)</summary><textarea id="comment" rows="2" maxlength="500"></textarea></details>
+    <button id="submit" class="primary" data-t="saveNext">Speichern und weiter</button>
+  </form>
+  <div class="session-actions"><button id="pause" type="button" data-t="pause">Pause</button><button id="stop" type="button" data-t="stop">Teilnahme beenden</button></div>
+</section>
+<section id="paused" class="card hidden"><h1 data-t="pausedTitle">Pause. Dein Fortschritt bleibt erhalten.</h1><p data-t="pausedText">Du kannst diesen Tab schließen oder später weitermachen.</p><button id="continue" class="primary" data-t="recover">Fortsetzen</button></section>
+<section id="done" class="card hidden"><p class="eyebrow" data-t="thanks">Vielen Dank</p><h1 id="done-title"></h1><p id="done-text"></p><p id="done-id"></p><p data-t="withdrawShort">Für einen Rückzug vor der Auswertung sende deine ID an die Kontaktadresse unten.</p><button id="backup" type="button" data-t="backup">Meine Antworten herunterladen</button></section>
+<p class="footer">Ruhrwest University · <a href="mailto:ramin.saeedivalashani@stud.hs-ruhrwest.de">ramin.saeedivalashani@stud.hs-ruhrwest.de</a></p>
+</main>
+<script>window.BOOT=/*BOOT*/;</script><script>/*APP*/</script>
+</body></html>

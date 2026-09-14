@@ -1,12 +1,18 @@
 # Human Evaluation — Online Deployment Guide
 
+> **Superseded for the live open-link study (September 2026).** See
+> [human_eval_open_protocol.md](human_eval_open_protocol.md): one shared URL,
+> variable enrolment, eight pages per person, new bilingual rubric and separate
+> `openv1_*` tables. Personal-link instructions below are historical; do not use
+> their importer or inferential defaults for the new protocol.
+
 This guide takes the blind rating study from `experiments/results/human_eval/...` and
 puts it online so that raters anywhere can work in their own browser, and brings the
 ratings back into the repository for `compute_irr.py`.
 
-Nothing here changes the scientific design in `human_eval_plan.md` or Section 6.8 of
-Chapter 6: the same rubric, the same blind assignment, the same manifest guarantees.
-Only the front-end and the transport change.
+Current final protocol uses a pre-specified 30-minute burden limit. It keeps the
+six-scale rubric, blind assignment and three independent ratings per output, but uses
+a stratified eight-item subset of the frozen 40-item human-evaluation pool.
 
 ```text
 build_human_eval.py        -> study_manifest.json, items.jsonl, assignment.json
@@ -41,19 +47,20 @@ itself. A rater is identified only by the ID you assign.
 
 ---
 
-## 1. Build the study (already done for `qwen3_8_27b`, seed 42)
+## 1. Build the final study for `qwen3_8_27b`, seed 42
 
 ```bash
-python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8_27b --seed 42 --n-items 20 --n-raters 6 --ratings-per-output 3
+python experiments/scripts/build_human_eval.py --dataset dashboard_v4 --model qwen3_8_27b --seed 42 --n-items 8 --n-raters 6 --ratings-per-output 3 --item-list experiments/configs/human_eval_dashboard_v4_30min_items.csv --study-type final --planned-max-minutes 30 --estimated-minutes-per-rating 1.5 --fixed-instruction-minutes 5 --out-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
-This writes `experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/` with
-20 items × 4 methods = 80 rating units, 3 ratings per unit, 40 ratings per rater.
+This writes `experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/`
+with 8 items × 4 methods = 32 rating units, 3 ratings per unit, 16 ratings per rater.
+The workload model is 5 instruction minutes plus 1.5 minutes per rating: 29 minutes.
+This is a planning estimate; actual completion time can vary.
 
-> **Reporting note.** The design in Section 6.8 is 40 items (480 ratings, 80 per rater).
-> A 20-item study is recorded by the builder as `study_type: "pilot"`. Either report it
-> as a pilot, or update Section 6.8 to the executed design. Use `--n-items 40` if you
-> want the originally specified study; everything below works unchanged.
+> **Reporting note.** Directories `seed_42/` and `seed_42_final/` are superseded
+> protocols. Do not pool their ratings with this final study. Report the reduced item
+> count and resulting precision limitation in the thesis.
 
 ## 2. Create the collector spreadsheet
 
@@ -61,7 +68,7 @@ This writes `experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/` w
    `human-eval-dashboard-v4-qwen3-27b`.
 2. Choose **Extensions → Apps Script**. An editor opens with an empty `Code.gs`.
 3. Delete the placeholder content and paste the whole file
-   `experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/web/Code.gs`
+   `experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/web/Code.gs`
    (identical to `src/evaluation/human/webapp_template/apps_script/Code.gs`).
 4. Save (disk icon).
 5. Choose **Deploy → New deployment → Select type: Web app**, then set
@@ -101,17 +108,17 @@ site, no predictions, no keys, no thesis text.
 ## 4. Export the site with the real URL and endpoint
 
 ```bash
-python experiments/scripts/export_human_eval_web.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42 --base-url https://<your-github-user>.github.io/dashboard-human-eval --endpoint https://script.google.com/macros/s/AKfy…/exec --contact-email you@example.com
+python experiments/scripts/export_human_eval_web.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min --base-url https://<your-github-user>.github.io/dashboard-human-eval --endpoint https://script.google.com/macros/s/AKfy…/exec --contact-email ramin.saeedivalashani@stud.hs-ruhrwest.de --institution "Ruhrwest University" --retention-months 12 --ethics-status "approved for use in this thesis"
 ```
 
 The command prints the six personal rater links and writes them to
-`…/seed_42/web/rater_links.md`.
+`…/seed_42_final_30min/web/rater_links.md`.
 
 Re-running the export creates new tokens and therefore new links. To keep links stable
 across re-exports, pass the salt from the existing key file:
 
 ```bash
-python -c "import json;print(json.load(open('experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/web/unblinding_key.json'))['salt'])"
+python -c "import json;print(json.load(open('experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/web/unblinding_key.json'))['salt'])"
 ```
 
 and add `--salt <value>` to the export command.
@@ -127,7 +134,7 @@ and add `--salt <value>` to the export command.
 From the study's `web/site` directory:
 
 ```bash
-cd experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/web/site
+cd experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/web/site
 git init -b main
 git add .
 git commit -m "Publish blind rating site"
@@ -157,7 +164,7 @@ If the row does not appear, see *Troubleshooting* below.
 Each rater gets exactly one link from `rater_links.md` — the link carries their ID, so
 nobody has to choose one and two people cannot collide. Tell them:
 
-* how long it takes (40 recommendations, roughly 1–2 minutes each);
+* how long it takes (16 recommendations, planned total up to 30 minutes);
 * that they can stop at any time and continue later with the same link, on any device;
 * that the first screen explains the task and the six scales;
 * that they should not discuss individual items with the other raters while rating.
@@ -178,7 +185,7 @@ you who is where. A quick count per rater:
 Export the sheet (**File → Download → Comma-separated values**) and import it:
 
 ```bash
-python experiments/scripts/import_human_eval_web.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42 --input ~/Downloads/ratings.csv
+python experiments/scripts/import_human_eval_web.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min --input ~/Downloads/ratings.csv
 ```
 
 The importer unblinds the tokens with `web/unblinding_key.json`, rejects anything that
@@ -190,7 +197,7 @@ backup files that raters downloaded from the app can be passed in the same way
 Then run the analysis:
 
 ```bash
-python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42
+python experiments/scripts/compute_irr.py --study-dir experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min
 ```
 
 It refuses to produce final numbers while ratings are missing; add `--allow-incomplete`
@@ -226,7 +233,7 @@ their browser data is cleared.
 The site is a plain directory, so it can be served locally before publishing:
 
 ```bash
-python -m http.server 8765 --directory experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42/web/site
+python -m http.server 8765 --directory experiments/results/human_eval/dashboard_v4/qwen3_8_27b/seed_42_final_30min/web/site
 ```
 
 Open `http://localhost:8765/?r=rater_01&t=<token>` with a token from `rater_links.md`.

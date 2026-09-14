@@ -1,0 +1,7 @@
+item_id,task_stratum,selection_rule
+nvbench:279@y_name@DESC:query:0,comparison,"2 of 15; fixed-seed stratified sample"
+nvbench:1080:query:0,comparison,"2 of 15; fixed-seed stratified sample"
+nvbench:3218@x_name@ASC:query:0,trend,"1 of 8; fixed-seed stratified sample"
+nvbench:2538:query:1,part_to_whole,"1 of 8; fixed-seed stratified sample"
+nvbench:133@y_name@DESC:query:0,composition,"1 of 7; fixed-seed stratified sample"
+nvbench:3055:query:0,correlation,"1 of 2; fixed-seed stratified sample"

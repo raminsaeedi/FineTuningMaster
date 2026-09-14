@@ -123,7 +123,13 @@ def _export(project: dict, **kwargs) -> dict:
 
 def test_export_publishes_only_blinded_content(tmp_path):
     project = _make_project(tmp_path)
-    bundle = _export(project)
+    bundle = _export(
+        project,
+        contact_email="researcher@example.org",
+        institution="Example University",
+        retention_months=12,
+        ethics_status="approved for use in this thesis",
+    )
     site = Path(bundle["site_dir"])
     for name in ("index.html", "app.js", "styles.css", "study-data.js", "config.js"):
         assert (site / name).exists(), name
@@ -156,6 +162,19 @@ def test_export_publishes_only_blinded_content(tmp_path):
     assert {entry["method"] for entry in key["units"].values()} == set(METHODS)
     links = Path(bundle["links_path"]).read_text(encoding="utf-8")
     assert "https://example.org/eval/?r=rater_01&t=" in links
+    config = (site / "config.js").read_text(encoding="utf-8")
+    assert "researcher@example.org" in config
+    assert "Example University" in config
+    assert '"retention_months": 12' in config
+    index = (site / "index.html").read_text(encoding="utf-8")
+    app = (site / "app.js").read_text(encoding="utf-8")
+    assert 'id="consent"' in index
+    assert 'id="intro-time"' in index
+    assert 'id="task-meta"' in index
+    assert "Save rating and continue" in index
+    assert '"time_budget"' in published
+    assert "consent_at" in app
+    assert "rater-picker" not in index
 
 
 def test_export_is_deterministic_for_a_fixed_salt(tmp_path):

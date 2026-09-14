@@ -38,7 +38,7 @@ from src.evaluation.human.pipeline import (
 from src.evaluation.human.render import render_brief_html, render_output_html
 from src.evaluation.human.rubric import LIKERT_MAX, LIKERT_MIN, RUBRIC, RUBRIC_KEYS, rubric_hash
 
-APP_VERSION = "human-eval-web-v1"
+APP_VERSION = "human-eval-web-v2"
 EXPORT_SCHEMA_VERSION = "human-eval-web-export-v1"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "webapp_template"
 SITE_FILES = ("index.html", "styles.css", "app.js")
@@ -110,12 +110,17 @@ def build_web_bundle(
     out_dir: Path | None = None,
     endpoint: str = "",
     contact_email: str = "",
+    institution: str = "",
+    retention_months: int = 12,
+    ethics_status: str = "approved for use in this thesis",
     base_url: str = "",
     salt: str | None = None,
     presentation_seed: int = 20250911,
     verify_sources: bool = True,
 ) -> dict[str, Any]:
     """Write a deployable static site plus the local unblinding key."""
+    if retention_months <= 0:
+        raise WebExportError("retention_months must be positive.")
     manifest, items, assignment = load_study(study_dir)
     if verify_sources:
         verify_source_predictions_unchanged(manifest, project_root=project_root)
@@ -195,6 +200,7 @@ def build_web_bundle(
             }
             for dimension in RUBRIC
         ],
+        "time_budget": manifest.get("time_budget") or {},
         "items": site_items,
         "units": site_units,
         "raters": site_raters,
@@ -204,7 +210,14 @@ def build_web_bundle(
     config_js = (
         "window.HEVAL_CONFIG = "
         + json.dumps(
-            {"endpoint": endpoint, "contact_email": contact_email, "app_version": APP_VERSION},
+            {
+                "endpoint": endpoint,
+                "contact_email": contact_email,
+                "institution": institution,
+                "retention_months": retention_months,
+                "ethics_status": ethics_status,
+                "app_version": APP_VERSION,
+            },
             ensure_ascii=False,
         )
         + ";\n"
@@ -244,6 +257,12 @@ def build_web_bundle(
         "salt": salt,
         "presentation_seed": presentation_seed,
         "endpoint": endpoint,
+        "participant_information": {
+            "contact_email": contact_email,
+            "institution": institution,
+            "retention_months": retention_months,
+            "ethics_status": ethics_status,
+        },
         "raters": key_raters,
         "items": {token: item_id for item_id, token in item_tokens.items()},
         "units": {

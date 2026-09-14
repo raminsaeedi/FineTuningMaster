@@ -23,11 +23,18 @@
     viewDone: document.getElementById("view-done"),
     raterMissing: document.getElementById("rater-missing"),
     raterInvalid: document.getElementById("rater-invalid"),
-    raterPicker: document.getElementById("rater-picker"),
     introBody: document.getElementById("intro-body"),
     introCount: document.getElementById("intro-count"),
+    introTime: document.getElementById("intro-time"),
+    institution: document.getElementById("institution"),
+    ethicsStatus: document.getElementById("ethics-status"),
+    retentionMonths: document.getElementById("retention-months"),
+    contactEmail: document.getElementById("contact-email"),
+    consent: document.getElementById("consent"),
+    consentError: document.getElementById("consent-error"),
     rubricRows: document.getElementById("rubric-rows"),
     btnStart: document.getElementById("btn-start"),
+    taskMeta: document.getElementById("task-meta"),
     briefBody: document.getElementById("brief-body"),
     outputBody: document.getElementById("output-body"),
     scales: document.getElementById("scales"),
@@ -71,6 +78,7 @@
       done: {},
       sent: {},
       remote: {},
+      consent_at: null,
       started_at: new Date().toISOString()
     };
     try {
@@ -81,6 +89,7 @@
       parsed.done = parsed.done || {};
       parsed.sent = parsed.sent || {};
       parsed.remote = parsed.remote || {};
+      parsed.consent_at = parsed.consent_at || null;
       parsed.rater_id = raterId;
       return parsed;
     } catch (err) {
@@ -147,6 +156,7 @@
       export_id: STUDY.export_id,
       rater_id: raterId,
       app_version: STUDY.app_version,
+      consent_at: state.consent_at,
       client_sent_at: new Date().toISOString(),
       ratings: ratings
     };
@@ -184,7 +194,10 @@
     if (flushing) { return Promise.resolve(null); }
     var queue = pendingRatings();
     if (!queue.length) {
-      setStatus(CONFIG.endpoint ? "All ratings sent" : "Saved in this browser", "ok");
+      setStatus(
+        CONFIG.endpoint ? (doneCount() ? "All ratings saved" : "Connected") : "Saved in this browser",
+        "ok"
+      );
       return Promise.resolve(null);
     }
     if (!CONFIG.endpoint) {
@@ -202,7 +215,7 @@
         }
         saveState();
         if (pendingRatings().length) { return flush(); }
-        setStatus(result.verified ? "All ratings sent" : "Ratings sent (not confirmed by server)",
+        setStatus(result.verified ? "All ratings saved" : "Ratings sent (not confirmed by server)",
           result.verified ? "ok" : "warn");
         // The done screen may already be open while the last batch is in
         // flight, so refresh its warning once delivery is settled.
@@ -265,8 +278,9 @@
     var html = "";
     for (var i = 0; i < STUDY.rubric.length; i++) {
       var dim = STUDY.rubric[i];
-      html += "<tr><td><strong>" + dim.label + "</strong></td><td>" + dim.description + "</td>" +
-        "<td>" + dim.anchors["1"] + "</td><td>" + dim.anchors["3"] + "</td><td>" + dim.anchors["5"] + "</td></tr>";
+      html += "<article><strong>" + dim.label + "</strong><p>" + dim.description + "</p>" +
+        "<small><b>1</b> " + dim.anchors["1"] + " &middot; <b>3</b> " + dim.anchors["3"] +
+        " &middot; <b>5</b> " + dim.anchors["5"] + "</small></article>";
     }
     el.rubricRows.innerHTML = html;
   }
@@ -281,9 +295,11 @@
       html += "<div class='scale-anchors'>1: " + dim.anchors["1"] + " &nbsp;&bull;&nbsp; 3: " +
         dim.anchors["3"] + " &nbsp;&bull;&nbsp; 5: " + dim.anchors["5"] + "</div>";
       html += "<div class='options'>";
+      var valueLabels = {1: "Poor", 2: "Weak", 3: "Acceptable", 4: "Good", 5: "Excellent"};
       for (var value = STUDY.likert.min; value <= STUDY.likert.max; value++) {
         html += "<label><input type='radio' name='" + dim.key + "' value='" + value +
-          "'><span>" + value + "</span></label>";
+          "' aria-label='" + value + " - " + valueLabels[value] + "'><span><b>" + value +
+          "</b><small>" + valueLabels[value] + "</small></span></label>";
       }
       html += "</div></fieldset>";
     }
@@ -328,6 +344,12 @@
     resetForm();
     shownAt = Date.now();
     updateProgress();
+    var total = units().length;
+    var perRating = Number((STUDY.time_budget || {}).estimated_minutes_per_rating || 1.5);
+    var remaining = total - entry.position + 1;
+    var minutesLeft = Math.max(1, Math.ceil(remaining * perRating));
+    el.taskMeta.textContent = "Recommendation " + entry.position + " of " + total +
+      " · about " + minutesLeft + " minutes left";
     show(el.viewRate);
   }
 
@@ -416,48 +438,20 @@
   /* ------------------------------------------------------------------- boot */
 
   function startRating() {
+    if (!state.consent_at) {
+      if (!el.consent.checked) {
+        el.consentError.classList.remove("hidden");
+        el.consent.focus();
+        return;
+      }
+      state.consent_at = new Date().toISOString();
+      saveState();
+    }
+    el.consentError.classList.add("hidden");
     el.raterBadge.textContent = raterId;
     el.raterBadge.classList.remove("hidden");
     advance();
     flush();
-  }
-
-  function bindKeyboard() {
-    document.addEventListener("keydown", function (event) {
-      if (el.viewRate.classList.contains("hidden")) { return; }
-      var tag = (event.target && event.target.tagName) || "";
-      if (tag === "TEXTAREA" || tag === "INPUT" || event.ctrlKey || event.metaKey || event.altKey) { return; }
-      var digit = parseInt(event.key, 10);
-      if (!digit || digit < STUDY.likert.min || digit > STUDY.likert.max) { return; }
-      for (var i = 0; i < STUDY.rubric.length; i++) {
-        var key = STUDY.rubric[i].key;
-        if (!el.scales.querySelector("input[name='" + key + "']:checked")) {
-          var input = el.scales.querySelector("input[name='" + key + "'][value='" + digit + "']");
-          if (input) {
-            input.checked = true;
-            input.dispatchEvent(new Event("change", { bubbles: true }));
-          }
-          event.preventDefault();
-          return;
-        }
-      }
-    });
-  }
-
-  function showRaterPicker() {
-    var ids = Object.keys(STUDY.raters);
-    var html = "";
-    for (var i = 0; i < ids.length; i++) {
-      html += "<button type='button' data-rater='" + ids[i] + "'>" + ids[i] + "</button>";
-    }
-    el.raterPicker.innerHTML = html;
-    el.raterPicker.addEventListener("click", function (event) {
-      var chosen = event.target.getAttribute("data-rater");
-      if (!chosen) { return; }
-      window.location.search = "?r=" + encodeURIComponent(chosen) +
-        "&t=" + encodeURIComponent(STUDY.raters[chosen].token);
-    });
-    el.raterMissing.classList.remove("hidden");
   }
 
   function init() {
@@ -472,17 +466,15 @@
     el.btnStart.addEventListener("click", startRating);
     el.btnResend.addEventListener("click", function () { flush(); });
     el.btnDownload.addEventListener("click", download);
-    bindKeyboard();
 
     var requested = param("r");
     var token = param("t");
     if (!requested || !STUDY.raters[requested]) {
-      showRaterPicker();
+      el.raterMissing.classList.remove("hidden");
       return;
     }
     if (STUDY.raters[requested].token !== token) {
       el.raterInvalid.classList.remove("hidden");
-      showRaterPicker();
       return;
     }
 
@@ -492,16 +484,20 @@
     el.raterBadge.textContent = raterId;
     el.raterBadge.classList.remove("hidden");
     el.introCount.textContent = String(units().length);
+    var plannedMinutes = Number((STUDY.time_budget || {}).planned_max_minutes || 30);
+    el.introTime.textContent = "up to " + plannedMinutes + " min";
+    el.institution.textContent = CONFIG.institution || "the research institution";
+    el.ethicsStatus.textContent = CONFIG.ethics_status || "approved for use in this thesis";
+    el.retentionMonths.textContent = String(CONFIG.retention_months || 12);
+    el.contactEmail.textContent = CONFIG.contact_email || "the study owner";
     el.introBody.classList.remove("hidden");
-    el.footerNote.textContent =
-      "Progress is saved automatically in this browser. Keyboard: press 1-5 to fill the next scale.";
+    el.footerNote.textContent = "Progress is saved automatically in this browser.";
 
     if (CONFIG.endpoint) { setStatus("Checking your progress..."); }
     syncFromServer().then(function () {
       updateProgress();
       if (doneCount() > 0) {
         el.btnStart.textContent = "Continue rating";
-        startRating();
       }
       flush();
     });
