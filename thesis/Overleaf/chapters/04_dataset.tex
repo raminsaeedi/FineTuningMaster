@@ -1,0 +1,546 @@
+\chapter{Dataset Construction and Provenance}
+
+This chapter describes how the data for the dashboard-design recommendation task was constructed and how its provenance was preserved. The task is implemented as a structured transformation from a dashboard brief to a machine-readable recommendation. A brief contains information about the intended users, their goals, relevant key performance indicators (KPIs), available data columns, and analytical constraints. The target is not a rendered dashboard image and not only a chart label. It is a structured object that contains a context summary, KPI-to-chart mappings, encoding information, layout, styling, interactions, and rationales. The dataset must therefore preserve analytical evidence while also representing the presentation fields needed by the downstream models.
+
+Provenance is central to this thesis because the four evaluated systems---prompt-only generation, retrieval-augmented generation (RAG), QLoRA fine-tuning, and QLoRA fine-tuning combined with RAG---must be compared on the same task and under the same data boundary. A dataset that silently mixes source observations, deterministic transformations, and model-generated annotations would make such a comparison difficult to interpret. The construction process consequently separates the source-grounded analytical core from derived labels and generated design annotations. It also protects the held-out test set from the later augmentation steps. These controls reduce the circularity risk that affected the earlier synthetic-only approach, although they do not make the final dataset fully human-annotated or externally independent.
+
+The chapter first defines the dataset requirements and explains why the original nvBench corpus was selected as the primary source. It then describes the target schema, the evidence classes, and the source-faithful transformation of natural-language queries, relational schemas, SQL/VQL, and visualization encodings. The following sections explain the progressive quality checks, the Tier A/B/C policy, deduplication, group-aware splitting, and the construction of the source-grounded \texttt{dashboard\_v3} corpus. The chapter then documents the constrained LLM enrichment of six presentation fields, the controlled \texttt{dashboard\_v4} augmentation, and the \texttt{dashboard\_v4\_1} semantic repair. It closes by reporting the final mixed lineage, freeze and versioning procedure, and the threats to validity that bound the interpretation of the dataset.
+
+\section{Task Definition and Dataset Requirements}
+
+The dataset represents the supervised transformation
+
+\[
+\text{dashboard brief} \longrightarrow \text{structured dashboard recommendation}.
+\]
+
+The input side of this transformation is a compact dashboard brief. In the project schema, the brief contains \texttt{users}, \texttt{goals}, \texttt{kpis}, \texttt{columns}, and \texttt{constraints}. The user field describes the intended audience in a short textual form. The goals describe what that audience should understand, compare, monitor, or decide. KPIs identify the measures that are relevant to those goals. The columns field records the available data fields and their types or roles. Constraints describe conditions such as filtering, grouping, sorting, temporal granularity, refresh expectations, or restrictions on the interpretation of the data. These elements are not independent. For example, the same numerical field may support a different design for a comparison task than for a trend or distribution task, and a KPI may be unsuitable when the available field is an identifier rather than a meaningful measure.
+
+The output is a structured recommendation with six required top-level concepts: \texttt{context\_summary}, \texttt{kpi\_chart\_mapping}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales}. The mapping field connects one or more KPIs with an analytical task, a chart type, alternatives, and an encoding. The layout field describes how the views should be arranged and prioritized. Styling covers typography, contrast, palette, labels, and related accessibility decisions. Interactions describe possible actions such as filtering, sorting, tooltips, or selection. Rationales explain why a mapping or design decision is related to the goal and the available data. The output is therefore broader than a single chart recommendation, even when a record contains only one KPI mapping.
+
+This distinction is important for the choice of a construction source. A rendered dashboard or chart image is not sufficient for the target task because an image does not directly expose the source query, aggregation, data field roles, or constraint scope. Conversely, a source query and a chart label are not sufficient to provide authoritative users, layout, styling, interactions, or rationales. The dataset was therefore designed as a layered object. Source evidence supports the analytical part of a record, while later stages add presentation-oriented fields under a separate lineage label. The final object can be consumed by software, but its schema is a project-specific contract rather than a universal definition of dashboard design.
+
+The construction requirements followed from this task definition. First, every source-derived analytical choice had to remain traceable to the external corpus, its database schema, its query, or a deterministic transformation with a recorded rule. Second, the representation had to be stable enough that all four methods received comparable inputs and were evaluated against the same field names and controlled vocabularies. Third, unsupported or ambiguous source expressions had to fail closed. A transformed record should not silently lose a filter, a group, an aggregation, or a time grain, because such a change would create a different analytical task. Fourth, the data had to support a strict separation between trainable material, validation material, the held-out test, and the separate human-evaluation item list. Finally, the release had to be documented with manifests, hashes, validation reports, and field-level lineage so that the dataset could be inspected independently of the model results.
+
+These requirements also explain why the dataset is not described simply as a collection of gold labels. The source-derived fields are evidence-backed, but some task labels are deterministic abstractions and some presentation fields were generated by an LLM. The generated material can provide useful supervision for learning the output format and for broadening task coverage, but it cannot be treated as expert annotation without independent evidence. This distinction is maintained throughout the chapter.
+
+\section{Source Corpus and Source Registration}
+
+\subsection{Why nvBench was selected}
+
+The primary source was the original nvBench corpus. nvBench was introduced as a cross-domain natural-language-to-visualization (NL2VIS) benchmark containing 25,750 published natural-language/visualization pairs from 750 tables and 105 domains \cite{luo2021nvbenchdataset}. Its construction connects natural-language visualization requests with natural-language-to-SQL resources, including Spider, so that a record can retain both linguistic intent and relational query evidence \cite{luo2021nvbenchsigmod,yu2018spider}. This relationship was a close fit for the present dataset because the project needed more than a chart name. It needed a source query, fields, aggregation intent, grouping or filtering information, and a visualization encoding that could be inspected after transformation.
+
+The original nvBench records provide several useful evidence layers. A natural-language query describes the analytical request. The associated database identifier links the record to a relational schema. SQL and VQL express the data operation and the intended visual form. The visualization object provides fields such as the chart label, x- and y-axis information, classification or series information, and a short description. Together, these elements make it possible to preserve the relation between an analytical goal, a data field, an aggregation, and a chart. The source also represents operations such as grouping, ordering, filtering, and temporal binning in a form that can be parsed or checked against the database.
+
+nvBench was not used as complete dashboard gold. It is an NL2VIS benchmark, not an expert-curated corpus of multi-view dashboards. It does not provide authoritative personas for the intended users, complete dashboard layouts, styling decisions, interaction designs, or full design rationales for the target schema. These missing fields were not filled by pretending that they were present in the source. Instead, the project preserves the source-backed analytical content and adds the six presentation fields later under explicit LLM-generated lineage. This decision keeps the source contribution useful without overstating what nvBench can support.
+
+Other resources were inspected during source selection, as discussed in Chapter 3. Table 4.1 records the candidates and the explicit criterion on which each was accepted or rejected. The decisive criteria were the modality of the primary task, the presence of a natural-language statement of intent, the presence of structured visualization information that survives transformation, the availability of the underlying data fields and analytical operations, and whether the source can be scaled and split without leakage.
+
+\begin{landscape}
+\begingroup\scriptsize\setlength{\tabcolsep}{3pt}\sloppy
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}@{}}
+\caption{Candidate source corpora and the criterion that decided their use in this project.}\tabularnewline
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Candidate
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Primary task
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Natural-language intent
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Structured visualization spec
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Data fields and operations
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Decision and reason
+\end{minipage} \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Candidate
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Primary task
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Natural-language intent
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Structured visualization spec
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Data fields and operations
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Decision and reason
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+nvBench \cite{luo2021nvbenchdataset,luo2021nvbenchsigmod} & Natural language to visualization & Yes & Yes (VQL, chart, axes, classification) & Yes (SQL over a known relational schema) & \textbf{Selected} as the primary source: the only inspected corpus that supplies intent, a structured specification, and the underlying query together \\
+nvBench 2.0 \cite{luo2025nvbench2} & Natural language to visualization under ambiguity & Yes & Yes & Yes & Inspected and not used in the final lineage; its ambiguity annotations are relevant to future work but were not needed for the transformation used here \\
+Quda \cite{fu2020quda} & Analytic-task recognition from free-form queries & Yes & No chart specification & No relational schema & Rejected as a primary source: it labels the analytical task but does not carry the encoding or the data operation the target schema requires \\
+ChartGPT \cite{tian2025chartgpt} & Chart generation from abstract utterances & Yes & Yes & Partly & Related system rather than a reusable corpus for this transformation \\
+FigureQA \cite{kahou2018figureqa} & Question answering over synthetic figure images & Question, not design intent & No & No & Rejected on modality: the primary artifact is a rendered image, which does not expose the query, aggregation, field roles or constraint scope \\
+DVQA \cite{kafle2018dvqa} & Question answering over bar-chart images & Question, not design intent & No & No & Rejected on modality, as above \\
+PlotQA \cite{methani2020plotqa} & Question answering over scientific plots & Question, not design intent & No & Partly (underlying tables) & Rejected on modality and on task alignment: the target is answering about a given chart, not choosing one \\
+ChartQA \cite{masry2022chartqa} & Question answering over real-world charts & Question, not design intent & No & Partly & Rejected on modality and on task alignment, as above \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+The four chart question-answering corpora were excluded for the same structural reason rather than for a judgement about their quality. Their supervision maps \emph{from} an existing chart to an answer, while this project needs supervision that maps \emph{to} a chart specification from a description of the data and the goal. A rendered image does not expose the source query, the aggregation, the role of each field, or the scope of a constraint, so a record built from it cannot be validated against the operations that the target schema encodes. Inspecting a dataset during source selection does not make it a training source, and none of the rejected corpora contributed any record to \texttt{dashboard\_v3} or \texttt{dashboard\_v4}.
+
+The selection was therefore task-specific rather than a general claim that nvBench is the best visualization dataset. Its value for this thesis is that it provides a traceable analytical starting point. The dataset can be transformed conservatively while keeping the original query and visualization evidence available for validation. This property was more important for the present research question than the availability of rendered images or a large set of human ratings for a different task.
+
+\subsection{Registration, license, version, and source counts}
+
+The source was registered before the transformation stage in \nolinkurl{data/raw_external/nvbench/source_manifest.json}. The manifest records the repository URL as \nolinkurl{https://github.com/TsinghuaDatabaseGroup/nvBench}, the downloaded reference as \texttt{main}, and the local archive as \texttt{nvBench-main.zip}. No upstream commit was pinned. The exact local archive is identified by the SHA-256 digest \nolinkurl{2c95244aca93aaca689fc954f8ae228c6c17fd47c81e1d7b265c4191cb012e4c}. The extracted README contains the MIT license statement, and the source manifest records the local license status as confirmed on that basis. The license record documents the evidence found in the project; it is not a substitute for checking the conditions of reuse when the data is redistributed.
+
+The source manifest records 7,247 top-level visualization objects and 25,762 natural-language query records. These values must be distinguished from the 25,750 published natural-language/visualization pairs reported in the nvBench paper \cite{luo2021nvbenchdataset}. The difference does not by itself indicate a failed download. A top-level visualization object can contain more than one natural-language query, while the published paper reports the benchmark pair count. The local query count is the count used by the extraction process, whereas the published pair count describes the benchmark as presented in the scholarly source. The chapter therefore reports both counts with their units instead of silently normalizing them.
+
+The local archive also records the number of files and total bytes in the source manifest. These values identify the downloaded package, but the archive digest is the more useful integrity identifier for the transformation because it binds the local source to a specific byte sequence. The use of the \texttt{main} branch remains a reproducibility limitation: a future download of the branch may contain different bytes even though the repository URL is unchanged. The archive hash makes the bytes used in this project identifiable, but it does not replace a pinned upstream commit.
+
+The database files distributed with nvBench were treated as validation evidence rather than as a second annotation source. A rebuildable cache was created from the registered archive. Cache preparation checks the source archive digest, protects extraction against path traversal, and leaves the raw archive unchanged. Database access is read-only. It is used to inspect schemas, field types, key information, uniqueness, cardinality, and selected query results. This distinction matters because database profiles can help decide whether a field is a meaningful measure, but they do not create a new ground-truth label when the source query is ambiguous.
+
+\section{Target Schema and Evidence Classes}
+
+\subsection{\texorpdfstring{Canonical \texttt{GoldItem} contract}{Canonical GoldItem contract}}
+
+Each modelable example is represented as a \texttt{GoldItem}. At the top level, the object contains an \texttt{item\_id}, a \texttt{brief}, a \texttt{recommendation}, and an optional split assignment. The brief contains the fields described in Section 4.1 and an extensible \texttt{extra} object for provenance, lineage, quality, generation, and repair metadata. The recommendation contains the six required concepts \texttt{context\_summary}, \texttt{kpi\_chart\_mapping}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales}. A KPI-to-chart mapping carries a KPI name, an enumerated \texttt{task\_type}, an enumerated \texttt{chart\_type}, possible alternatives, and an encoding dictionary. A rationale contains a claim and a principle. This structure allows the evaluation code to inspect the recommendation at field level rather than treating it as one undifferentiated text string.
+
+The controlled task vocabulary contains nine values: \texttt{trend}, \texttt{comparison}, \texttt{composition}, \texttt{distribution}, \texttt{correlation}, \texttt{ranking}, \texttt{deviation}, \texttt{part\_to\_whole}, and \texttt{flow}. The chart vocabulary in the schema contains 17 values: \texttt{line}, \texttt{bar}, \texttt{stacked\_bar}, \texttt{grouped\_bar}, \texttt{area}, \texttt{pie}, \texttt{donut}, \texttt{scatter}, \texttt{heatmap}, \texttt{histogram}, \texttt{box}, \texttt{kpi\_card}, \texttt{table}, \texttt{gauge}, \texttt{sankey}, \texttt{treemap}, and \texttt{map}. The schema is intentionally broader than the original nvBench-derived subset. A permitted value is not evidence that a chart or task occurs in every release. For example, the source-grounded v3 corpus contains five primary chart families, while the later generated augmentation uses a larger controlled vocabulary.
+
+Validation was applied in layers. Strict JSONL reading first rejects malformed JSON and non-object rows. Pydantic models and the frozen JSON schema then check the declared field types and the required task and chart enumerations. A completeness check requires the required brief and recommendation fields to be present and non-empty. Semantic checks then inspect whether the selected fields, KPI mappings, encodings, constraints, and chart-specific requirements are mutually compatible. This order separates a parsing failure from a schema failure and from a semantic failure. A record may be valid JSON while still containing an unsupported chart value, an empty recommendation field, an unavailable column, or an invalid analytical mapping.
+
+The contract permits additional metadata at defined extension points. This is useful for retaining raw source evidence, rule versions, quality scores, and generation metadata without changing the core recommendation interface. The extension fields do not weaken the validation boundary. Raw task and chart values are checked against the declared vocabularies, and the required recommendation concepts must still be present. The final dataset therefore has one stable interface for the four downstream systems while preserving the information needed to audit how each record was constructed.
+
+\subsection{Source-grounded, derived, and generated fields}
+
+The dataset uses three evidence classes. Source-grounded fields are values that can be traced to nvBench, its source query, its visualization object, or its database/query evidence. Deterministically derived fields are values produced by a documented project rule, such as the normalized chart vocabulary, the task inference, or the KPI-selection abstraction. LLM-generated fields are values produced or rewritten by a language model. The third class includes the six presentation fields in the enriched v3 training and validation records and the broader generated content in the v4 augmentation.
+
+This classification is field-level rather than record-level. A single record may combine several classes. In the source-grounded v3 train and validation records, for example, the goals, KPIs, columns, constraints, provenance, and original chart/encoding evidence remain source-backed, while the task type and KPI selection are derived and the six presentation fields are LLM-generated. The v3 test retains source-grounded analytical lineage but was not sent through the enrichment workflow; its presentation fields remain the values stored in the held-out artifact. The v4 augmentation is different: its brief and analytical specification were generated by the project's controlled generator, and its presentation fields were later repaired by an LLM. These generated records are not new nvBench observations.
+
+The main field-level distinction is summarized in Table 4.2. The table describes provenance, not quality. A generated field can pass all repository checks and still not be human gold. Similarly, a source-backed field can preserve the original query while remaining subject to the limitations or ambiguity of the upstream corpus.
+
+\begin{landscape}
+\begingroup\scriptsize\setlength{\tabcolsep}{3pt}\sloppy
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}@{}}
+\caption{Field-level provenance across the preserved v3 and generated v4/v4.1 record families.}\tabularnewline
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field or field group
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Preserved v3 train/validation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Preserved v3 test
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Added v4/v4.1 records
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Evidence interpretation
+\end{minipage} \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Field or field group
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Preserved v3 train/validation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Preserved v3 test
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Added v4/v4.1 records
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Evidence interpretation
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Goals, KPIs, columns, constraints, and source provenance & Source-grounded & Source-grounded & LLM-generated within the v4 generator & Source evidence for v3; generated supervision for v4 \\
+Original chart and encoding evidence & Source-provided & Source-provided & Generated and deterministically validated & A v3 source value is not equivalent to a v4 generated value \\
+Task type and KPI-selection abstraction & Deterministically derived & Deterministically derived & Deterministically validated from generated content & Rule-based abstraction, not an original nvBench label \\
+\texttt{users}, \texttt{context\_summary}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales} & LLM-generated enrichment & Held-out artifact values; not enriched in this workflow & LLM-generated and repaired in v4.1 & Generated annotations, not expert gold \\
+Item identifiers, split, and lineage metadata & Deterministically assigned or recorded & Deterministically assigned or recorded & Deterministically assigned or recorded & Release and audit metadata \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+This separation follows the general principle that dataset documentation should describe origin, transformation, intended use, and limitations rather than presenting all fields as if they had the same status \cite{gebru2021datasheets,pushkarna2022datacards}. It is also necessary for interpreting later model results. A high score on a generated training target cannot be read as performance against an independent expert reference, and a source-grounded test result cannot be generalized automatically to task families introduced only through the v4 generator.
+
+\section{Source-Faithful Transformation of nvBench}
+
+The source transformation was designed to keep the meaning of the original record visible. The implementation reads the raw visualization/query structure, resolves database fields, parses SQL and VQL where possible, and stores the original evidence inside the record's provenance object. Project-specific normalizations are added alongside that evidence. This avoids replacing the source with a cleaned text-only representation in which it would be impossible to see which values were observed and which were inferred.
+
+\subsection{Stable record and group identifiers}
+
+The builder traverses \texttt{NVBench.json} in sorted-key order and emits one candidate per natural-language query. This choice treats the query as the modeling unit while retaining the relation to the top-level visualization object. A source record is assigned a stable \texttt{source\_record\_id}, such as \texttt{nvbench:\{key\}:query:\{query\_index\}} or the corresponding axis-qualified form used by the source. A separate \texttt{source\_group\_id} identifies related records derived from the same base visualization or source family. The group identifier is derived from the base key after removing axis-name or sort-specific suffixes where appropriate.
+
+The distinction between record and group is important because one source object can generate several natural-language query records. Two queries may use different wording while referring to the same underlying visualization or analytical configuration. If they were split independently, a model could see a close source counterpart during training and evaluation. Group identifiers are therefore established before selection and split assignment. The group-safe split is complemented by exact and near-duplicate checks, but group assignment is the primary protection against related source records crossing the evaluation boundary.
+
+\subsection{Column and type resolution}
+
+The transformer keeps physical source columns separate from derived aggregate expressions. It resolves fields from the relational schema and profiles relevant database columns in read-only mode. The profile can contain a field's observed type, row-level null and distinct ratios, uniqueness, numerical ratio, range, sign information, and representative values. The transformation also records whether an axis type comes directly from database metadata, from an aggregate expression, or from a documented fallback. These details are retained because a field's storage type is not always the same as its analytical role.
+
+This distinction is especially important for identifiers. A field may be stored as an integer and still represent a customer, account, invoice, or other entity identifier. Such a field can be used as a categorical dimension or for counting entities, but summing or averaging it is usually not a meaningful KPI. The pipeline therefore records physical fields in \texttt{brief.columns} and keeps expressions such as \texttt{COUNT(field)} or \texttt{SUM(field)} as aggregate evidence. An aggregate expression is not inserted into the physical column list merely because it appears in the SQL projection. This prevents the normalized brief from teaching the model that every numerical-looking token is a valid measure.
+
+\subsection{KPI and aggregation extraction}
+
+KPI extraction begins with the aggregate expressions represented in the source query and visualization evidence. When one aggregate axis is unambiguous, it is retained as the primary KPI. When two aggregate axes are present, the y-side aggregate is used as the primary KPI while both aggregate expressions remain represented in the provenance and encoding. If the source does not contain an explicit aggregate, the selector searches for a numeric, non-identifier-like measure using the available axis and database evidence. The source expression and the project's normalized KPI representation are stored separately so that a later reviewer can distinguish extraction from normalization.
+
+COUNT is handled as an intent-sensitive case. A count of rows, entities, or a categorical field may be a meaningful measure when the query expresses entity-count intent. SUM, AVG, MIN, and MAX applied to a strong identifier are technically executable but can be analytically unsuitable. Such cases receive explicit reason codes, such as \texttt{identifier\_as\_measure}, \nolinkurl{meaningless_identifier_aggregation}, or \nolinkurl{invalid_identifier_aggregation}, and are not silently repaired into a different KPI. If the source y-field is retained for fidelity but no meaningful KPI can be established, the record can remain diagnostic or be rejected by a later quality gate.
+
+The goal is not to impose one universal KPI policy on all visualization data. It is to prevent a source transformation from converting a questionable expression into an apparently reliable label. The pipeline thus preserves evidence of the original aggregation, records the project interpretation, and lets the quality layer decide whether the record is suitable as a positive dashboard-design example.
+
+\subsection{Filters, grouping, sorting, limits, and time grain}
+
+The parser extracts filters, SQL \texttt{GROUP\ BY} terms, sorting, limits, \texttt{HAVING} conditions, time functions, and VQL \texttt{BIN} expressions when these constructs can be represented without ambiguity. SQL grouping fields are retained as constraints or visual grouping evidence. A time function or a grouped datetime x-field is represented with a time-grain value when the source supports that interpretation. Sorting is stored with its field, expression, and direction. Limits and \texttt{HAVING} conditions remain separate so that a row limit is not confused with an aggregation condition.
+
+Unsupported expressions fail closed. Unrepresentable \texttt{OR} conditions, subqueries, malformed binning, ambiguous nested aggregates, and multiple or otherwise unsupported sort expressions are rejected instead of being approximated. This policy is conservative by design. Silently dropping a filter changes the population being analyzed. Dropping a group field changes the meaning of a stacked or grouped chart. Moving a limit before an aggregation changes the scope of the result. Similarly, omitting a time grain can change a trend from a monthly view to an unordered collection of dates. A record is accepted only when the normalized representation preserves the relevant source constraint or clearly records the limitation.
+
+Natural-language text is used for narrow consistency checks rather than as authority to rewrite the SQL or VQL. Simple keyword matching can create false positives: a word such as ``total'' may be an intensifier, and ``number of'' may not identify the intended aggregation. The implementation therefore uses source fields, query structure, and database evidence as the primary basis for field and constraint decisions. The natural-language query remains available as the source expression of the user goal, but it is not used to invent a physical column that is absent from the source.
+
+\subsection{Chart, encoding, and task mapping}
+
+Source chart labels are normalized through the versioned mapping in \nolinkurl{src/config/data/nvbench_mapping.yaml}. The mapping converts Bar, Pie, Line, Scatter, Stacked Bar, Grouping Line, and Grouping Scatter into the project vocabulary. Grouping variants retain the base chart type and preserve the series or classification information in the encoding and provenance. Unsupported labels are rejected rather than silently converted to a plausible chart.
+
+The analytical task type is derived separately from the chart and query evidence. The rule configuration maps bars primarily to comparison, pies to part-to-whole, lines to trend, scatter plots to correlation, and stacked bars to composition. Grouped variants retain the grouping evidence and may support comparison across series. Each inferred task is recorded as rule-derived with a rule version, confidence, and short evidence statement. It is not presented as an original nvBench annotation. This distinction follows visualization task taxonomies that separate the purpose of an analysis from the means used to perform it \cite{brehmer2013typology}.
+
+The source chart and encoding are therefore not treated as sufficient proof that the record is a good dashboard-design positive. Source fidelity asks whether the transformed record still represents the source query. Chart suitability asks a separate question: whether the source-supported fields and result shape satisfy the project's criteria for a usable dashboard-design example. This separation is consistent with work showing that graphical effectiveness depends on both the analytical task and the data distribution \cite{saket2019taskbased,kim2018taskdata}. Constraint-based visualization systems such as Draco provide a related methodological example by representing design knowledge as explicit constraints rather than relying on an unexplained chart label \cite{moritz2019draco}.
+
+\section{Iterative Validation and Quality Filtering}
+
+The construction rules were developed through progressive validation rather than fixed after the first successful JSON export. Early pilots showed that structural acceptance could coexist with missing grouping evidence, invalid or ambiguous aggregates, and chart/query conflicts. Later pilots added source-preservation checks, database profiling, identifier detection, chart-specific rules, and a quality tier. This sequence matters because it records how the project discovered and addressed failure modes before building the final 1,819-record source-grounded corpus.
+
+\subsection{What pilots v1--v3 revealed}
+
+Pilots v1 and v2 used the 25,762 local query-level candidates and selected 100 examples with a roughly balanced distribution across five normalized chart types. Their manifests reported zero technical rejections at the initial parsing stage. That result was useful for checking the shape of the corpus, but it did not establish dashboard-design validity. The associated reports recorded unresolved grouping information, fallback axis typing, and near-duplicate relationships. Between v1 and v2, 19 common records changed, nine grouping fields were recovered, and the reported near-duplicate count decreased from 38 to 19. These changes affected the analytical interpretation of grouped records rather than only their formatting.
+
+Pilot v3 introduced a stricter source-preservation representation. It accepted 20,986 candidates technically and rejected 4,776. The documented rejection categories were 3,944 records with unpreserved filters, 157 ambiguous nested aggregates, 260 categorical scatter axes, 236 aggregate-intent conflicts, 44 chart/query conflicts, 10 unpreserved sorts, and 125 missing group fields. The category counts sum to the reported 4,776 rejections. The selected 100-record pilot was created only after these checks, exact normalized-goal deduplication, source-group sampling, database caps, and near-duplicate checks.
+
+The v2-to-v3 comparison shows why the additional validation was necessary. Aggregate expressions in the physical-column list fell from 86 to zero, valid stacked-bar group fields increased from zero to 20, and categorical-scatter warnings fell from eight to zero in the compared pilot records. Accepted filters increased from zero to 15, accepted sorts from zero to 43, accepted time grains from zero to 18, and grouped records from nine to 33. These changes indicate that the transformation began preserving source semantics that the first representation had either omitted or represented ambiguously. A valid JSON object was therefore treated as a necessary condition, not as the final quality criterion.
+
+The pilots were methodological development stages rather than model experiments. Their counts describe source extraction and selection behaviour. They do not measure the performance of prompt-only generation, RAG, QLoRA, or the combined method. Keeping these roles separate avoids using construction diagnostics as if they were downstream experimental results. The failure-mode approach also follows the reasoning behind behavioural testing, where systematic checks are used to reveal errors that aggregate success rates can hide \cite{ribeiro2020checklist}.
+
+\subsection{Source fidelity versus dashboard suitability}
+
+The quality pipeline separates three gates. Technical validity asks whether the record can be parsed, conforms to the \texttt{GoldItem} contract, contains the required fields, and uses valid controlled values. Source fidelity asks whether the normalized brief and recommendation preserve the analytical meaning of the original source query, including fields, aggregations, filters, grouping, sorting, limits, and temporal information. Dashboard-design suitability asks whether the source-faithful record is appropriate as a positive example for the specific recommendation task.
+
+These gates answer different questions. A record can be technically valid but lose a source filter. It can preserve the source query but use an identifier as a KPI. It can contain a meaningful KPI and still fail a chart-specific requirement, for example by using an unordered categorical axis for a line chart or by using non-additive aggregation for a part-to-whole chart. The project does not correct such differences by silently changing the source. It records them as failures, warnings, or lower quality tiers so that the source record and its suitability remain distinguishable.
+
+The distinction is also important for the interpretation of the final dataset. Tier A means that a record passed the project's adopted suitability criteria. It does not mean that the record is universally optimal or that an expert has judged every design choice. The quality layer operationalizes the thesis task using explicit rules informed by visualization research, but it remains a project-specific admission procedure.
+
+\subsection{Identifier, KPI, and chart-suitability checks}
+
+Identifier detection combines database and field evidence. The implementation considers primary-key, foreign-key, and unique-index metadata, observed uniqueness and distinctness, numeric-looking entity-reference patterns, and name patterns such as \texttt{id}, \texttt{key}, \texttt{code}, or identity-qualified number fields. The configured strong-identifier conditions use a unique ratio of at least 0.98 and at least 20 distinct values, while weaker evidence can be marked ambiguous. The exact name patterns and thresholds are stored in \nolinkurl{src/config/data/nvbench_quality_rules.yaml}; they are operational rules for this corpus, not definitions of identifiers for every database.
+
+KPI checks use the identifier result together with the query aggregation and natural-language intent. A strong identifier used as a SUM, AVG, MIN, or MAX measure is not treated as a meaningful KPI. COUNT can remain valid when the query expresses a count of entities or rows. Aggregation conflicts are evaluated in an axis-aware way. A conflict between the encoded aggregate and the SQL or query intent blocks Tier A even when the database can execute the expression. This prevents the system from equating computational executability with analytical validity.
+
+Chart suitability is checked with chart-specific conditions. Bar charts require meaningful measure evidence and are blocked when the principal measure is a strong identifier. Line charts require a meaningful measure and an ordered x-axis, supported by temporal information or another source-backed ordering. Pie charts are limited to at most eight categories, disallow negative values and identifier-like categories, and use additive COUNT or SUM aggregation for Tier A. AVG, MIN, and MAX are retained as source evidence when present but are demoted under the \texttt{pie\_non\_additive\_kpi} policy. Stacked bars require a bounded and unambiguous grouping field.
+
+Scatter checks use the result profile in addition to base-table metadata. The configured minimum is ten distinct values for relevant axes, and the profile is capped at 1,000 rows. Identifier axes are rejected, and the two axes must provide independently numeric observations with sufficient variation. A large underlying table is not enough if the executed query produces only a few paired observations or collapses the variation through aggregation. These rules reflect the general need to consider task, data semantics, and encoding together \cite{cleveland1984graphical,mackinlay1986apt,brehmer2013typology}, while the exact thresholds remain project-specific engineering decisions.
+
+\subsection{Tier A/B/C policy and pilots v4--v6}
+
+The quality layer assigns three tiers. Tier A is a high-confidence positive candidate that is technically valid, source-faithful, suitable under the project rules, free of mandatory failures, and above the configured quality threshold. Tier B is source-faithful or potentially useful material that is uncertain or unsuitable as a positive dashboard-design target but may remain useful for diagnostics. Tier C represents a severe contradiction or a transformation that cannot be relied upon. The tiers do not claim human annotation quality; they describe the project's operational confidence in using a record for positive supervision.
+
+The quality score has five components. Source fidelity contributes 30 points, KPI validity 20, chart suitability 25, constraint completeness 15, and database-profile support 10. Tier A requires a score of at least 90 and no mandatory failure. The score is therefore a weighted admission mechanism, not an interval scale with a universal interpretation. A score of 95 does not mean that one record is universally 5 points better than another, and a score of 90 does not certify expert-level dashboard quality.
+
+Pilot v4 applied the first quality version to the 20,986-record technical pool. It reported 13,896 Tier A, 7,071 Tier B, and 19 Tier C records. The selected pilot contained 95 records because the desired scatter quota could not be reached under the Tier-A and deduplication constraints. No Tier-B records were inserted to make the chart counts appear balanced. Pilot v5 applied a revised rule set and reported 13,044 Tier A, 7,923 Tier B, and 19 Tier C records. Its requested balanced selection was also not possible because only ten high-confidence scatter examples survived the stricter gates.
+
+Pilot v6 retained the quality-first policy and selected 100 records with 23 bar, 23 line, 22 pie, 22 stacked-bar, and 10 scatter examples. All selected records were Tier A, and the manifest records that no Tier-B fallback was used. The resulting imbalance was accepted because replacing scarce high-confidence scatter examples with lower-confidence records would have weakened the meaning of the positive dataset. This decision follows the principle that a controlled dataset should report a real coverage limitation instead of hiding it through artificial balance.
+
+The later full quality-pool rebuild is a separate construction boundary. It contains 21,244 technically valid records under the final \texttt{nvbench\_quality\_v6} rules, with 12,147 Tier A, 9,064 Tier B, and 33 Tier C records. The earlier strict v3 report contains 20,986 technically accepted records and 4,776 rejected records. The repository does not provide a complete row-level reconciliation for the difference of 258 records. The final corpus therefore uses the later quality-pool rebuild as its source, while the 20,986-to-21,244 change is reported as an unreconciled rebuild boundary rather than as an invented sequence of individual additions and removals.
+
+\section{Selection, Deduplication, and Evaluation Isolation}
+
+\subsection{Final source-grounded corpus}
+
+The final large-dataset selector consumes Tier-A records only. It does not promote Tier B or Tier C records simply to satisfy a target size. Eligibility requires a quality score of at least 90, no mandatory failure, a non-empty normalized goal, valid source-record identity, and survival of exact source-record, normalized-goal, fingerprint, group, database, leakage, and near-duplicate checks. The selector considers the available scatter records first because scatter is the scarce source chart family. The remaining allocation uses a deterministic target policy and redistributes deficits only when a chart pool is exhausted. These constraints define how many high-confidence source records can be retained; they do not relax the quality rules.
+
+The resulting \texttt{dashboard\_v3} source-grounded corpus contains 1,819 modeling records. Its chart distribution is 1,379 bar, 109 line, 242 pie, 13 scatter, and 76 stacked-bar records. The corresponding rule-derived task distribution is 1,379 comparison, 109 trend, 242 part-to-whole, 13 correlation, and 76 composition records. This is an imbalanced distribution, especially for scatter. It reflects the surviving Tier-A supply after source-group, database, deduplication, and leakage controls. The imbalance is retained as a documented property of the evidence rather than corrected by inserting weaker examples.
+
+The distribution has methodological consequences. Later model evaluation should report per-class or macro-averaged evidence in addition to overall values, because a large comparison/bar class can dominate an aggregate result. This recommendation is not a downstream result and does not assert that any model performs well or poorly on a particular class. It states how the class distribution should be considered when interpreting later results.
+
+\subsection{Duplicate and near-duplicate control}
+
+Deduplication operates at several levels. Exact item identifiers and source-record identifiers are checked first. The selector then compares source groups, normalized goals, brief fingerprints, exact record content, and near-duplicate similarity. A source group can contribute at most two selected records, and a second record is retained only when its wording is sufficiently different and its analytical semantic signature differs in fields such as KPI, aggregation, axis, grouping, filter, sorting, or time grain. This preserves limited within-source variation while reducing the risk that one source family dominates the corpus.
+
+The near-duplicate gate uses character 3-gram Jaccard similarity with a threshold of 0.8. Candidate text at or above this threshold is rejected as a near duplicate under the project policy. The threshold is not presented as a universal definition of duplication. It is a reproducible operational criterion selected for this corpus. Its use is supported by the broader concern that duplicate training data can increase memorization and that overlap between training and evaluation material can lead to overly optimistic estimates \cite{lee2022dedup}.
+
+Exact row comparison alone would not be enough. Two records can have different identifiers and different serialized JSON while expressing nearly the same goal and constraint structure. Conversely, two records from the same source group can be distinct in wording but share enough analytical structure to create leakage if group membership is ignored. Combining exact checks, semantic signatures, source groups, and near-duplicate similarity makes the boundary more conservative while keeping the individual checks interpretable.
+
+\subsection{Group-disjoint splitting and held-out artifacts}
+
+The selected source-grounded records were split with seed 42 using the group-safe \nolinkurl{nvbench_large_v2_split_v1_group_safe} procedure. Whole \texttt{source\_group\_id} values were assigned to one partition. The final counts are 1,281 training records, 264 validation records, and 274 held-out test records. The partitions contain 784, 167, and 167 unique source groups respectively. The observed record proportions are approximately 70.42\%, 14.51\%, and 15.06\%, rather than exact nominal 70/15/15 proportions, because source-group integrity takes precedence over exact row fractions.
+
+The 274-record test is in-domain and source-group-disjoint. It is not an external benchmark because it originates from the same registered nvBench corpus as the source-grounded training and validation records. It is nevertheless a meaningful held-out boundary for the project because its groups are not shared with the training or validation partitions and because it is preserved before the later generated augmentation. The test therefore measures generalization within the source domain and source construction process, not generalization to an unrelated external corpus.
+
+A separate file contains 40 human-evaluation items selected from the held-out test. The file is an evaluation instrument, not a fourth modeling split. Its rows overlap with the test by design, remain outside training and validation, and were not used as context for enrichment, augmentation, or repair. The human-evaluation file should therefore not be added to the 3,819 modeling records as if it contained 40 new examples. The distinction between modeling records and evaluation items is maintained in the manifests and in the final split table in Section 4.10.
+
+\section{\texorpdfstring{Constrained LLM Enrichment and the \texttt{dashboard\_v3} Freeze}{Constrained LLM Enrichment and the dashboard\_v3 Freeze}}
+
+\subsection{Why enrichment was needed}
+
+The source-faithful transformation provides the analytical content required to connect a natural-language query with fields, aggregations, constraints, and a chart. It does not provide all of the presentation fields required by the thesis output contract. In particular, original nvBench does not authoritatively specify the intended user role, a structured context summary, a dashboard layout, styling and accessibility choices, interactions, or a full rationale for the design. Leaving these fields absent would prevent the record from matching the common recommendation interface. Filling them with generic templates and calling them source values would be worse because it would misrepresent the evidence.
+
+The project therefore introduced a constrained LLM-enrichment stage for the source-grounded training and validation records. This stage is methodologically related to filtered model-generated instruction data, where a model proposes content and a separate process filters invalid or overly similar examples \cite{wang2023selfinstruct}. The project applies a stricter boundary than unconstrained instruction generation: the source-backed analytical projection is immutable, and the model may write only six presentation-oriented fields. These fields are marked \texttt{llm\_generated} and \texttt{not\_gold=true} in the resulting lineage metadata.
+
+\subsection{Writable and immutable fields}
+
+The enrichment workflow can modify exactly \texttt{users}, \texttt{context\_summary}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales}. These fields form the presentation layer of the recommendation. The model can describe the audience, summarize the analytical context, arrange the views, propose accessible styling, suggest interactions, and explain the design choices. It cannot change the analytical task by rewriting the goal or by replacing the source KPI with a more fluent alternative.
+
+The immutable projection contains the item and source identifiers, source group, source record, original goal/query, KPI and aggregation evidence, physical columns and types, task and chart mapping, alternatives, encodings, filters, sorting, limits, grouping, time grain, source provenance, quality score and tier, and split membership. The implementation computes an immutable projection and a SHA-256 fingerprint before and after enrichment. A change to an immutable field raises an \nolinkurl{immutable_source_field_changed} failure. This is a control against a common synthetic-data error: a generated explanation should not silently overwrite the facts that it is supposed to explain.
+
+Test records and the 40 human-evaluation items were excluded from the enrichment input. The full run therefore enriched only the 1,545 train and validation records, consisting of 1,281 training and 264 validation records. The held-out analytical content and evaluation boundary were preserved independently of the generated presentation layer.
+
+\subsection{Model, automatic validation, and human pilot}
+
+The enrichment artifacts record the model as \nolinkurl{deepseek-v4-flash-sovereign}, the generation temperature as 0.0, and the reasoning effort as requested or configured \texttt{xhigh}. The project reports the configuration that was supplied to the provider. It does not claim that the provider independently verified an internal reasoning level. This wording is important because a configuration value is evidence about the request, not proof of how a remote model internally reasoned.
+
+The enrichment workflow used several checks. The payload had to satisfy the strict schema and contain all six required fields. The generated context could not introduce unsupported KPIs, chart types, business numbers, or fields. Interactions had to use approved types and refer to fields present in the record. Rationales had to mention the actual task, chart, and encoded fields without asserting an observed outcome that the source did not provide. The trusted application code, rather than the model, merged only the six permitted fields and recorded their lineage.
+
+A ten-record technical sample passed with 10/10 accepted outputs. A 30-record human R1 pilot accepted 29 records and rejected one because the rationale disagreed with the task, chart, or encoding evidence. The full first pass processed 1,545 records and accepted 1,534 while rejecting 11. It reported a 100\% schema-valid rate, zero immutable-field violations, 943 API calls, 617 cache hits, and 15 retries. These values describe the enrichment process and not a final human evaluation of dashboard quality.
+
+The targeted retry and offline revalidation stage resolved ten of the eleven first-pass rejections without recalling accepted records. One remaining case required a targeted retry. The final result reconciled to all 1,545 expected train and validation records, with zero permanent rejections and zero recorded immutable-field violations. The pre-freeze audit also normalized fingerprint metadata for records where the metadata was absent; this was metadata normalization and did not change the source-backed or enriched values.
+
+The 29/30 human result is a limited quality gate for the enrichment procedure. It exceeds the configured minimum of 27 accepted records, but it does not establish that the six fields are correct for every record or that they are expert gold. Human-evaluation guidance stresses the need to report the scope and limitations of human judgments separately from automatic checks \cite{vanderlee2019human}. The dataset therefore keeps the R1 result as evidence about a small pilot and retains the \texttt{llm\_generated} and \texttt{not\_gold} labels for the full enriched corpus.
+
+\subsection{Frozen v3 composition}
+
+The enriched source-grounded corpus was frozen as \texttt{dashboard\_v3}. The frozen package contains 1,281 training records, 264 validation records, and 274 held-out test records. The 1,545 train and validation records contain the six LLM-generated presentation fields. The test remains outside the enrichment input and retains its source-grounded analytical lineage and held-out artifact values. The separate 40-item human-evaluation file is sampled from the test and is not trainable.
+
+The v3 manifest records \texttt{nvbench\_large\_v2} as the source dataset version, \texttt{GoldItem} as the schema version, and \texttt{phase3-enrichment-v1} as the enrichment specification. It records source-grounded fields, deterministically derived fields, and LLM-generated enrichment fields separately. It also records the R1 pilot, validation results, leakage checks, exact file-preservation checks, and the exclusion of raw API responses, secrets, provider caches, and temporary generations from the frozen package. This freeze created the stable predecessor that was later augmented in train and validation only.
+
+\section{\texorpdfstring{Controlled \texttt{dashboard\_v4} Augmentation}{Controlled dashboard\_v4 Augmentation}}
+
+\subsection{Motivation and scope}
+
+The source-grounded v3 train and validation data provided a defensible analytical core but had narrow coverage for the full dashboard-design task. The 1,545 records covered five primary task/chart families: comparison/bar, part-to-whole/pie, trend/line, composition/stacked-bar, and correlation/scatter. The profile contained 316 records with explicit filters, 83 grouped records, and 275 records with temporal information. It contained no canonical multi-KPI records. This narrow coverage is a consequence of using an NL2VIS source for a dashboard-level task rather than evidence that the source corpus is representative of all dashboard work.
+
+The purpose of v4 was to broaden the training and validation supervision to additional task families, chart types, grouped and temporal cases, filters, and multi-KPI layouts. The augmentation did not replace the source-grounded core and did not modify the held-out test. The project used a controlled generator with a versioned task/chart catalogue and deterministic sampling. This design allows the generated records to be useful for learning broader output behaviour while keeping their generated status visible.
+
+The expansion is not interpreted as a correction of the natural distribution of real dashboards. It is an intervention on the training and validation material. The generated records can increase coverage of task families that are absent from the source-derived test, but they cannot turn the preserved test into a benchmark for those new families. That boundary is important for the interpretation of later experimental results.
+
+\subsection{Generation protocol and provenance}
+
+The generation run is recorded as \nolinkurl{dashboard_v4-generation-v1}. It used \texttt{gpt-5.6-luna} in \texttt{codex\_agent} mode, seed 42, batches of 40 records, and 50 batches. The generator read only the frozen v3 training and validation material as construction context. It did not read \texttt{test.jsonl} or the 40-item human-evaluation file while proposing candidates. No generated candidate could be assigned to the test or human-evaluation artifacts.
+
+The accepted v4 records are marked \texttt{source=llm\_generated}, carry generation-group metadata, and set \texttt{not\_gold=true}. Unlike the preserved v3 analytical records, their goals, KPIs, columns, constraints, task/chart specification, and encodings are generated within the controlled scenario generator. These fields are then checked against the project's controlled schema and generation rules, but validation does not transform them into source observations. The generated records are therefore best described as AI-generated supervision, not as additional nvBench examples.
+
+The generator uses a catalogue of 20 operational domains and a set of controlled scenario features. It varies audiences, decision contexts, operating states, planning windows, time grains, themes, layout patterns, filters, grouping, sorting, limits, and the presence of a second KPI. The purpose of these controls is to create identifiable coverage variation rather than unconstrained text diversity. The catalogue and sampling code are versioned in the repository, while the accepted records preserve their generation index, scenario group, seed, and model metadata.
+
+\subsection{Acceptance, deduplication, and split restriction}
+
+The run attempted 2,915 candidates and accepted exactly 2,000. The remaining 915 candidates were rejected as near duplicates under the character 3-gram Jaccard threshold of 0.8. Candidate acceptance also required non-empty brief and recommendation fields, a sufficiently detailed constraint string, valid task/chart combinations, KPI references that resolved to the generated columns, task-appropriate encodings, valid filters and sorting, and complete layout, styling, interaction, and rationale fields. These gates are generation-specific checks; passing them does not establish human or expert gold status.
+
+The 2,000 accepted records were assigned 1,651 to train and 349 to validation. No generated record was assigned to test. The generated records were compared against the preserved v3 train and validation material and against previously accepted generated records using identifiers, normalized goals, brief fingerprints, exact record hashes, scenario signatures, and near-duplicate similarity. This prevents the augmentation from simply repeating a source brief under a new identifier. The generator also applies a batch safety limit so that a target cannot be reached through uncontrolled rejection behaviour.
+
+The accepted records broadened the structural coverage. The generation report records 1,215 records with explicit filters, 1,373 with grouping, 1,229 with temporal information, and 842 with multiple KPI mappings. At the record level, the generated task distribution is shown in Table 4.3. Each record is counted once using its primary mapping, so the counts sum to 2,000.
+
+\begingroup\footnotesize\setlength{\tabcolsep}{3pt}\sloppy
+\begin{longtable}[]{@{}lr@{}}
+\caption{Record-level distribution of primary task types in the 2,000 accepted generated records.}\tabularnewline
+\toprule\noalign{}
+Primary task type & Generated records \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Primary task type & Generated records \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{correlation} & 300 \\
+\texttt{comparison} & 300 \\
+\texttt{trend} & 250 \\
+\texttt{distribution} & 250 \\
+\texttt{ranking} & 200 \\
+\texttt{part\_to\_whole} & 200 \\
+\texttt{composition} & 200 \\
+\texttt{flow} & 150 \\
+\texttt{deviation} & 150 \\
+\textbf{Total} & \textbf{2,000} \\
+\end{longtable}
+\endgroup
+
+The generated primary chart distribution is shown in Table 4.4. It contains 14 chart types and also sums to 2,000 records. These counts are record-level primary chart counts, not mapping-level counts.
+
+\begingroup\footnotesize\setlength{\tabcolsep}{3pt}\sloppy
+\begin{longtable}[]{@{}lr@{}}
+\caption{Record-level distribution of primary chart types in the 2,000 accepted generated records.}\tabularnewline
+\toprule\noalign{}
+Primary chart type & Generated records \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Primary chart type & Generated records \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{table} & 351 \\
+\texttt{bar} & 275 \\
+\texttt{area} & 223 \\
+\texttt{heatmap} & 163 \\
+\texttt{scatter} & 137 \\
+\texttt{line} & 134 \\
+\texttt{box} & 127 \\
+\texttt{histogram} & 123 \\
+\texttt{grouped\_bar} & 105 \\
+\texttt{stacked\_bar} & 93 \\
+\texttt{donut} & 76 \\
+\texttt{sankey} & 69 \\
+\texttt{treemap} & 68 \\
+\texttt{pie} & 56 \\
+\textbf{Total} & \textbf{2,000} \\
+\end{longtable}
+\endgroup
+
+Some generated records contain two KPI mappings. The distribution report therefore also contains mapping-level counts that can exceed the record count. It reports 2,842 generated mapping instances, 3,635 train mapping instances, and 752 validation mapping instances. These values are not additional JSONL records. Keeping record-level and mapping-level units separate prevents a multi-KPI record from being counted twice in the dataset-size accounting while still allowing the project to describe the coverage of its individual mappings.
+
+\section{\texorpdfstring{\texttt{dashboard\_v4\_1} Semantic Repair}{dashboard\_v4\_1 Semantic Repair}}
+
+\subsection{Why structural validity was insufficient}
+
+The first v4 generation pass passed its structural admission pipeline, but a presentation-layer audit found issues in all 2,000 generated records. The most common categories affected all 2,000 records: missing or unanchored context constraints, KPI/context mismatch, unsupported context fields, generic layouts, under-described layout blocks, missing styling semantics, interactions without a purpose, generic filler, and rationales that did not provide record-specific evidence. Generic user templates affected 1,819 records and generic palettes affected 1,906 records. Additional issues included sort/task mismatches in 779 records, unjustified status colors in 564 records, interactions referring to nonexistent columns in 250 records, and chart-principle mismatches in 876 records.
+
+These findings show why a schema-valid object cannot be treated as semantically adequate. The object can have the right keys and valid enum values while its presentation fields remain generic or disconnected from the brief. In a dashboard setting, an interaction that points to an absent field is not useful merely because its JSON representation is valid. A rationale that mentions a chart principle without applying it to the record is also not evidence of a meaningful explanation. The audit therefore focused on whether each generated field was anchored to the record's own brief and mapping.
+
+\subsection{Repair scope and protected fields}
+
+The repair workflow is versioned as \texttt{dashboard\_v4\_1-semantic-\allowbreak repair-v1}. It used \texttt{gpt-5.6-luna} in \nolinkurl{codex_agent_context_aware} mode. Only the same six presentation fields were repairable: \texttt{users}, \texttt{context\_summary}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales}. The fields \texttt{goals}, \texttt{kpis}, \texttt{columns}, \texttt{constraints}, \texttt{task\_type}, \texttt{chart\_type}, and \texttt{encoding} were protected. In the generated lineage, these protected fields are generated or generated-and-validated content; protecting them means that the repair stage did not change them, not that they became source-grounded.
+
+The repair report records 2,000 repaired records, zero records already valid before repair, and zero rejected or regenerated records. The \texttt{users} field changed in 1,819 records, while each of the other five presentation fields changed in all 2,000 records. The model-generated analytical specification was therefore kept fixed during presentation repair. This separation makes it possible to attribute the repair operation to the presentation layer rather than to an undocumented change in the task, KPI, chart, or encoding.
+
+\subsection{Post-repair validation and interpretation}
+
+The post-repair audit checks the fields against the record's existing goal, KPI, columns, constraints, task, chart, and encoding. Context summaries must agree with the brief. Layout blocks must correspond to the KPI mappings and state a meaningful hierarchy or reading order. Styling must describe typography, contrast, accessibility, and a semantic color policy. Interactions must use approved types, have a purpose, and refer only to fields present in the record. Rationales must mention the actual task, chart, and KPI and must avoid unsupported outcome claims such as causal or observed-performance statements that are not present in the brief.
+
+The frozen validation report records zero schema-invalid and zero semantic-invalid generated records after repair. The repair report and the manifest consequently describe the generated fields as semantically clean under the repository audit. This phrase has a narrow meaning. It means that the implemented predicates passed; it does not mean that independent visualization experts reviewed or certified all 2,000 generated recommendations. The generated records remain \texttt{not\_gold=true}.
+
+\section{Final Dataset Composition and Mixed Lineage}
+
+\subsection{Final split table}
+
+The operational package is named \texttt{dashboard\_v4}, while the exact frozen manifest revision stored inside that package is \texttt{dashboard\_v4\_1}. The final modeling composition is shown in Table 4.5. The preserved v3 columns represent the source-grounded predecessor records, and the v4/v4.1 columns represent the added AI-generated train and validation records.
+
+\begin{landscape}
+\begingroup\scriptsize\setlength{\tabcolsep}{3pt}\sloppy
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1667}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}
+  >{\raggedleft\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2222}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.1667}}@{}}
+\caption{Final split composition and lineage of the frozen modeling package.}\tabularnewline
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Partition or artifact
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+Preserved nvBench-derived v3
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+AI-generated v4/v4.1
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+Total
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Role
+\end{minipage} \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Partition or artifact
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+Preserved nvBench-derived v3
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+AI-generated v4/v4.1
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+Total
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Role
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Train & 1,281 & 1,651 & \textbf{2,932} & Trainable \\
+Validation & 264 & 349 & \textbf{613} & Validation/model selection only \\
+Held-out test & 274 & 0 & \textbf{274} & Evaluation only \\
+Modeling total & \textbf{1,819} & \textbf{2,000} & \textbf{3,819} & Modeling study \\
+Human-evaluation item file & 40 test-derived items & 0 & \textbf{40} & Separate evaluation instrument \\
+\end{longtable}
+\endgroup
+\end{landscape}
+
+The arithmetic is deliberate. The modeling total is \nolinkurl{1,819\ +\ 2,000\ =\ 3,819}, and the final train and validation totals are \nolinkurl{1,281\ +\ 1,651\ =\ 2,932} and \texttt{264\ +\ 349\ =\ 613}. The 40 human-evaluation rows are sampled from the 274 held-out test records. They overlap with the test by design and must not be added as 40 new modeling records or treated as an independent fourth split.
+
+\subsection{Record-level and field-level lineage}
+
+The final dataset has mixed lineage by design. The 1,819 preserved records retain \texttt{source=nvbench} and the source query, database, visualization, and provenance information. The 1,545 train and validation records in this group contain six LLM-generated presentation fields from the v3 enrichment stage. Their goals, KPIs, columns, constraints, and analytical chart evidence remain source-grounded, while task inference and KPI selection remain deterministic derivations. The 274 test records remain in the source-grounded analytical lineage and were not processed by the enrichment run; their held-out recommendation fields were preserved as part of the evaluation artifact.
+
+The 2,000 added records retain \texttt{source=llm\_generated} and \texttt{not\_gold=true}. Their goals, KPIs, columns, constraints, task/chart specification, and encodings were created by the controlled v4 generator and accepted by deterministic validation. Their six presentation fields were then changed or confirmed through the v4.1 semantic-repair workflow. The repair protected the generated analytical fields, but it did not change their evidence class. They remain AI-generated supervision rather than nvBench observations, human gold, or expert gold.
+
+The field-level view is important for later analysis. A model can be evaluated on the same output schema across both record families, but the reference status of a field differs between them. The v3 analytical target has a source-backed origin, whereas the v4 analytical target is generated. The presentation fields are generated in the v3 train and validation records and generated-plus-repaired in the v4 records. A result that is strong on the generated portion should therefore be described as performance on the project's generated supervision, not as independent evidence of dashboard quality.
+
+\subsection{Consequences for interpretation}
+
+The preserved 274-record test measures in-domain, source-group-disjoint generalization to the five original source chart families. The test includes bar, pie, line, stacked-bar, and scatter records, with a strong concentration of bar/comparison examples and only two scatter records. It does not directly evaluate generated-only task families such as distribution, ranking, deviation, or flow, because no such records were added to the test. It also does not turn the generated v4 records into independent gold merely because they are held out from some training runs.
+
+The broader v4 training and validation distribution can support experiments on additional task and chart families, but any conclusion about those families requires an evaluation set that contains them. The completed eight-brief human study provides complementary evidence for layout, styling, interaction usefulness, and rationale quality, but its small convenience sample does not validate all capabilities introduced by the augmentation. The preserved test therefore remains a controlled in-domain test of the source-grounded boundary.
+
+\section{Dataset Freeze, Versioning, and Reproducibility}
+
+The active configuration in \nolinkurl{src/config/data/dashboard_v4.yaml} uses \texttt{dashboard\_v4} as the operational dataset identity and points to \nolinkurl{data/frozen/dashboard_v4/}. The manifest in that directory records \texttt{dashboard\_v4\_1} as the exact frozen revision, \texttt{dashboard\_v4} as its parent package, and \texttt{dashboard\_v4\_1-semantic-\allowbreak repair-v1} as the repair version. This distinction prevents a path or configuration name from being confused with the precise materialized state of the data.
+
+The frozen directory contains the train, validation, test, and human-evaluation artifacts together with the \texttt{GoldItem} schema, dataset card, manifest, hashes, validation report, duplicate report, leakage report, distribution report, semantic-audit reports, and repair report. The manifest records the v3 prefixes, generated counts, repair scope, protected fields, and the checks used to publish the package. The v4 freeze verified that the v3 train and validation prefixes were unchanged, that the test and human-evaluation files were byte-identical to their parent artifacts, and that generated records entered only train and validation.
+
+The file-level hashes provide an additional reproducibility check. Direct SHA-256 verification performed on 2026-09-02 matched the hashes files for the v3 and v4 train, validation, test, and human-evaluation artifacts. The source archive is separately identified by its own digest in the nvBench source manifest. These hashes do not prove that a future model provider will produce the same output from the same prompt, but they do make the published bytes and the source package auditable after the fact.
+
+The package is treated as write-once. A material change to a frozen JSONL, CSV, schema, manifest, or report should create a new version rather than silently modifying the existing release. The held-out artifacts are copied or verified byte-for-byte across the v3-to-v4 transition, and the generation and repair procedures operate only on train and validation material. Raw API responses, credentials, caches, and temporary generations are excluded from the final package. This separation keeps reproducibility records useful without publishing sensitive or irrelevant execution material.
+
+One metadata inconsistency is recorded in the project audit. The nested human-evaluation hash in the v4 manifest differs from the direct file-level hash and the value in the hashes files, while the actual v3 and v4 human-evaluation files are byte-identical. Because the disputed nested digest is not needed to explain the dataset composition, this chapter does not reproduce it as an authoritative value. The accompanying evidence audit records the conflict and gives priority to the directly recomputed file hash and the dedicated hashes files. Reporting the conflict explicitly is preferable to silently selecting one value.
+
+The unpinned upstream \texttt{main} reference remains the main limitation of source reproducibility. The local archive digest identifies the exact bytes used in this project, but an independent researcher who downloads the branch at a later time may obtain a different archive. Reproduction should therefore use the registered archive or an independently verified copy of the same bytes whenever possible.
+
+\section{Limitations and Threats to Validity}
+
+\subsection{Construct validity}
+
+The source-backed part of the dataset is derived from nvBench, which was designed for NL2VIS rather than full multi-view dashboard design \cite{luo2021nvbenchdataset,luo2021nvbenchsigmod}. It provides useful evidence about natural-language analytical goals, relational data, aggregations, and chart specifications, but it does not provide authoritative personas, complete dashboard layouts, styling, interaction design, or full rationales. The six presentation fields in the v3 train and validation records are therefore LLM-generated annotations. They are not source gold or expert gold. The 2,000 v4 records are generated supervision at both the analytical and presentation levels, followed by a model-assisted repair of the six presentation fields.
+
+The task and chart rules are also project-specific abstractions. The distinction between task and encoding is supported by visualization research, but the exact quality weights, Tier-A threshold, pie cardinality limit, scatter variation requirements, near-duplicate threshold, and related policies are operational decisions for this project \cite{cleveland1984graphical,mackinlay1986apt,brehmer2013typology}. Passing the rules means that a record satisfies the adopted construction protocol. It does not prove that the record expresses the only valid design or that the selected chart is optimal for every audience.
+
+Source metadata and heuristic fallbacks can misclassify semantic field roles. A field name may look like an identifier without being one, while a domain-specific identifier may not follow the configured patterns. Database profiles improve the evidence but cannot resolve every domain interpretation. The quality tiers should therefore be read as bounded operational confidence rather than as a universal semantic truth.
+
+\subsection{Internal validity}
+
+The project's earlier synthetic-only workflow created a circularity risk because the same deterministic task-to-chart logic influenced both training and testing. The present pipeline reduces this risk by constructing the held-out test from source-group-disjoint nvBench records and by excluding test and human-evaluation items from v3 enrichment, v4 generation, and v4.1 repair. This is a meaningful improvement in the evaluation boundary, but it is not complete independence: the source-grounded train, validation, and test records still originate from the same upstream corpus and share its construction assumptions.
+
+The v4.1 semantic repair is model-assisted. The post-repair audit reports zero remaining schema and semantic failures under the repository rules, but it does not constitute independent review by visualization experts. The R1 enrichment review covers only 30 records and accepted 29 of them. This enrichment gate is separate from the completed human evaluation reported in Chapters 6 and 7; no preference or agreement result is inferred from the 29/30 pilot.
+
+The validated hybrid staging branch is another internal boundary. It combined 18 synthetic training records and three synthetic validation records with enriched nvBench material and passed its own checks, but it was not used in the final v3 freeze. The repository does not contain a dedicated final-decision report explaining why these 21 synthetic records were omitted. The final manifests clearly identify the selected nvBench-only v3 inputs, so the final scope is known; the rationale for omitting the staging records remains incompletely documented.
+
+\subsection{External validity}
+
+The held-out test is in-domain and imbalanced. It contains only the five original source chart families and includes very few scatter cases. The expanded v4 training and validation records cover nine task families and 14 chart types, but the generated-only task families are absent from the preserved test. Test performance therefore cannot be interpreted as direct evidence that a model generalizes equally well to distribution, ranking, deviation, flow, or the other newly introduced chart/task combinations. Such claims require a matching evaluation set, human assessment, or an external benchmark.
+
+The source domain is also constrained by the schemas and domains represented in nvBench and by the NL2SQL resources used in its construction, including Spider. Real dashboard requests may contain multi-table business logic, organization-specific definitions, missing data, or visual conventions not represented in this corpus. The final dataset should therefore be used to study the controlled comparison defined in this thesis, not as a representative sample of all dashboard design work.
+
+\subsection{Reproducibility validity}
+
+The source branch was downloaded as \texttt{main} without a pinned upstream commit. The local archive hash makes the bytes used in the project identifiable, but it does not guarantee that an independent future download of the branch will match. The 20,986-to-21,244 quality-pool change also lacks complete row-level reconciliation. Both limitations are documented rather than hidden behind a single final count.
+
+The generated fields are reproducible at the level of stored files, manifests, hashes, prompts or specifications, and rule versions, but the semantic content came from language-model calls. Temperature 0.0 does not guarantee identical outputs across provider revisions or service changes. The v4.1 repair is similarly reproducible as a published artifact and rule-checked result, but its text and layout-like values were produced by a model rather than independently annotated by experts.
+
+Finally, the 40-row human-evaluation item file is a sampling frame rather than a result. The deployed study used eight briefs and stored its assignments and ratings under the separate human-evaluation result directory. The 29/30 value belongs only to the earlier enrichment gate. Keeping these artifacts distinct prevents construction checks from being misreported as user evidence.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}

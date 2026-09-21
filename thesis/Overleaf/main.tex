@@ -1,0 +1,89 @@
+\documentclass[10pt,a4paper,oneside]{report}
+\usepackage[a4paper,margin=23mm,headheight=15pt]{geometry}
+\usepackage{fontspec}
+\setmainfont{lmroman12-regular.otf}[BoldFont=lmroman12-bold.otf,ItalicFont=lmroman12-italic.otf,BoldItalicFont=lmroman12-bold.otf]
+\setsansfont{lmsans12-regular.otf}[BoldFont=lmsans12-regular.otf,ItalicFont=lmsans12-oblique.otf,BoldItalicFont=lmsans12-oblique.otf]
+\setmonofont{lmmono12-regular.otf}[Scale=MatchLowercase]
+\usepackage[english]{babel}
+\usepackage{microtype}
+\usepackage{setspace}
+\setstretch{1.00}
+\usepackage{amsmath,amssymb}
+\usepackage{calc}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{enumitem}
+\setlist{topsep=3pt,itemsep=1pt,parsep=0pt,partopsep=0pt}
+\makeatletter
+\def\@makechapterhead#1{%
+  \vspace*{10\p@}%
+  {\parindent \z@ \raggedright \normalfont
+    \ifnum \c@secnumdepth >\m@ne
+      \huge\bfseries \@chapapp\space \thechapter\par\nobreak
+      \vskip 10\p@
+    \fi
+    \interlinepenalty\@M
+    \Huge \bfseries #1\par\nobreak
+    \vskip 18\p@}}
+\def\@makeschapterhead#1{%
+  \vspace*{10\p@}%
+  {\parindent \z@ \raggedright \normalfont
+    \interlinepenalty\@M
+    \Huge \bfseries #1\par\nobreak
+    \vskip 18\p@}}
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-2.2ex \@plus -.6ex \@minus -.2ex}%
+  {1.0ex \@plus .2ex}%
+  {\normalfont\Large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-1.7ex \@plus -.4ex \@minus -.2ex}%
+  {.7ex \@plus .2ex}%
+  {\normalfont\large\bfseries}}
+\makeatother
+\usepackage[table,dvipsnames]{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage[round,authoryear]{natbib}
+\usepackage{url,xurl}
+\usepackage[unicode,colorlinks=true,linkcolor=MidnightBlue,citecolor=ForestGreen,urlcolor=MidnightBlue]{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{Master Thesis}}
+\fancyhead[R]{\thepage}
+\setlength{\emergencystretch}{3em}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{1}
+\newcounter{none}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\title{Fine-Tuning Large Language Models for Structured Dashboard Design Recommendations Based on User Goals and Data Context}
+\author{Ramin Saeedi Valashani}
+\date{September 2026}
+
+\begin{document}
+\pagenumbering{roman}
+\input{frontmatter/titlepage}
+\input{frontmatter/abstract}
+\input{frontmatter/acknowledgements}
+\tableofcontents
+\input{frontmatter/declaration}
+\clearpage
+\pagenumbering{arabic}
+
+\input{chapters/01_introduction}
+\input{chapters/02_background}
+\input{chapters/03_related_work}
+\input{chapters/04_dataset}
+\input{chapters/05_methods}
+\input{chapters/06_evaluation}
+\input{chapters/07_results}
+\input{chapters/08_discussion_and_validity}
+\input{chapters/09_conclusion}
+
+\clearpage
+\bibliographystyle{plainnat}
+{\small\bibliography{references}}
+\end{document}

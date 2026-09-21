@@ -1,0 +1,8 @@
+\chapter{Reproducibility Anchors}
+\label{app:reproducibility-anchors}
+
+The reported automatic analysis is anchored to the frozen dataset directory \nolinkurl{data/frozen/dashboard_v4}, the 32 final run directories under \nolinkurl{experiments/outputs/final/dashboard_v4}, and the generated statistics under \nolinkurl{experiments/results/final/dashboard_v4/statistics}. The held-out test SHA-256 digest is \nolinkurl{e2df055d0a75c25f53a88cb830a5b6d66411fa179413f352f45ca2f6873829d5}. The operational dataset label in run artifacts is \texttt{dashboard\_v4}; the frozen manifest records the exact dataset version \texttt{dashboard\_v4\_1}.
+
+All 16 retrieval conditions record the same normalized chunk-content digest, \nolinkurl{19fbbfa4ad333dec7298f53c98b25bf5a8bf5059236e8fa4885febede0e54159}. The repository copy differs bytewise because line endings differ; normalizing CRLF to LF reproduces the executed content digest. Human-evaluation protocol artifacts are under \nolinkurl{experiments/results/human_eval/dashboard_v4/qwen3_8_27b/}; the final aggregated results and input hashes are documented in \texttt{HUMAN\_EVALUATION\_REPORT.md} without publishing participant tokens or nicknames.
+
+The two figures in Chapter 7 were generated only from \nolinkurl{tables/format_tolerant_chart_accuracy.csv}, copied from the final statistics directory. They display individual executed seeds and do not infer uncertainty where independent replication is unavailable.

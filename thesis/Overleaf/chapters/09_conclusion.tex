@@ -1,0 +1,83 @@
+\chapter{Conclusion and Future Work}
+
+This chapter consolidates the findings, answers the three research questions, states the contributions and limitations, and identifies the most direct extensions of the work.
+
+\section{Overall Findings}
+
+The thesis asked whether retrieval-augmented generation, QLoRA fine-tuning, or their combination improves a language model's ability to turn a short dashboard brief into a structured, machine-readable dashboard-design recommendation. To answer that, it built a frozen and lineage-annotated dataset for a task that no public benchmark covers, implemented four system conditions that share a prompt, a parser, an evaluation path and a held-out split, executed thirty-two complete runs across four base models spanning roughly 1.49B to 27B parameters and two model families, and analysed the outcome with paired item-level statistics computed from stored per-item records.
+
+The design held constant everything that was not the intervention. The same 274 held-out items, verified by digest in all thirty-two run manifests, were used for every condition. Every model has a complete A--D matrix at the primary seed, so the four-way method contrast is available at all four scales. Condition D reused the adapter produced by condition C for the same model, dataset, training configuration and seed rather than training a second one, so that the incremental effect of retrieval after adaptation could be isolated from a second stochastic training trajectory.
+
+\textbf{Output-contract compliance is acquired by the base model between 1.7B and 8B parameters, and below that threshold it dominates everything else.} Qwen3-8B and Qwen3.8-27B satisfy the contract on all 274 items in both base-model conditions. Qwen3-1.7B satisfies it on under 1.5 \% of items, failing on one recurring type error, and OLMo-2-1B-Instruct recovers a complete object on 30--33 \% of items because almost every response exceeds the 512-token generation budget before it can close.
+
+\section{Answers to the Research Questions}
+
+\textbf{RQ1 (Accuracy) --- How accurately can the system map dashboard tasks/KPIs to suitable chart types (Top-1/Top-3 where reference labels exist) across prompt-only, RAG, fine-tuning, and fine-tuning+RAG?} For Top-1 chart agreement, fine-tuning improves all eight comparable model--seed blocks, whereas retrieval helps the small Qwen model, has little effect on OLMo's chart choice, and harms the two larger Qwen baselines. Retrieval after fine-tuning is detrimental in eleven of twelve contrasts. Top-3 accuracy is not reported because the reference data do not contain an auditable ranked alternative-label set.
+
+\textbf{RQ2 (Actionability \& Structure) --- Do RAG and/or fine-tuning improve actionability and structure, measured via schema compliance and human rubric ratings?} The larger Qwen baselines are structurally reliable, while Qwen3-1.7B and OLMo expose different serialization and truncation failures. Fine-tuning repairs the small Qwen model but does not improve strict validity uniformly. In the exploratory eight-brief human study at 27B, retrieval-only has the highest equal-brief means for chart appropriateness (4.48), rationale quality (4.52), and overall usefulness (4.52); prompt-only is marginally higher for layout and interaction. Fine-tuned conditions do not improve the human scores. These comparisons are descriptive because coverage is incomplete and agreement is low on five dimensions.
+
+\textbf{RQ3 (Rationale \& Robustness) --- Do RAG and/or fine-tuning improve heuristic-aligned rationales and robustness under paraphrased or partially specified briefs?} The strongest Qwen baselines are highly stable under controlled paraphrases, while the fine-tuned small-model rows are more variable. Automatic lexical grounding remains only a proxy. Human rationale ratings favour retrieval-only descriptively (4.52), followed by prompt-only (4.29), fine-tuning with retrieval (4.13), and fine-tuning alone (3.76); low agreement ($\alpha=0.209$) prevents a confirmatory ordering.
+
+Model scale, model family, seed variation, and failure modes support these answers but are not separate research questions.
+
+\section{Contributions}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{A frozen, lineage-annotated dataset} for the dashboard-brief-to-recommendation task, with field-level evidence classes, generated material labelled as generated, a byte-identical held-out test across freeze steps, and published manifests and hashes. Contribution: the dataset exists, is auditable and is reproducible from its manifest. Not claimed: that its dashboard-level fields are expert gold.
+\item
+  \textbf{A configuration-driven implementation of four controlled conditions} with enforced adapter provenance, verified for all eight condition-D runs. Contribution: the C-to-D pairing is documented and checked. Not claimed: that all runs share one code state --- they do not, and this is reported per contrast.
+\item
+  \textbf{A layered evaluation protocol} that separates parse success, contract validity, completeness, chart agreement, robustness and grounding, and that states the evidence class of each. Contribution: the separation is implemented and every reported number carries its class.
+\item
+  \textbf{A complete A/B/C/D comparison at four model scales across two families}, with paired item-level statistics, Holm-corrected exact tests and bootstrap intervals computed from stored per-item records, and with code-state comparability reported per contrast rather than assumed.
+\item
+  \textbf{A three-level decomposition of the headline chart metric} that separates chart-decision failures from output-contract failures and generation-budget failures, and that materially changes the interpretation of every method effect in the study, including one sign reversal at 8B. Contribution: the decomposition is reproducible from the artifacts by one script.
+\item
+  \textbf{A traceable and replicated mechanism for a negative retrieval result.} The \ensuremath{-}9 point retrieval effect at two independent scales is attributed to one identified sentence in the retrieval corpus, with the substitution counted item by item. Contribution: a negative result explained rather than merely reported.
+\item
+  \textbf{Two documented measurement artifacts} that would have propagated silently into the conclusions: a strict validator with a construction ceiling of 0 \% verified against the 274 reference records, and a generation budget below the length of the training target, isolated cleanly at 8B where the same base model truncates zero responses without an adapter and sixty-nine with an adapter and retrieval.
+\item
+  \textbf{A completed exploratory human evaluation} with method blinding, score-blind assignment, bilingual rubrics, explicit missingness, equal-brief aggregation, and dimension-specific agreement analysis. The frozen export contains 81 pages for 32 outputs.
+\end{enumerate}
+
+\section{Limitations in Brief}
+
+The following are stated as explicitly as the findings above, because a reader is entitled to know the boundary.
+
+The human results describe \textbf{perceived quality in a small convenience sample}, not expert-validated design quality or population-level usefulness. Only eight briefs from one model and seed were rated; outputs received two to four pages, and agreement is low on five dimensions.
+
+It makes \textbf{no claim that any system selects charts that are effective for real users}. Every chart number is agreement with the project's frozen reference. The independent effectiveness layer, which would score predictions against sets of charts shown effective in published human-subject studies, is specified and not implemented.
+
+It makes \textbf{no claim about retrieval quality}. Retrieval relevance was not measured, because no independent relevance judgements exist. The grounding numbers measure lexical overlap between rationales and retrieved passages, and ten of the sixteen retrieval conditions have claim coverage too low to interpret.
+
+It makes \textbf{no claim that QLoRA is superior to other adaptation algorithms}. One QLoRA configuration was used; no algorithm comparison was run.
+
+It makes \textbf{no strong causal claim for the fine-tuning contrasts}. Seven of forty contrasts are code-state homogeneous, and none of them is a C \ensuremath{-} A contrast. Where a pair is not homogeneous, a significant result shows that two runs differ, not that the method is the sole reason.
+
+It makes \textbf{no claim about variance at 8B or 27B}, where only one seed was executed.
+
+Finally, it makes \textbf{no claim about behaviour outside the observed distribution}: a held-out split of 274 items dominated by comparison/bar tasks, two perturbation families, one guideline corpus of 41 chunks, and one output contract.
+
+\section{Future Work}
+
+The next steps follow from the gaps rather than from a wish list, and they are ordered by how much they would change what the thesis can claim.
+
+\textbf{Confirm the human findings at larger scale.} A preregistered study should extend coverage beyond eight briefs, recruit verified visualization practitioners as well as non-experts, balance assignments, and evaluate rendered dashboards in task-based sessions. This would test whether the descriptive retrieval advantage persists and whether chart substitutions, lost alternatives, and layout choices affect completion time, accuracy, or decision confidence.
+
+\textbf{Implement the independent chart-effectiveness scorer.} The gold table exists in the repository and the design is documented. Scoring predictions as set membership against charts shown effective for the corresponding task and data shape, and reporting covered accuracy and coverage rate separately, would replace agreement with the project's own reference by a criterion the project did not construct. It would also settle the donut question independently of human raters, if the effectiveness table covers those items.
+
+\textbf{Re-run inference with a generation budget matched to the target length.} The 512-token ceiling produced the most severe apparent failures in the study, and the 8B block shows unambiguously that they are an artifact of that ceiling. Repeating the OLMo conditions and the fine-tuned Qwen3 conditions with a budget sized from the actual distribution of target lengths would establish what those models achieve when the ceiling is not binding. This requires no retraining.
+
+\textbf{Re-run the affected conditions under one pinned code state.} Nineteen of the forty contrasts involve a run whose git commit was not recorded. Re-executing inference for those conditions from one commit, with pinned model revisions, would convert most of the reported contrasts from descriptive to controlled --- in particular the C \ensuremath{-} A contrasts, which carry the fine-tuning conclusion and are homogeneous nowhere. Only inference is required; the existing adapters can be reused, so the cost is a fraction of the original experiment.
+
+\textbf{Align or retire the strict response schema.} The strict contract should either accept the source-grounded encoding keys that the reference carries, in which case it becomes an informative measure, or be removed from the reported metric set.
+
+\textbf{Add alternatives to the training targets.} The alternatives list collapsed to empty because the targets contain empty lists. Supplying defensible alternatives in the supervision would move the fine-tuned systems closer to the behaviour a design assistant should have, and would restore a capability that the base models at 8B and 27B already exhibit and that adaptation currently destroys.
+
+\textbf{Extend the seed coverage at the larger scales.} Three seeds at 8B and 27B would let the scale trend rest on the same evidential footing as the small-model comparison, and would show whether the divergence between the 8B and 27B fine-tuning outcomes is stable or a single-run accident.
+
+Two further directions are worth naming but are further from the current evidence. A matched comparison between QLoRA and one alternative adaptation method --- plain LoRA is the closest, since it isolates quantization --- would answer whether the choice of adaptation algorithm matters for this task; the trainer already supports the alternatives. And a comparison between constrained decoding and fine-tuning as routes to output-contract compliance would test directly whether the largest measured effect in this study can be obtained without any training at all.
+
+The study shows that structured dashboard recommendation must be evaluated as more than a single accuracy number. Fine-tuning can repair format compliance without proportionally changing the chart decision; retrieval can reduce agreement with a frozen label because its design guidance differs from that label; and a small human study can still rate the retrieved recommendations highly. The combined evidence therefore favours a layered conclusion: report structural validity, reference agreement, robustness, provenance, and human judgement separately, and match each claim to the evidence that actually supports it.

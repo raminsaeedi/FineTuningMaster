@@ -1,0 +1,111 @@
+\chapter{Introduction}
+
+This chapter introduces the research problem, defines the task that the thesis studies, states the research gap and the research questions, and explains how the remaining chapters answer them. It first describes why the design of a dashboard is a decision problem rather than a rendering problem, and why that decision problem is a plausible target for a language model. It then narrows the general idea into the concrete task used throughout this work: mapping a short natural-language dashboard brief to a machine-readable design recommendation. The chapter closes with the contributions, the scope of the study, and an overview of the thesis structure. Readers who finish this chapter should know what is being predicted, which four system configurations are compared, which evidence the study can produce, and which questions it deliberately leaves open.
+
+\section{Motivation}
+
+Dashboards are one of the most common ways in which organisations present quantitative information. They combine several coordinated views so that an audience can monitor a situation, compare alternatives, or decide on an action. The visualization literature has repeatedly pointed out that a dashboard is defined less by the number of charts it shows than by the fit between the displayed information and the decision context of its audience. A review of dashboards in performance management describes them as systems that combine performance information, visual display, and interaction in support of management decisions \cite{yigitbasioglu2012dashboard}. A systematic analysis of how the term is actually used in research and practice finds a broad and partly inconsistent design space, ranging from static reporting displays to interactive analytic environments \cite{sarikaya2019dashboards}. More recent work argues that recurring solutions in this space can be described as design patterns, for example patterns for overview, comparison, filtering, and detail \cite{bach2023dashboardpatterns}.
+
+Producing a good dashboard therefore involves a sequence of connected decisions. Which measures matter for this audience and this goal? What analytical task does each measure imply --- a comparison, a trend, a distribution, a part-to-whole relation? Which chart type expresses that task in a way that people can decode accurately? How should the fields be mapped onto visual channels? How should the views be arranged so that the most important information is found first? Which styling and accessibility conventions apply? Which interactions are needed, and what justifies each choice? Each of these questions is informed by an established body of knowledge. Controlled studies of graphical perception show that some encodings support more accurate quantitative judgements than others \cite{cleveland1984graphical}. Expressiveness and effectiveness criteria distinguish a representation that states the intended information from one that also communicates it efficiently \cite{mackinlay1986apt}. Task-based studies show that the effectiveness of a basic visualization depends on the analytical task and on the data distribution rather than on a universal ranking of chart types \cite{saket2019taskbased,kim2018taskdata}.
+
+The practical problem is that this knowledge is not evenly distributed. The people who know the data and the decision are frequently not the people who know the visualization literature. Existing recommendation systems address part of the gap. Constraint-based approaches encode design knowledge as explicit rules that can rank or reject encodings \cite{moritz2019draco}, and mixed-initiative tools suggest encodings during exploratory analysis \cite{wongsuphasawat2016voyager,wongsuphasawat2017voyager2}. Natural-language interfaces let an analyst request a chart in ordinary words and translate that request into a visualization specification \cite{narechania2021nl4dv,luo2022nmt}. These systems are valuable, but almost all of them stop at the level of one chart for one query. They do not produce a coordinated dashboard design that also fixes layout, styling, interaction, and the reasons behind each decision.
+
+Large language models change what is feasible here, because they can read an unstructured description of a situation and emit a structured object in one step. Two established mechanisms make it possible to adapt such a model to a specialised task without training it from scratch. Retrieval-augmented generation attaches relevant external passages to the prompt so that a frozen model can use knowledge that is not reliably present in its parameters \cite{lewis2020rag}. Parameter-efficient fine-tuning freezes the pretrained weights and learns a small low-rank update instead \cite{hu2022lora}, and its quantized variant makes this affordable on a single accelerator by keeping the frozen base model in 4-bit precision \cite{dettmers2023qlora}. Both mechanisms are widely used, but they intervene at different points: one changes what the model sees, the other changes what the model is. Whether either of them --- or their combination --- actually helps on a structured dashboard-design task is an empirical question, and it is the question this thesis addresses.
+
+\section{The task studied in this thesis}
+
+The thesis studies one narrowly defined prediction problem. The input is a \emph{dashboard brief}: a short specification containing the intended users, the analytical goals, the key performance indicators (KPIs), the available data columns with their types, and any constraints. The output is a \emph{structured dashboard-design recommendation}: a single JSON object with six required top-level fields --- \texttt{context\_summary}, \texttt{kpi\_chart\_mapping}, \texttt{layout}, \texttt{styling}, \texttt{interactions}, and \texttt{rationales}. Each entry of \texttt{kpi\_chart\_mapping} links one KPI to an analytical task type, a primary chart type, optional alternatives, and an encoding that names the fields placed on the visual channels. Chapter 4 documents how the data for this task was built and frozen; Chapter 5 gives the formal contract and the implementation.
+
+The output is deliberately a structured object rather than free prose or a rendered image. A structured object can be parsed deterministically, validated against a schema, compared field by field, and consumed by a later rendering layer. It also makes a controlled comparison between systems possible, because every condition is scored against the same field names and the same controlled vocabularies. This choice has a cost that the thesis takes seriously throughout: format compliance and design quality are different properties. A response can be syntactically valid JSON and still recommend the wrong chart, and a response can recommend a defensible chart inside a record that fails the format contract. Structured-generation research shows both that schema conformance is itself a non-trivial capability \cite{geng2025structured} and that imposing format restrictions can measurably change what a model produces \cite{tam2024formatrestrictions}. The evaluation design in Chapter 6 therefore keeps parse success, contract validity, completeness, and chart agreement as separate quantities.
+
+\section{Research gap}
+
+Three gaps motivate the study.
+
+The first gap is in task scope. Public resources for natural-language-to-visualization research supply a query, a database schema, and a target chart specification. nvBench, for example, was synthesised from a text-to-SQL benchmark and provides cross-domain natural-language-to-visualization pairs at large scale \cite{luo2021nvbenchsigmod,yu2018spider}, and its successor addresses ambiguity in that mapping \cite{luo2025nvbench2}. These resources cover the analytical core of the present task well. They do not cover the dashboard-level fields --- users, layout, styling, interactions, rationales --- that distinguish a coordinated dashboard from a single chart. No public benchmark maps a dashboard brief of the kind defined above onto the full structured recommendation used here. A dataset for this task therefore has to be constructed, and its construction has to be transparent about which fields are source-grounded and which were generated.
+
+The second gap is in controlled comparison. Retrieval augmentation and parameter-efficient fine-tuning are usually studied separately, on different tasks, with different base models and different prompts. Reports that compare them on one task, with one frozen dataset, one prompt contract, one output parser, one evaluation code path, and matched seeds are rare --- and rarer still across several model sizes and more than one model family. Without those controls it is difficult to attribute an observed difference to the intervention rather than to an incidental change in prompt, data, or decoding settings.
+
+The third gap is in evaluation. Many reported results for structured generation compress several distinct properties into a single accuracy number. If a metric requires a fully valid record before it will score the chart decision, then a formatting failure and a design failure become indistinguishable. The present study needs an evaluation protocol that separates these layers explicitly, that states which reference labels are independent evidence and which are the project's own construction, and that marks what has not been measured.
+
+\section{Research questions}
+
+The thesis retains the three research questions stated in the exposé. Their wording is reproduced here without adding new research questions:
+
+\textbf{RQ1 (Accuracy).} How accurately can the system map dashboard tasks/KPIs to suitable chart types (Top-1/Top-3 where reference labels exist) across prompt-only, RAG, fine-tuning, and fine-tuning+RAG?
+
+\textbf{RQ2 (Actionability \& Structure).} Do RAG and/or fine-tuning improve actionability and structure, measured via schema compliance and human rubric ratings?
+
+\textbf{RQ3 (Rationale \& Robustness).} Do RAG and/or fine-tuning improve heuristic-aligned rationales and robustness under paraphrased or partially specified briefs?
+
+The evidence does not answer every component with the same strength. RQ1 is evaluated with the available primary-chart reference; the artifacts do not contain a defensible ranked Top-3 reference set. RQ2 combines automatic structure measures with a completed exploratory human evaluation of eight briefs and four system conditions. RQ3 is evaluated through controlled robustness tests, a lexical grounding proxy, and human rationale ratings. Model scale, model family, seed variability, and failure modes support these questions rather than forming additional research questions. The human study reports its sampling, assignment, missingness, aggregation, and agreement explicitly, as recommended for human evaluation of generated outputs \cite{vanderlee2019human}.
+
+\section{Approach}
+
+The study compares exactly four system conditions for a fixed base model and a fixed seed:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{A --- Prompt-only.} The base instruction-tuned model receives the shared system and user prompt and nothing else. This is the reference condition.
+\item
+  \textbf{B --- Retrieval-augmented generation.} The same base model additionally receives up to three passages retrieved from a small, frozen corpus of visualization and dashboard design guidelines.
+\item
+  \textbf{C --- QLoRA fine-tuning.} The base model is adapted with a quantized low-rank adapter trained on the frozen training split. No retrieval is used.
+\item
+  \textbf{D --- Fine-tuning with retrieval.} The adapter produced by condition C for the \emph{same} base model, dataset, training configuration, and seed is loaded, and the retrieval procedure of condition B is applied on top of it.
+\end{itemize}
+
+Condition D reuses the C adapter rather than training a second one. Training D independently would introduce a second stochastic training trajectory and would make the incremental effect of retrieval impossible to isolate. The contrasts that the design supports are therefore B \ensuremath{-} A for retrieval alone, C \ensuremath{-} A for adaptation alone, D \ensuremath{-} C for retrieval added after adaptation, and D \ensuremath{-} B for adaptation added under retrieval. The direct D \ensuremath{-} A contrast compares the complete systems but changes two factors at once and cannot attribute the difference to either one.
+
+Everything not named by a condition is held fixed: the frozen dataset release and its hashes, the prompt builder, the controlled task and chart vocabularies, the output parser, the generation settings, the held-out test split, and the evaluation code. The experiment was executed across four base models --- three Qwen3 profiles spanning roughly 1.7B to 27B parameters and one OLMo 2 profile at roughly 1.49B parameters \cite{yang2025qwen3,olmo2025furious} --- with three seeds where the compute budget allowed and a single seed for the more expensive profiles. Chapter 6 states the executed coverage precisely and explains why the coverage is asymmetric.
+
+\section{Contributions}
+
+The thesis makes the following contributions, each stated at the strength the available evidence supports.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  \textbf{A frozen, lineage-annotated dataset for the dashboard-brief-to-recommendation task.} The release combines nvBench-derived, source-grounded analytical records with LLM-generated dashboard-level enrichment and additional generated records. Every field carries an explicit evidence class, the generated material is labelled as generated rather than as gold, the held-out test is byte-identical across the freeze steps, and the package is published with a manifest and file hashes. Chapter 4 documents the construction; the limitations of generated supervision are stated there and revisited in Chapter 8.
+\item
+  \textbf{A configuration-driven implementation of the four conditions with enforced adapter provenance.} One prompt source, one parser, one evaluation path, and a validator that refuses to load an adapter into condition D unless the base model, model revision, model-configuration hash, training-configuration hash, dataset version, and seed match the producing condition-C run.
+\item
+  \textbf{A layered evaluation protocol that keeps evidence types apart.} Parse success, contract validity, completeness, chart agreement, robustness under two perturbation families, and retrieval grounding are reported as separate quantities, each with an explicit statement of what it does and does not establish. Reference-based chart agreement is labelled as agreement with the project's own reference, not as evidence of visualization effectiveness.
+\item
+  \textbf{An executed A/B/C/D comparison across three Qwen3 scales and one cross-family OLMo 2 model}, with paired per-item statistics --- Cochran's Q, exact McNemar tests with Holm correction, and percentile bootstrap confidence intervals for paired differences --- computed from the stored per-item records \cite{cochran1950,mcnemar1947,holm1979,efron1979bootstrap}.
+\item
+  \textbf{A diagnostic decomposition of the headline chart metric.} The stored raw model outputs are re-scored at three levels of strictness so that a failure of the output contract, a failure of the generation-length budget, and a failure of the chart decision can be separated. This decomposition is reported in Chapter 7 and is the basis for several of the conclusions in Chapter 8.
+\item
+  \textbf{A transparent record of what was not measured.} The independent chart-effectiveness scorer, the realism layer, and the human-rating layer are specified but not executed. They are reported as open, not silently omitted.
+\end{enumerate}
+
+\section{Scope and delimitation}
+
+The system predicts a structured design recommendation. It does not render a dashboard, does not execute queries against a database, and does not measure how quickly a human completes a task with the resulting display. Claims about decision quality, adoption, or business value are therefore outside what the current evidence can support.
+
+The adaptation method is fixed to one QLoRA configuration. The thesis compares prompting, retrieval, and adaptation; it does not compare adaptation algorithms against each other. Alternative parameter-efficient methods are discussed in Chapters 2, 3, and 5 to justify the selection, and they are explicitly not part of the experiment matrix.
+
+The retriever is a sparse TF-IDF retriever over a small frozen guideline corpus. Dense retrieval is available in the repository as an optional configuration and was not used for the reported conditions; it is discussed only where it helps explain the design choice.
+
+Model coverage is limited to four base models and to the seed coverage that the compute budget allowed. Seed replication is complete for the two smaller models and partial for the larger ones. The consequence --- that variability statements are weaker for the larger models --- is stated wherever it applies rather than being generalised away.
+
+Finally, the reference recommendations against which the automatic metrics score contain LLM-generated fields. Agreement with them measures how well a system reproduces the project's frozen representation. It is not, by itself, evidence that a recommendation is a good dashboard design. This boundary is maintained in every results statement.
+
+\section{Structure of the thesis}
+
+\textbf{Chapter 2} introduces the background: dashboard design, visualization principles, analytical tasks and chart types, language models and instruction tuning, parameter-efficient fine-tuning including LoRA and QLoRA, retrieval-augmented generation, and structured outputs.
+
+\textbf{Chapter 3} reviews related work on visualization recommendation, natural-language interfaces, datasets and benchmarks for visualization generation, LLM-assisted visualization, parameter-efficient fine-tuning for structured generation, retrieval augmentation, and the evaluation of structured outputs, and positions the present study against them.
+
+\textbf{Chapter 4} documents the dataset: source selection, the target schema and its evidence classes, the source-faithful transformation of nvBench, quality filtering, deduplication and split isolation, the constrained LLM enrichment, the controlled augmentation and semantic repair, the freeze, and the resulting limitations.
+
+\textbf{Chapter 5} describes the system: the formal task contract, the model matrix and the controlled factors, the shared prompt and generation pipeline, the four methods, the reasons for selecting QLoRA over the alternatives, inference and output processing, reproducibility and provenance, and methodological threats to validity.
+
+\textbf{Chapter 6} defines the experimental setup and evaluation protocol: the executed run matrix and seed coverage, each metric and its limits, the perturbation conditions, the statistical analysis, and the completed exploratory human study.
+
+\textbf{Chapter 7} reports the results from the generated artifacts only: structured-output reliability, chart agreement at three levels of strictness, the paired method contrasts with confidence intervals and corrected p-values, seed variability, robustness, retrieval grounding, and cost.
+
+\textbf{Chapter 8} interprets the results, analyses the failure modes item by item, and states the threats to validity that bound each conclusion.
+
+\textbf{Chapter 9} summarises what the study established, what it did not, and which next steps follow directly from the open items.

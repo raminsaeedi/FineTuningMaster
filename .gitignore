@@ -27,12 +27,13 @@ build/
 
 # ── Data ─────────────────────────────────────────────────────
 # Processed splits are regeneratable via `python scripts/build_data.py`.
-data/processed/
-data/index/
+.data/processed/
+.data/index/
 # RAG chunks are regeneratable via `python experiments/scripts/build_kb.py`
 # (guidelines/ and kb_manifest.json stay tracked, so a rebuild can be verified).
-data/knowledge_base/chunks.jsonl
-data/knowledge_base/index/
+.data/knowledge_base/chunks.jsonl
+.data/knowledge_base/index/
+./data
 
 # ── Staging candidate datasets (pre-freeze, regeneratable) ──────
 # Versioned staging builds (e.g. nvBench pilots) are reproducible from the
@@ -112,3 +113,5 @@ graphify-out/
 # ── Generated result packages (produced on the GPU machine) ──
 professor_results*.zip
 professor_results*_manifest.json
+.codex_tools/
+thesis/Overleaf/frontmatter/ai_use.tex
